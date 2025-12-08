@@ -1,5 +1,5 @@
-import { Asset, AssetStatus, Category, Team, User } from './types';
-import { addMonths, differenceInDays, parseISO } from 'date-fns';
+import { Asset, AssetStatus, Category, Team, User, InspectionLog } from './types';
+import { addMonths, differenceInDays, parseISO, subDays, subHours } from 'date-fns';
 
 // Initial Mock Data
 
@@ -43,7 +43,7 @@ const initialAssets: Asset[] = [
     inspectionCycleMonths: 1, // 1 month
     lastInspectedDate: '2025-05-01',
     nextDueDate: '2025-06-01',
-    status: 'overdue', // Example: manually set or calculated to be overdue for demo
+    status: 'overdue', 
   },
   {
     id: 'a2',
@@ -69,45 +69,47 @@ const initialAssets: Asset[] = [
   },
 ];
 
+const initialLogs: InspectionLog[] = [
+  {
+    id: 'l1',
+    assetId: 'a1',
+    inspectorId: 'u2',
+    date: subDays(new Date(), 2).toISOString(),
+    notes: '정기 점검 완료. 상태 양호.',
+  },
+  {
+    id: 'l2',
+    assetId: 'a3',
+    inspectorId: 'u1',
+    date: subHours(new Date(), 5).toISOString(),
+    notes: '긴급 점검 요청으로 인한 확인.',
+  }
+];
+
 // Simple in-memory store
 class Store {
   assets: Asset[];
   categories: Category[];
+  teams: Team[];
+  users: User[];
+  logs: InspectionLog[];
   currentUser: User;
 
   constructor() {
     this.assets = initialAssets.map(a => ({
       ...a,
-      status: calculateStatus(a.nextDueDate) // Recalculate on load for demo
+      status: calculateStatus(a.nextDueDate)
     }));
     this.categories = [...CATEGORIES];
-    this.currentUser = USERS[0]; // Default to Admin
+    this.teams = [...TEAMS];
+    this.users = [...USERS];
+    this.logs = [...initialLogs];
+    this.currentUser = USERS[0];
   }
 
-  getAssets() {
-    return this.assets;
-  }
-
-  getCategories() {
-    return this.categories;
-  }
-
-  addCategory(name: string) {
-    const newCategory: Category = {
-      id: Math.random().toString(36).substr(2, 9),
-      name
-    };
-    this.categories.push(newCategory);
-    return newCategory;
-  }
-
-  deleteCategory(id: string) {
-    this.categories = this.categories.filter(c => c.id !== id);
-  }
-
-  getAssetsByTeam(teamId: string) {
-    return this.assets.filter(a => a.teamId === teamId);
-  }
+  // --- Assets ---
+  getAssets() { return this.assets; }
+  getAssetsByTeam(teamId: string) { return this.assets.filter(a => a.teamId === teamId); }
 
   addAsset(asset: Omit<Asset, 'id' | 'status' | 'nextDueDate'>) {
     const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
@@ -118,6 +120,12 @@ class Store {
       status: calculateStatus(nextDueDate)
     };
     this.assets.push(newAsset);
+    this.addLog({
+      assetId: newAsset.id,
+      inspectorId: this.currentUser.id,
+      date: new Date().toISOString(),
+      notes: '장비 신규 등록'
+    });
     return newAsset;
   }
 
@@ -132,6 +140,14 @@ class Store {
         nextDueDate,
         status: calculateStatus(nextDueDate)
       };
+      
+      this.addLog({
+        assetId: asset.id,
+        inspectorId: this.currentUser.id,
+        date: new Date().toISOString(),
+        notes: `정기 점검 수행 (다음 예정일: ${nextDueDate})`
+      });
+
       return this.assets[index];
     }
     return null;
@@ -141,7 +157,6 @@ class Store {
     const index = this.assets.findIndex(a => a.id === id);
     if (index !== -1) {
       this.assets[index] = { ...this.assets[index], ...updates };
-      // Recalculate logic if cycle changed
       if (updates.inspectionCycleMonths || updates.lastInspectedDate) {
          const asset = this.assets[index];
          const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
@@ -157,8 +172,44 @@ class Store {
     this.assets = this.assets.filter(a => a.id !== id);
   }
 
+  // --- Categories ---
+  getCategories() { return this.categories; }
+  addCategory(name: string) {
+    const newCategory: Category = { id: Math.random().toString(36).substr(2, 9), name };
+    this.categories.push(newCategory);
+    return newCategory;
+  }
+  deleteCategory(id: string) { this.categories = this.categories.filter(c => c.id !== id); }
+
+  // --- Teams & Users ---
+  getTeams() { return this.teams; }
+  getUsers() { return this.users; }
+  
+  addUser(user: Omit<User, 'id'>) {
+    const newUser = { ...user, id: Math.random().toString(36).substr(2, 9) };
+    this.users.push(newUser);
+    return newUser;
+  }
+
+  deleteUser(id: string) {
+    this.users = this.users.filter(u => u.id !== id);
+  }
+
+  // --- Logs ---
+  getLogs() {
+    // Sort by date desc
+    return this.logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  addLog(log: Omit<InspectionLog, 'id'>) {
+    const newLog = { ...log, id: Math.random().toString(36).substr(2, 9) };
+    this.logs.push(newLog);
+    return newLog;
+  }
+
+  // --- Auth ---
   setCurrentUser(userId: string) {
-    const user = USERS.find(u => u.id === userId);
+    const user = this.users.find(u => u.id === userId);
     if (user) this.currentUser = user;
   }
 }
