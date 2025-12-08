@@ -215,7 +215,7 @@ export default function Team() {
 
         <TabsContent value="teams" className="space-y-4">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">이메일과 휴대폰은 해당 팀의 팀장의 것으로 작성해주세요.</p>
+            <p className="text-sm text-muted-foreground">해당 팀장님의 이메일과 휴대폰으로 등록해주시길 바랍니다.</p>
             <AddTeamDialog />
           </div>
           <div className="rounded-md border bg-card shadow-sm">
