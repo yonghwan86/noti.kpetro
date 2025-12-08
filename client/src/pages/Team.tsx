@@ -112,11 +112,11 @@ export default function Team() {
   const getRoleBadge = (role: Role) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-500 hover:bg-purple-600">슈퍼 관리자</Badge>;
+        return <Badge className="bg-purple-500 hover:bg-purple-600">마스터</Badge>;
       case "manager":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">팀장</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600">장비 관리자</Badge>;
       case "staff":
-        return <Badge variant="secondary">팀원</Badge>;
+        return <Badge variant="secondary">담당자</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
     }
@@ -330,9 +330,9 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">슈퍼 관리자</SelectItem>
-                  <SelectItem value="manager">팀장</SelectItem>
-                  <SelectItem value="staff">팀원</SelectItem>
+                  <SelectItem value="admin">마스터</SelectItem>
+                  <SelectItem value="manager">장비 관리자</SelectItem>
+                  <SelectItem value="staff">담당자</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -407,9 +407,9 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">슈퍼 관리자</SelectItem>
-                  <SelectItem value="manager">팀장</SelectItem>
-                  <SelectItem value="staff">팀원</SelectItem>
+                  <SelectItem value="admin">마스터</SelectItem>
+                  <SelectItem value="manager">장비 관리자</SelectItem>
+                  <SelectItem value="staff">담당자</SelectItem>
                 </SelectContent>
               </Select>
             </div>

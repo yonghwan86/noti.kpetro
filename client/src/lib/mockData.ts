@@ -15,10 +15,11 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const USERS: User[] = [
-  { id: 'u1', username: '슈퍼 관리자', role: 'admin', teamId: 't1' }, // Admin has access to all
-  { id: 'u2', username: '검사 팀장', role: 'manager', teamId: 't1' },
-  { id: 'u3', username: '검사 담당자', role: 'staff', teamId: 't1' },
-  { id: 'u4', username: '관리 팀장', role: 'manager', teamId: 't2' },
+  { id: 'u1', username: '시스템 마스터', role: 'admin', teamId: 't2' }, // Master (Management Team)
+  { id: 'u2', username: '검사 장비 관리자', role: 'manager', teamId: 't1' }, // Equipment Manager (Inspection Team)
+  { id: 'u3', username: '검사 담당자 A', role: 'staff', teamId: 't1' }, // Staff (Inspection Team)
+  { id: 'u4', username: '관리 팀장', role: 'manager', teamId: 't2' }, // Equipment Manager (Management Team)
+  { id: 'u5', username: '생산 담당자 B', role: 'staff', teamId: 't2' }, // Staff (Management Team)
 ];
 
 // Helper to calculate status
@@ -38,7 +39,10 @@ const initialAssets: Asset[] = [
     name: '정밀 저울 X200',
     serialNumber: 'SN-2023-001',
     categoryId: 'c1',
-    teamId: 't1',
+    teamId: 't2', // Managed by Management Team
+    managerId: 'u4', // Manager: Management Team Leader
+    usageTeamId: 't1', // Used by Inspection Team
+    staffId: 'u3', // Staff: Inspection Staff A
     inspectionCycleMonths: 1, // 1 month
     lastInspectedDate: '2025-05-01',
     nextDueDate: '2025-06-01',
@@ -49,7 +53,10 @@ const initialAssets: Asset[] = [
     name: '지게차 F-500',
     serialNumber: 'VH-9982',
     categoryId: 'c2',
-    teamId: 't2',
+    teamId: 't2', // Managed by Management Team
+    managerId: 'u4',
+    usageTeamId: 't2', // Used by Management Team
+    staffId: 'u5',
     inspectionCycleMonths: 3, // 3 months
     lastInspectedDate: '2025-06-15',
     nextDueDate: '2025-09-15',
@@ -60,7 +67,10 @@ const initialAssets: Asset[] = [
     name: '분광광도계 Pro',
     serialNumber: 'SP-112',
     categoryId: 'c3',
-    teamId: 't1',
+    teamId: 't1', // Managed by Inspection Team
+    managerId: 'u2',
+    usageTeamId: 't1', // Used by Inspection Team
+    staffId: 'u3',
     inspectionCycleMonths: 6, // 6 months
     lastInspectedDate: '2025-01-10',
     nextDueDate: '2025-07-10',

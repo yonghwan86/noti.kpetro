@@ -28,7 +28,10 @@ export interface Asset {
   name: string;
   serialNumber: string;
   categoryId: string;
-  teamId: string;
+  teamId: string; // Managing Team (관리 팀)
+  managerId: string; // Equipment Manager (장비 관리자)
+  usageTeamId: string; // Usage Team (사용 팀)
+  staffId: string; // Staff/Person in Charge (담당자)
   inspectionCycleMonths: number;
   lastInspectedDate: string; // ISO date string
   nextDueDate: string; // ISO date string

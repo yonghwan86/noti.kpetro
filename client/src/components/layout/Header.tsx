@@ -175,7 +175,7 @@ export function Header() {
                 const representativeUser = USERS.find(u => u.role === role);
                 if (!representativeUser) return null;
                 
-                const roleName = role === 'admin' ? '슈퍼 관리자' : role === 'manager' ? '팀장' : '팀원';
+                const roleName = role === 'admin' ? '마스터' : role === 'manager' ? '장비 관리자' : '담당자';
                 
                 return (
                   <DropdownMenuItem 

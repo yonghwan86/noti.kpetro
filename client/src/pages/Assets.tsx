@@ -549,9 +549,21 @@ function AddAssetDialog({ onAdd, categories }: { onAdd: () => void, categories: 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cycle">점검 주기 (개월)</Label>
-              <Input id="cycle" type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
+              <Label htmlFor="team">관리 팀</Label>
+              <Select onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="관리 팀 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEAMS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="cycle">점검 주기 (개월)</Label>
+            <Input id="cycle" type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
           </div>
 
           <div className="space-y-2">
