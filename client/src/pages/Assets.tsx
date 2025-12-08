@@ -65,11 +65,11 @@ export default function Assets() {
   const getStatusBadge = (status: AssetStatus) => {
     switch (status) {
       case 'ok':
-        return <Badge className="bg-status-ok hover:bg-status-ok/90 text-white border-0"><CheckCircle2 className="w-3 h-3 mr-1" /> Normal</Badge>;
+        return <Badge className="bg-status-ok hover:bg-status-ok/90 text-white border-0"><CheckCircle2 className="w-3 h-3 mr-1" /> 정상</Badge>;
       case 'upcoming':
-        return <Badge className="bg-status-warning hover:bg-status-warning/90 text-white border-0"><Clock className="w-3 h-3 mr-1" /> Upcoming</Badge>;
+        return <Badge className="bg-status-warning hover:bg-status-warning/90 text-white border-0"><Clock className="w-3 h-3 mr-1" /> 임박</Badge>;
       case 'overdue':
-        return <Badge className="bg-status-error hover:bg-status-error/90 text-white border-0"><AlertCircle className="w-3 h-3 mr-1" /> Overdue</Badge>;
+        return <Badge className="bg-status-error hover:bg-status-error/90 text-white border-0"><AlertCircle className="w-3 h-3 mr-1" /> 지연</Badge>;
     }
   };
 
@@ -78,8 +78,8 @@ export default function Assets() {
     if (updated) {
       setAssets([...store.getAssets()]); // Refresh list
       toast({
-        title: "Inspection Recorded",
-        description: `Next due date calculated: ${updated.nextDueDate}`,
+        title: "점검 기록 완료",
+        description: `다음 점검 예정일이 계산되었습니다: ${updated.nextDueDate}`,
       });
     }
   };
@@ -88,8 +88,8 @@ export default function Assets() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Assets</h2>
-          <p className="text-muted-foreground">Manage and track equipment calibration status.</p>
+          <h2 className="text-2xl font-bold tracking-tight">장비 관리</h2>
+          <p className="text-muted-foreground">장비의 교정 및 점검 상태를 관리합니다.</p>
         </div>
         <AddAssetDialog onAdd={() => setAssets([...store.getAssets()])} />
       </div>
@@ -98,7 +98,7 @@ export default function Assets() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search assets..." 
+            placeholder="장비 검색..." 
             className="pl-8" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -107,13 +107,13 @@ export default function Assets() {
         <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
           <SelectTrigger className="w-[180px]">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Filter Status" />
+            <SelectValue placeholder="상태 필터" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="ok">Normal</SelectItem>
-            <SelectItem value="upcoming">Upcoming</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="all">전체 상태</SelectItem>
+            <SelectItem value="ok">정상</SelectItem>
+            <SelectItem value="upcoming">임박</SelectItem>
+            <SelectItem value="overdue">지연</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -122,20 +122,20 @@ export default function Assets() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Asset Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead>Last Inspected</TableHead>
-              <TableHead>Next Due</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>장비명</TableHead>
+              <TableHead>카테고리</TableHead>
+              <TableHead>관리 팀</TableHead>
+              <TableHead>최근 점검일</TableHead>
+              <TableHead>다음 예정일</TableHead>
+              <TableHead>상태</TableHead>
+              <TableHead className="text-right">관리</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAssets.length === 0 ? (
                <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
-                  No assets found.
+                  등록된 장비가 없습니다.
                 </TableCell>
               </TableRow>
             ) : (
@@ -172,18 +172,18 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">Inspect</Button>
+        <Button variant="outline" size="sm">점검</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Record Inspection</DialogTitle>
+          <DialogTitle>점검 기록</DialogTitle>
           <DialogDescription>
-            Update inspection date for <strong>{asset.name}</strong>. Next due date will be calculated automatically based on {asset.inspectionCycleDays} day cycle.
+            <strong>{asset.name}</strong>의 점검일을 업데이트합니다. {asset.inspectionCycleDays}일 주기로 다음 예정일이 자동 계산됩니다.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label>Inspection Date</Label>
+            <Label>점검 실시일</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -194,7 +194,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : <span>Pick a date</span>}
+                  {date ? format(date, "PPP") : <span>날짜 선택</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -214,7 +214,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
               onInspect(asset.id, date);
               setOpen(false);
             }
-          }}>Confirm Update</Button>
+          }}>업데이트 확인</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -238,39 +238,39 @@ function AddAssetDialog({ onAdd }: { onAdd: () => void }) {
     onAdd();
     setOpen(false);
     reset();
-    toast({ title: "Asset Added", description: "New equipment registered successfully." });
+    toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><Plus className="w-4 h-4" /> Add Equipment</Button>
+        <Button className="gap-2"><Plus className="w-4 h-4" /> 장비 등록</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add New Equipment</DialogTitle>
+          <DialogTitle>신규 장비 등록</DialogTitle>
           <DialogDescription>
-            Register a new asset for {getTeamName(store.currentUser.teamId)}.
+            {getTeamName(store.currentUser.teamId)} 팀의 새로운 장비를 등록합니다.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Asset Name</Label>
-              <Input id="name" {...register("name", { required: true })} placeholder="e.g. Pressure Gauge" />
+              <Label htmlFor="name">장비명</Label>
+              <Input id="name" {...register("name", { required: true })} placeholder="예: 정밀 저울" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="serial">Serial Number</Label>
+              <Label htmlFor="serial">시리얼 넘버</Label>
               <Input id="serial" {...register("serialNumber", { required: true })} placeholder="SN-12345" />
             </div>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
              <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">카테고리</Label>
               <Select onValueChange={(v) => register("categoryId").onChange({ target: { value: v, name: "categoryId" } })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder="종류 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -278,18 +278,18 @@ function AddAssetDialog({ onAdd }: { onAdd: () => void }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cycle">Cycle (Days)</Label>
+              <Label htmlFor="cycle">점검 주기 (일)</Label>
               <Input id="cycle" type="number" {...register("inspectionCycleDays", { required: true })} placeholder="30" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="lastDate">Last Inspection Date</Label>
+            <Label htmlFor="lastDate">최근 점검일</Label>
             <Input id="lastDate" type="date" {...register("lastInspectedDate", { required: true })} />
           </div>
 
           <DialogFooter className="mt-4">
-            <Button type="submit">Create Asset</Button>
+            <Button type="submit">등록 완료</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -33,10 +33,10 @@ export function Header() {
 
   const getPageTitle = () => {
     switch (location) {
-      case '/': return 'Dashboard';
-      case '/assets': return 'Asset Management';
-      case '/team': return 'Team Overview';
-      case '/settings': return 'System Settings';
+      case '/': return '대시보드';
+      case '/assets': return '장비 관리';
+      case '/team': return '팀 현황';
+      case '/settings': return '시스템 설정';
       default: return 'AssetGuard';
     }
   };
@@ -82,12 +82,12 @@ export function Header() {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{currentUser.username}</p>
                   <p className="text-xs leading-none text-muted-foreground capitalize">
-                    {currentUser.role} • {store.currentUser.teamId === 't1' ? 'Engineering A' : 'Logistics'}
+                    {currentUser.role} • {store.currentUser.teamId === 't1' ? '엔지니어링 A팀' : '물류팀'}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Switch User (Demo)</DropdownMenuLabel>
+              <DropdownMenuLabel>사용자 전환 (데모)</DropdownMenuLabel>
               {USERS.map(user => (
                 <DropdownMenuItem 
                   key={user.id} 
@@ -101,7 +101,7 @@ export function Header() {
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>로그아웃</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

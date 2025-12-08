@@ -27,15 +27,15 @@ export default function Dashboard() {
 
   // Chart Data
   const statusData = [
-    { name: 'Normal', value: okAssets, color: 'var(--status-ok)' },
-    { name: 'Upcoming', value: upcomingAssets, color: 'var(--status-warning)' },
-    { name: 'Overdue', value: overdueAssets, color: 'var(--status-error)' },
+    { name: '정상', value: okAssets, color: 'var(--status-ok)' },
+    { name: '임박', value: upcomingAssets, color: 'var(--status-warning)' },
+    { name: '지연', value: overdueAssets, color: 'var(--status-error)' },
   ];
 
   const categoryData = [
-    { name: 'Measuring', value: assets.filter(a => a.categoryId === 'c1').length },
-    { name: 'Vehicles', value: assets.filter(a => a.categoryId === 'c2').length },
-    { name: 'Machinery', value: assets.filter(a => a.categoryId === 'c3').length },
+    { name: '계측기', value: assets.filter(a => a.categoryId === 'c1').length },
+    { name: '차량', value: assets.filter(a => a.categoryId === 'c2').length },
+    { name: '기계', value: assets.filter(a => a.categoryId === 'c3').length },
   ];
 
   return (
@@ -44,45 +44,45 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+            <CardTitle className="text-sm font-medium">전체 장비</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalAssets}</div>
-            <p className="text-xs text-muted-foreground">Across all teams</p>
+            <p className="text-xs text-muted-foreground">전체 팀 합계</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Compliance Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">점검 준수율</CardTitle>
             <CheckCircle className="h-4 w-4 text-status-ok" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{complianceRate}%</div>
-            <p className="text-xs text-muted-foreground">Assets within cycle</p>
+            <p className="text-xs text-muted-foreground">주기 내 점검 완료</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Due Soon</CardTitle>
+            <CardTitle className="text-sm font-medium">점검 임박</CardTitle>
             <Clock className="h-4 w-4 text-status-warning" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{upcomingAssets}</div>
-            <p className="text-xs text-muted-foreground">Next 7 days</p>
+            <p className="text-xs text-muted-foreground">7일 이내 예정</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+            <CardTitle className="text-sm font-medium">점검 지연</CardTitle>
             <AlertTriangle className="h-4 w-4 text-status-error" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-status-error">{overdueAssets}</div>
-            <p className="text-xs text-muted-foreground">Requires immediate action</p>
+            <p className="text-xs text-muted-foreground">즉시 조치 필요</p>
           </CardContent>
         </Card>
       </div>
@@ -91,8 +91,8 @@ export default function Dashboard() {
         {/* Status Chart */}
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Asset Status Overview</CardTitle>
-            <CardDescription>Current distribution of asset health</CardDescription>
+            <CardTitle>장비 상태 현황</CardTitle>
+            <CardDescription>장비 건전성 분포</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[300px]">
@@ -131,8 +131,8 @@ export default function Dashboard() {
         {/* Category Chart */}
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Category Distribution</CardTitle>
-            <CardDescription>Assets by type</CardDescription>
+            <CardTitle>카테고리별 분포</CardTitle>
+            <CardDescription>종류별 장비 수</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="h-[300px]">
@@ -156,8 +156,8 @@ export default function Dashboard() {
       {/* Recent Activity (Mock) */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest inspection logs and system updates</CardDescription>
+          <CardTitle>최근 활동</CardTitle>
+          <CardDescription>최신 점검 기록 및 시스템 업데이트</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -165,8 +165,8 @@ export default function Dashboard() {
               <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0 border-border/50">
                 <div className="h-2 w-2 mt-2 rounded-full bg-primary shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Inspection completed for <span className="text-foreground">Precision Scale X200</span></p>
-                  <p className="text-xs text-muted-foreground">Updated by Eng Manager • 2 hours ago</p>
+                  <p className="text-sm font-medium">점검 완료: <span className="text-foreground">정밀 저울 X200</span></p>
+                  <p className="text-xs text-muted-foreground">처리자: 엔지니어링 팀장 • 2시간 전</p>
                 </div>
               </div>
             ))}

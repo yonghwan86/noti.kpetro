@@ -4,22 +4,22 @@ import { addDays, differenceInDays, isBefore, isPast, parseISO } from 'date-fns'
 // Initial Mock Data
 
 export const TEAMS: Team[] = [
-  { id: 't1', name: 'Engineering A', contactEmail: 'eng-a@example.com' },
-  { id: 't2', name: 'Logistics', contactEmail: 'logistics@example.com' },
-  { id: 't3', name: 'Quality Control', contactEmail: 'qc@example.com' },
+  { id: 't1', name: '엔지니어링 A팀', contactEmail: 'eng-a@example.com' },
+  { id: 't2', name: '물류팀', contactEmail: 'logistics@example.com' },
+  { id: 't3', name: '품질관리팀', contactEmail: 'qc@example.com' },
 ];
 
 export const CATEGORIES: Category[] = [
-  { id: 'c1', name: 'Measuring Instruments' },
-  { id: 'c2', name: 'Vehicles' },
-  { id: 'c3', name: 'Heavy Machinery' },
+  { id: 'c1', name: '계측기' },
+  { id: 'c2', name: '차량' },
+  { id: 'c3', name: '중장비' },
 ];
 
 export const USERS: User[] = [
-  { id: 'u1', username: 'Super Admin', role: 'admin', teamId: 't1' }, // Admin has access to all
-  { id: 'u2', username: 'Eng Manager', role: 'manager', teamId: 't1' },
-  { id: 'u3', username: 'Eng Staff', role: 'staff', teamId: 't1' },
-  { id: 'u4', username: 'Log Manager', role: 'manager', teamId: 't2' },
+  { id: 'u1', username: '슈퍼 관리자', role: 'admin', teamId: 't1' }, // Admin has access to all
+  { id: 'u2', username: '엔지니어링 팀장', role: 'manager', teamId: 't1' },
+  { id: 'u3', username: '엔지니어링 담당자', role: 'staff', teamId: 't1' },
+  { id: 'u4', username: '물류 팀장', role: 'manager', teamId: 't2' },
 ];
 
 // Helper to calculate status
@@ -36,7 +36,7 @@ const calculateStatus = (nextDueDate: string): AssetStatus => {
 const initialAssets: Asset[] = [
   {
     id: 'a1',
-    name: 'Precision Scale X200',
+    name: '정밀 저울 X200',
     serialNumber: 'SN-2023-001',
     categoryId: 'c1',
     teamId: 't1',
@@ -47,7 +47,7 @@ const initialAssets: Asset[] = [
   },
   {
     id: 'a2',
-    name: 'Forklift F-500',
+    name: '지게차 F-500',
     serialNumber: 'VH-9982',
     categoryId: 'c2',
     teamId: 't2',
@@ -58,7 +58,7 @@ const initialAssets: Asset[] = [
   },
   {
     id: 'a3',
-    name: 'Spectrometer Pro',
+    name: '분광광도계 Pro',
     serialNumber: 'SP-112',
     categoryId: 'c1',
     teamId: 't3',

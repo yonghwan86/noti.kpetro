@@ -10,10 +10,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Assets', href: '/assets', icon: Package },
-  { name: 'Team', href: '/team', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: '대시보드', href: '/', icon: LayoutDashboard },
+  { name: '장비 관리', href: '/assets', icon: Package },
+  { name: '팀 관리', href: '/team', icon: Users },
+  { name: '설정', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -56,13 +56,13 @@ export function Sidebar() {
 
         <div className="mt-8 px-3">
           <div className="text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider mb-2 px-3">
-            System
+            시스템
           </div>
           <nav className="space-y-1">
              <Link href="/logs">
                 <a className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
                   <Activity className="mr-3 h-5 w-5 text-sidebar-foreground/50 group-hover:text-sidebar-foreground" />
-                  Activity Logs
+                  활동 로그
                 </a>
              </Link>
           </nav>
