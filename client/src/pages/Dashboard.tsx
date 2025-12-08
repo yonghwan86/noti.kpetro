@@ -13,9 +13,19 @@ import {
   Cell
 } from "recharts";
 import { AlertTriangle, CheckCircle, Clock, Activity } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Asset } from "@/lib/types";
 
 export default function Dashboard() {
-  const assets = store.getAssets();
+  const [assets, setAssets] = useState<Asset[]>(store.getAssets());
+
+  useEffect(() => {
+    // Subscribe to store changes
+    const unsubscribe = store.subscribe(() => {
+      setAssets([...store.getAssets()]);
+    });
+    return unsubscribe;
+  }, []);
   
   // Stats
   const totalAssets = assets.length;
@@ -23,7 +33,7 @@ export default function Dashboard() {
   const upcomingAssets = assets.filter(a => a.status === 'upcoming').length;
   const okAssets = assets.filter(a => a.status === 'ok').length;
 
-  const complianceRate = Math.round(((totalAssets - overdueAssets) / totalAssets) * 100);
+  const complianceRate = totalAssets > 0 ? Math.round(((totalAssets - overdueAssets) / totalAssets) * 100) : 100;
 
   // Chart Data
   const statusData = [

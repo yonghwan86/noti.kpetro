@@ -86,7 +86,9 @@ const initialLogs: InspectionLog[] = [
   }
 ];
 
-// Simple in-memory store
+type Listener = () => void;
+
+// Simple in-memory store with subscription
 class Store {
   assets: Asset[];
   categories: Category[];
@@ -94,6 +96,7 @@ class Store {
   users: User[];
   logs: InspectionLog[];
   currentUser: User;
+  listeners: Listener[] = [];
 
   constructor() {
     this.assets = initialAssets.map(a => ({
@@ -105,6 +108,17 @@ class Store {
     this.users = [...USERS];
     this.logs = [...initialLogs];
     this.currentUser = USERS[0];
+  }
+
+  subscribe(listener: Listener) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(l => l());
   }
 
   // --- Assets ---
@@ -126,6 +140,7 @@ class Store {
       date: new Date().toISOString(),
       notes: '장비 신규 등록'
     });
+    this.notify();
     return newAsset;
   }
 
@@ -148,6 +163,7 @@ class Store {
         notes: `정기 점검 수행 (다음 예정일: ${nextDueDate})`
       });
 
+      this.notify();
       return this.assets[index];
     }
     return null;
@@ -163,6 +179,7 @@ class Store {
          this.assets[index].nextDueDate = nextDueDate;
          this.assets[index].status = calculateStatus(nextDueDate);
       }
+      this.notify();
       return this.assets[index];
     }
     return null;
@@ -170,6 +187,7 @@ class Store {
 
   deleteAsset(id: string) {
     this.assets = this.assets.filter(a => a.id !== id);
+    this.notify();
   }
 
   // --- Categories ---
@@ -177,9 +195,13 @@ class Store {
   addCategory(name: string) {
     const newCategory: Category = { id: Math.random().toString(36).substr(2, 9), name };
     this.categories.push(newCategory);
+    this.notify();
     return newCategory;
   }
-  deleteCategory(id: string) { this.categories = this.categories.filter(c => c.id !== id); }
+  deleteCategory(id: string) { 
+    this.categories = this.categories.filter(c => c.id !== id);
+    this.notify();
+  }
 
   // --- Teams & Users ---
   getTeams() { return this.teams; }
@@ -188,11 +210,13 @@ class Store {
   addUser(user: Omit<User, 'id'>) {
     const newUser = { ...user, id: Math.random().toString(36).substr(2, 9) };
     this.users.push(newUser);
+    this.notify();
     return newUser;
   }
 
   deleteUser(id: string) {
     this.users = this.users.filter(u => u.id !== id);
+    this.notify();
   }
 
   // --- Logs ---
@@ -204,13 +228,18 @@ class Store {
   addLog(log: Omit<InspectionLog, 'id'>) {
     const newLog = { ...log, id: Math.random().toString(36).substr(2, 9) };
     this.logs.push(newLog);
+    // Logs are usually added internally, but we might want to notify if we have a log viewer
+    // this.notify(); 
     return newLog;
   }
 
   // --- Auth ---
   setCurrentUser(userId: string) {
     const user = this.users.find(u => u.id === userId);
-    if (user) this.currentUser = user;
+    if (user) {
+      this.currentUser = user;
+      this.notify();
+    }
   }
 }
 
