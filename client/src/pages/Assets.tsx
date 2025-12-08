@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { TEAMS } from "@/lib/mockData";
-import { Asset, AssetStatus, Category, Team } from "@/lib/types";
+import { Asset, AssetStatus, Category, Team, User } from "@/lib/types";
 import { 
   Table, 
   TableBody, 
@@ -42,7 +41,8 @@ import {
   Pencil,
   Trash2,
   MoreHorizontal,
-  Tags
+  Tags,
+  Eye
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -58,14 +58,18 @@ import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useUser } from "@/contexts/UserContext";
+import { auth } from "@/lib/auth";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Assets() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currentUser } = useUser();
 
-  const { data: assets = [] } = useQuery<Asset[]>({
+  const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
     queryFn: () => api.assets.getAll(),
   });
@@ -79,6 +83,13 @@ export default function Assets() {
     queryKey: ["/api/teams"],
     queryFn: () => api.teams.getAll(),
   });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: () => api.users.getAll(),
+  });
+
+  const assets = auth.filterAssetsForUser(allAssets, currentUser);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.assets.delete(id),
@@ -105,9 +116,10 @@ export default function Assets() {
 
   const inspectMutation = useMutation({
     mutationFn: ({ id, date }: { id: string; date: string }) => 
-      api.assets.inspect(id, { date, inspectorId: "u1" }),
+      api.assets.inspect(id, { date, inspectorId: currentUser?.id || "" }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/logs"] });
       toast({
         title: "점검 기록 완료",
         description: `다음 점검 예정일이 계산되었습니다: ${updated.nextDueDate}`,
@@ -124,6 +136,7 @@ export default function Assets() {
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || id;
+  const getUserName = (id: string) => users.find(u => u.id === id)?.username || id;
 
   const getStatusBadge = (status: AssetStatus) => {
     switch (status) {
@@ -148,102 +161,163 @@ export default function Assets() {
     updateMutation.mutate({ id, data });
   };
 
+  const getRoleDescription = () => {
+    if (!currentUser) return "";
+    switch (currentUser.role) {
+      case 'admin': return "모든 장비를 조회하고 관리할 수 있습니다.";
+      case 'manager': return "내가 관리하는 장비만 표시됩니다.";
+      case 'staff': return "내가 담당하는 장비만 표시됩니다.";
+      default: return "";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">장비 관리</h2>
-          <p className="text-muted-foreground">장비의 교정 및 점검 상태를 관리합니다.</p>
+          <p className="text-muted-foreground">{getRoleDescription()}</p>
         </div>
         <div className="flex gap-2">
+          {auth.canManageCategories(currentUser) && (
             <ManageCategoriesDialog categories={categories} />
-            <AddAssetDialog categories={categories} teams={teams} />
+          )}
+          {auth.canAddAsset(currentUser) && (
+            <AddAssetDialog 
+              categories={categories} 
+              teams={teams} 
+              users={users}
+              currentUser={currentUser}
+            />
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="장비 검색..." 
-            className="pl-8" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="상태 필터" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체 상태</SelectItem>
-            <SelectItem value="ok">정상</SelectItem>
-            <SelectItem value="upcoming">임박</SelectItem>
-            <SelectItem value="overdue">지연</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {assets.length === 0 && currentUser?.role !== 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              {currentUser?.role === 'manager' ? '관리 중인 장비가 없습니다' : '담당 장비가 없습니다'}
+            </CardTitle>
+            <CardDescription>
+              {currentUser?.role === 'manager' 
+                ? '아직 관리자로 지정된 장비가 없습니다. 마스터에게 장비 배정을 요청하세요.'
+                : '아직 담당자로 지정된 장비가 없습니다. 장비 관리자에게 장비 배정을 요청하세요.'}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
-      <div className="rounded-md border bg-card shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>장비명</TableHead>
-              <TableHead>카테고리</TableHead>
-              <TableHead>관리 팀</TableHead>
-              <TableHead>최근 점검일</TableHead>
-              <TableHead>다음 예정일</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead className="text-right">관리</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredAssets.length === 0 ? (
-               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  등록된 장비가 없습니다.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredAssets.map((asset) => (
-                <TableRow key={asset.id}>
-                  <TableCell>
-                    <div className="font-medium">{asset.name}</div>
-                    <div className="text-xs text-muted-foreground font-mono">{asset.serialNumber}</div>
-                  </TableCell>
-                  <TableCell>{getCategoryName(asset.categoryId)}</TableCell>
-                  <TableCell>{getTeamName(asset.teamId)}</TableCell>
-                  <TableCell>{format(new Date(asset.lastInspectedDate), 'MMM d, yyyy')}</TableCell>
-                  <TableCell className="font-medium">
-                    {format(new Date(asset.nextDueDate), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(asset.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <InspectDialog asset={asset} onInspect={handleInspect} />
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>작업</DropdownMenuLabel>
-                          <EditAssetDialog asset={asset} onEdit={handleEdit} categories={categories} teams={teams} />
-                          <DropdownMenuSeparator />
-                          <DeleteAssetDialog asset={asset} onDelete={handleDelete} />
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
+      {(assets.length > 0 || currentUser?.role === 'admin') && (
+        <>
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="장비 검색..." 
+                className="pl-8" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="상태 필터" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="ok">정상</SelectItem>
+                <SelectItem value="upcoming">임박</SelectItem>
+                <SelectItem value="overdue">지연</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-md border bg-card shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>장비명</TableHead>
+                  <TableHead>카테고리</TableHead>
+                  <TableHead>관리 팀</TableHead>
+                  <TableHead>장비 관리자</TableHead>
+                  <TableHead>담당자</TableHead>
+                  <TableHead>최근 점검일</TableHead>
+                  <TableHead>다음 예정일</TableHead>
+                  <TableHead>상태</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredAssets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center">
+                      {searchTerm || statusFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAssets.map((asset) => (
+                    <TableRow key={asset.id}>
+                      <TableCell>
+                        <div className="font-medium">{asset.name}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{asset.serialNumber}</div>
+                      </TableCell>
+                      <TableCell>{getCategoryName(asset.categoryId)}</TableCell>
+                      <TableCell>{getTeamName(asset.teamId)}</TableCell>
+                      <TableCell>
+                        <span className="text-sm">{getUserName(asset.managerId)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{getUserName(asset.staffId)}</span>
+                      </TableCell>
+                      <TableCell>{format(new Date(asset.lastInspectedDate), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="font-medium">
+                        {format(new Date(asset.nextDueDate), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(asset.status as AssetStatus)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {auth.canInspectAsset(currentUser, asset) && (
+                            <InspectDialog asset={asset} onInspect={handleInspect} />
+                          )}
+                          {auth.canEditAsset(currentUser, asset) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                <EditAssetDialog 
+                                  asset={asset} 
+                                  onEdit={handleEdit} 
+                                  categories={categories} 
+                                  teams={teams}
+                                  users={users}
+                                />
+                                {auth.canDeleteAsset(currentUser) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DeleteAssetDialog asset={asset} onDelete={handleDelete} />
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -427,17 +501,23 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[], teams: Team[] }) {
+function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[], teams: Team[], users: User[] }) {
   const [open, setOpen] = useState(false);
-  const { register, handleSubmit } = useForm({
+  const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: asset.name,
       serialNumber: asset.serialNumber,
       categoryId: asset.categoryId,
       teamId: asset.teamId,
+      managerId: asset.managerId,
+      usageTeamId: asset.usageTeamId,
+      staffId: asset.staffId,
       inspectionCycleMonths: asset.inspectionCycleMonths
     }
   });
+
+  const managers = users.filter(u => u.role === 'manager');
+  const staffMembers = users.filter(u => u.role === 'staff');
 
   const onSubmit = (data: any) => {
     onEdit(asset.id, {
@@ -455,7 +535,7 @@ function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, o
           수정
         </DropdownMenuItem>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>장비 정보 수정</DialogTitle>
           <DialogDescription>
@@ -463,18 +543,20 @@ function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, o
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-name">장비명</Label>
-            <Input id="edit-name" {...register("name", { required: true })} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-serial">시리얼 넘버</Label>
-            <Input id="edit-serial" {...register("serialNumber", { required: true })} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">장비명</Label>
+              <Input id="edit-name" {...register("name", { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-serial">시리얼 넘버</Label>
+              <Input id="edit-serial" {...register("serialNumber", { required: true })} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <Label htmlFor="edit-category">카테고리</Label>
-              <Select defaultValue={asset.categoryId} onValueChange={(v) => register("categoryId").onChange({ target: { value: v, name: "categoryId" } })}>
+            <div className="space-y-2">
+              <Label>카테고리</Label>
+              <Select defaultValue={asset.categoryId} onValueChange={(v) => setValue("categoryId", v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -484,8 +566,8 @@ function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, o
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-team">관리 팀</Label>
-              <Select defaultValue={asset.teamId} onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
+              <Label>관리 팀</Label>
+              <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -495,9 +577,46 @@ function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, o
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-cycle">점검 주기 (개월)</Label>
-            <Input id="edit-cycle" type="number" {...register("inspectionCycleMonths", { required: true })} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>장비 관리자</Label>
+              <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>담당자</Label>
+              <Select defaultValue={asset.staffId} onValueChange={(v) => setValue("staffId", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>사용 팀</Label>
+              <Select defaultValue={asset.usageTeamId} onValueChange={(v) => setValue("usageTeamId", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>점검 주기 (개월)</Label>
+              <Input type="number" {...register("inspectionCycleMonths", { required: true })} />
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit">저장</Button>
@@ -538,11 +657,14 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ categories, teams }: { categories: Category[], teams: Team[] }) {
+function AddAssetDialog({ categories, teams, users, currentUser }: { categories: Category[], teams: Team[], users: User[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const managers = users.filter(u => u.role === 'manager');
+  const staffMembers = users.filter(u => u.role === 'staff');
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.assets.create({
@@ -550,14 +672,16 @@ function AddAssetDialog({ categories, teams }: { categories: Category[], teams: 
       serialNumber: data.serialNumber,
       categoryId: data.categoryId,
       teamId: data.teamId,
-      managerId: "u1",
-      usageTeamId: data.teamId,
-      staffId: "u1",
+      managerId: data.managerId || currentUser?.id || managers[0]?.id,
+      usageTeamId: data.usageTeamId || data.teamId,
+      staffId: data.staffId || staffMembers[0]?.id,
       inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
       lastInspectedDate: data.lastInspectedDate,
+      inspectorId: currentUser?.id,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/logs"] });
       setOpen(false);
       reset();
       toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
@@ -568,14 +692,12 @@ function AddAssetDialog({ categories, teams }: { categories: Category[], teams: 
     createMutation.mutate(data);
   };
 
-  const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || "";
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="w-4 h-4" /> 장비 등록</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>신규 장비 등록</DialogTitle>
           <DialogDescription>
@@ -595,9 +717,9 @@ function AddAssetDialog({ categories, teams }: { categories: Category[], teams: 
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <Label htmlFor="category">카테고리</Label>
-              <Select onValueChange={(v) => register("categoryId").onChange({ target: { value: v, name: "categoryId" } })}>
+            <div className="space-y-2">
+              <Label>카테고리</Label>
+              <Select onValueChange={(v) => setValue("categoryId", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="종류 선택" />
                 </SelectTrigger>
@@ -607,8 +729,8 @@ function AddAssetDialog({ categories, teams }: { categories: Category[], teams: 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="team">관리 팀</Label>
-              <Select onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
+              <Label>관리 팀</Label>
+              <Select onValueChange={(v) => setValue("teamId", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="관리 팀 선택" />
                 </SelectTrigger>
@@ -618,10 +740,48 @@ function AddAssetDialog({ categories, teams }: { categories: Category[], teams: 
               </Select>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="cycle">점검 주기 (개월)</Label>
-            <Input id="cycle" type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>장비 관리자</Label>
+              <Select onValueChange={(v) => setValue("managerId", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="관리자 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>담당자</Label>
+              <Select onValueChange={(v) => setValue("staffId", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="담당자 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>사용 팀</Label>
+              <Select onValueChange={(v) => setValue("usageTeamId", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="사용 팀 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>점검 주기 (개월)</Label>
+              <Input type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
+            </div>
           </div>
 
           <div className="space-y-2">

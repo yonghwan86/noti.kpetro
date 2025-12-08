@@ -1,6 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { auth, getCurrentUser, requireAuth } from "./auth";
 import { 
   insertTeamSchema, 
   insertCategorySchema, 
@@ -23,7 +24,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/teams", async (req, res) => {
+  app.post("/api/teams", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const team = insertTeamSchema.parse(req.body);
       const created = await storage.createTeam(team);
@@ -33,7 +34,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/teams/:id", async (req, res) => {
+  app.patch("/api/teams/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const updated = await storage.updateTeam(req.params.id, req.body);
       if (!updated) {
@@ -45,7 +46,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/teams/:id", async (req, res) => {
+  app.delete("/api/teams/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
@@ -63,7 +64,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/categories", async (req, res) => {
+  app.post("/api/categories", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const category = insertCategorySchema.parse(req.body);
       const created = await storage.createCategory(category);
@@ -73,7 +74,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/categories/:id", async (req, res) => {
+  app.patch("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const updated = await storage.updateCategory(req.params.id, req.body);
       if (!updated) {
@@ -85,7 +86,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/categories/:id", async (req, res) => {
+  app.delete("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       await storage.deleteCategory(req.params.id);
       res.status(204).send();
@@ -103,7 +104,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const user = insertUserSchema.parse(req.body);
       const created = await storage.createUser(user);
@@ -113,7 +114,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const updated = await storage.updateUser(req.params.id, req.body);
       if (!updated) {
@@ -125,7 +126,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       await storage.deleteUser(req.params.id);
       res.status(204).send();
@@ -143,14 +144,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/assets", async (req, res) => {
+  app.post("/api/assets", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
       const asset = insertAssetSchema.parse(req.body);
       const created = await storage.createAsset(asset);
       
       await storage.createLog({
         assetId: created.id,
-        inspectorId: req.body.inspectorId || created.managerId,
+        inspectorId: currentUser.id,
         notes: '장비 신규 등록'
       });
       
@@ -160,21 +162,46 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/assets/:id", async (req, res) => {
+  app.patch("/api/assets/:id", async (req: Request, res: Response) => {
     try {
-      const updated = await storage.updateAsset(req.params.id, req.body);
-      if (!updated) {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const asset = await storage.getAsset(req.params.id);
+      if (!asset) {
         return res.status(404).json({ error: "Asset not found" });
       }
+
+      if (!auth.canEditAsset(currentUser, asset)) {
+        return res.status(403).json({ error: "You don't have permission to edit this asset" });
+      }
+
+      const updated = await storage.updateAsset(req.params.id, req.body);
       res.json(updated);
     } catch (error) {
       res.status(400).json({ error: "Failed to update asset" });
     }
   });
 
-  app.post("/api/assets/:id/inspect", async (req, res) => {
+  app.post("/api/assets/:id/inspect", async (req: Request, res: Response) => {
     try {
-      const { date, inspectorId, notes } = req.body;
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const asset = await storage.getAsset(req.params.id);
+      if (!asset) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+
+      if (!auth.canInspectAsset(currentUser, asset)) {
+        return res.status(403).json({ error: "You don't have permission to inspect this asset" });
+      }
+
+      const { date, notes } = req.body;
       const updated = await storage.updateAssetInspection(req.params.id, date);
       if (!updated) {
         return res.status(404).json({ error: "Asset not found" });
@@ -182,7 +209,7 @@ export async function registerRoutes(
 
       await storage.createLog({
         assetId: updated.id,
-        inspectorId,
+        inspectorId: currentUser.id,
         notes: notes || `정기 점검 수행 (다음 예정일: ${updated.nextDueDate})`
       });
 
@@ -192,7 +219,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/assets/:id", async (req, res) => {
+  app.delete("/api/assets/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       await storage.deleteAsset(req.params.id);
       res.status(204).send();

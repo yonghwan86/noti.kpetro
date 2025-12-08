@@ -8,16 +8,19 @@ import {
   Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navigation = [
-  { name: '대시보드', href: '/', icon: LayoutDashboard },
-  { name: '장비 관리', href: '/assets', icon: Package },
-  { name: '팀 관리', href: '/team', icon: Users },
-  { name: '설정', href: '/settings', icon: Settings },
-];
+import { useUser } from "@/contexts/UserContext";
+import { auth } from "@/lib/auth";
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { currentUser } = useUser();
+
+  const navigation = [
+    { name: '대시보드', href: '/', icon: LayoutDashboard, show: true },
+    { name: '장비 관리', href: '/assets', icon: Package, show: true },
+    { name: '팀 관리', href: '/team', icon: Users, show: auth.canManageTeams(currentUser) },
+    { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
+  ].filter(item => item.show);
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -32,9 +35,9 @@ export function Sidebar() {
             const isActive = location === item.href;
             return (
               <Link key={item.name} href={item.href}>
-                <a
+                <span
                   className={cn(
-                    "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
@@ -48,7 +51,7 @@ export function Sidebar() {
                     aria-hidden="true"
                   />
                   {item.name}
-                </a>
+                </span>
               </Link>
             );
           })}
@@ -59,12 +62,20 @@ export function Sidebar() {
             시스템
           </div>
           <nav className="space-y-1">
-             <Link href="/logs">
-                <a className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
-                  <Activity className="mr-3 h-5 w-5 text-sidebar-foreground/50 group-hover:text-sidebar-foreground" />
-                  활동 로그
-                </a>
-             </Link>
+            <Link href="/logs">
+              <span className={cn(
+                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
+                location === '/logs'
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              )}>
+                <Activity className={cn(
+                  "mr-3 h-5 w-5",
+                  location === '/logs' ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
+                )} />
+                활동 로그
+              </span>
+            </Link>
           </nav>
         </div>
       </div>

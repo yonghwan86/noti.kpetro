@@ -10,6 +10,7 @@ import Team from "@/pages/Team";
 import Settings from "@/pages/Settings";
 import Logs from "@/pages/Logs";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { UserProvider } from "@/contexts/UserContext";
 
 function Router() {
   return (
@@ -29,10 +30,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <UserProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </UserProvider>
     </QueryClientProvider>
   );
 }

@@ -9,7 +9,9 @@ import {
   Users,
   Settings,
   FileText,
-  Calendar
+  Shield,
+  Wrench,
+  UserCheck
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -21,9 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { store, USERS } from "@/lib/mockData";
 import { useState, useEffect } from "react";
-import { User, InspectionLog } from "@/lib/types";
 import { useLocation } from "wouter";
 import {
   CommandDialog,
@@ -40,13 +40,27 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUser } from "@/contexts/UserContext";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { auth } from "@/lib/auth";
+import { Asset, InspectionLog } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 
 export function Header() {
-  // Simple local state to force re-render for demo purposes
-  const [currentUser, setCurrentUser] = useState<User>(store.currentUser);
+  const { currentUser, currentTeam, users, switchUser } = useUser();
   const [location, setLocation] = useLocation();
   const [openSearch, setOpenSearch] = useState(false);
-  const [logs, setLogs] = useState<InspectionLog[]>(store.getLogs());
+
+  const { data: logs = [] } = useQuery<InspectionLog[]>({
+    queryKey: ["/api/logs"],
+    queryFn: () => api.logs.getAll(),
+  });
+
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+    queryFn: () => api.assets.getAll(),
+  });
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -56,21 +70,11 @@ export function Header() {
       }
     }
     document.addEventListener("keydown", down);
-    
-    const unsubscribe = store.subscribe(() => {
-      setLogs([...store.getLogs()]);
-    });
-
-    return () => {
-      document.removeEventListener("keydown", down);
-      unsubscribe();
-    }
+    return () => document.removeEventListener("keydown", down);
   }, []);
 
   const handleSwitchUser = (userId: string) => {
-    store.setCurrentUser(userId);
-    setCurrentUser(store.currentUser);
-    window.location.reload(); // Hard reload to reset everything for the new user context
+    switchUser(userId);
   };
 
   const getPageTitle = () => {
@@ -84,13 +88,42 @@ export function Header() {
     }
   };
 
-  const assets = store.getAssets();
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return <Shield className="w-4 h-4" />;
+      case 'manager': return <Wrench className="w-4 h-4" />;
+      case 'staff': return <UserCheck className="w-4 h-4" />;
+      default: return <UserIcon className="w-4 h-4" />;
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin': return <Badge className="bg-purple-500 text-white text-xs">마스터</Badge>;
+      case 'manager': return <Badge className="bg-blue-500 text-white text-xs">장비 관리자</Badge>;
+      case 'staff': return <Badge variant="secondary" className="text-xs">담당자</Badge>;
+      default: return null;
+    }
+  };
+
+  if (!currentUser) {
+    return (
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-6 shadow-sm">
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-muted-foreground">로딩 중...</p>
+        </div>
+      </header>
+    );
+  }
+
+  const filteredAssets = auth.filterAssetsForUser(assets, currentUser);
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-6 shadow-sm">
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-foreground">{getPageTitle()}</h1>
+          {getRoleBadge(currentUser.role)}
         </div>
         
         <div className="flex flex-1 items-center justify-end gap-x-4 lg:gap-x-6">
@@ -160,22 +193,20 @@ export function Header() {
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-64" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{currentUser.username}</p>
-                  <p className="text-xs leading-none text-muted-foreground capitalize">
-                    {currentUser.role} • {store.currentUser.teamId === 't1' ? '검사팀' : '관리팀'}
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {auth.getRoleName(currentUser.role as any)} • {currentTeam?.name || '팀 없음'}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>역할별 보기 전환</DropdownMenuLabel>
               {['admin', 'manager', 'staff'].map((role) => {
-                const representativeUser = USERS.find(u => u.role === role);
+                const representativeUser = users.find(u => u.role === role);
                 if (!representativeUser) return null;
-                
-                const roleName = role === 'admin' ? '마스터' : role === 'manager' ? '장비 관리자' : '담당자';
                 
                 return (
                   <DropdownMenuItem 
@@ -183,8 +214,8 @@ export function Header() {
                     onClick={() => handleSwitchUser(representativeUser.id)}
                     className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
                   >
-                    <UserIcon className="mr-2 h-4 w-4" />
-                    <span>{roleName} 보기</span>
+                    {getRoleIcon(role)}
+                    <span className="ml-2">{auth.getRoleName(role as any)} 보기</span>
                   </DropdownMenuItem>
                 );
               })}
@@ -211,22 +242,26 @@ export function Header() {
               <Box className="mr-2 h-4 w-4" />
               장비 관리
             </CommandItem>
-            <CommandItem onSelect={() => { setLocation("/team"); setOpenSearch(false); }}>
-              <Users className="mr-2 h-4 w-4" />
-              팀 현황
-            </CommandItem>
-             <CommandItem onSelect={() => { setLocation("/logs"); setOpenSearch(false); }}>
+            {auth.canManageTeams(currentUser) && (
+              <CommandItem onSelect={() => { setLocation("/team"); setOpenSearch(false); }}>
+                <Users className="mr-2 h-4 w-4" />
+                팀 현황
+              </CommandItem>
+            )}
+            <CommandItem onSelect={() => { setLocation("/logs"); setOpenSearch(false); }}>
               <FileText className="mr-2 h-4 w-4" />
               활동 로그
             </CommandItem>
-            <CommandItem onSelect={() => { setLocation("/settings"); setOpenSearch(false); }}>
-              <Settings className="mr-2 h-4 w-4" />
-              시스템 설정
-            </CommandItem>
+            {auth.canManageTeams(currentUser) && (
+              <CommandItem onSelect={() => { setLocation("/settings"); setOpenSearch(false); }}>
+                <Settings className="mr-2 h-4 w-4" />
+                시스템 설정
+              </CommandItem>
+            )}
           </CommandGroup>
-          <CommandGroup heading="장비 검색">
-            {assets.map((asset) => (
-               <CommandItem key={asset.id} onSelect={() => { setLocation("/assets"); setOpenSearch(false); }}>
+          <CommandGroup heading="내 장비 검색">
+            {filteredAssets.map((asset) => (
+              <CommandItem key={asset.id} onSelect={() => { setLocation("/assets"); setOpenSearch(false); }}>
                 <Box className="mr-2 h-4 w-4" />
                 <span>{asset.name}</span>
                 <span className="ml-2 text-xs text-muted-foreground">({asset.serialNumber})</span>

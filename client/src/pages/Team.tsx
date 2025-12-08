@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
@@ -48,8 +48,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useUser } from "@/contexts/UserContext";
+import { auth } from "@/lib/auth";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Team() {
+  const { currentUser } = useUser();
+
+  if (!auth.canManageTeams(currentUser)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <CardTitle>접근 권한이 없습니다</CardTitle>
+            <CardDescription>
+              팀 및 사용자 관리는 마스터 권한이 필요합니다. 
+              필요한 경우 시스템 관리자에게 문의하세요.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
