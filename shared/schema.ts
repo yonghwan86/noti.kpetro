@@ -17,6 +17,7 @@ export type Team = typeof teams.$inferSelect;
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
+  managerId: varchar("manager_id"),
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
