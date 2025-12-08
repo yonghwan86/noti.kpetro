@@ -205,6 +205,30 @@ class Store {
 
   // --- Teams & Users ---
   getTeams() { return this.teams; }
+  
+  addTeam(team: Omit<Team, 'id'>) {
+    const newTeam = { ...team, id: Math.random().toString(36).substr(2, 9) };
+    this.teams.push(newTeam);
+    this.notify();
+    return newTeam;
+  }
+
+  updateTeam(id: string, updates: Partial<Team>) {
+    const index = this.teams.findIndex(t => t.id === id);
+    if (index !== -1) {
+      this.teams[index] = { ...this.teams[index], ...updates };
+      this.notify();
+      return this.teams[index];
+    }
+    return null;
+  }
+
+  deleteTeam(id: string) {
+    this.teams = this.teams.filter(t => t.id !== id);
+    // Optionally handle users/assets associated with this team
+    this.notify();
+  }
+
   getUsers() { return this.users; }
   
   addUser(user: Omit<User, 'id'>) {
