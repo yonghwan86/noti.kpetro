@@ -38,8 +38,19 @@ import {
   Search, 
   CheckCircle2, 
   AlertCircle, 
-  Clock 
+  Clock,
+  Pencil,
+  Trash2,
+  MoreHorizontal
 } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -82,6 +93,25 @@ export default function Assets() {
         description: `다음 점검 예정일이 계산되었습니다: ${updated.nextDueDate}`,
       });
     }
+  };
+
+  const handleDelete = (id: string) => {
+    store.deleteAsset(id);
+    setAssets([...store.getAssets()]);
+    toast({
+      title: "장비 삭제 완료",
+      description: "장비가 목록에서 제거되었습니다.",
+      variant: "destructive"
+    });
+  };
+
+  const handleEdit = (id: string, data: Partial<Asset>) => {
+    store.updateAsset(id, data);
+    setAssets([...store.getAssets()]);
+    toast({
+      title: "장비 수정 완료",
+      description: "장비 정보가 업데이트되었습니다."
+    });
   };
 
   return (
@@ -153,7 +183,23 @@ export default function Assets() {
                   </TableCell>
                   <TableCell>{getStatusBadge(asset.status)}</TableCell>
                   <TableCell className="text-right">
-                    <InspectDialog asset={asset} onInspect={handleInspect} />
+                    <div className="flex justify-end gap-2">
+                      <InspectDialog asset={asset} onInspect={handleInspect} />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>작업</DropdownMenuLabel>
+                          <EditAssetDialog asset={asset} onEdit={handleEdit} />
+                          <DropdownMenuSeparator />
+                          <DeleteAssetDialog asset={asset} onDelete={handleDelete} />
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -215,6 +261,105 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
               setOpen(false);
             }
           }}>업데이트 확인</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditAssetDialog({ asset, onEdit }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void }) {
+  const [open, setOpen] = useState(false);
+  const { register, handleSubmit } = useForm({
+    defaultValues: {
+      name: asset.name,
+      serialNumber: asset.serialNumber,
+      categoryId: asset.categoryId,
+      inspectionCycleDays: asset.inspectionCycleDays
+    }
+  });
+
+  const onSubmit = (data: any) => {
+    onEdit(asset.id, {
+      ...data,
+      inspectionCycleDays: parseInt(data.inspectionCycleDays)
+    });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <Pencil className="mr-2 h-4 w-4" />
+          수정
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>장비 정보 수정</DialogTitle>
+          <DialogDescription>
+            장비 정보를 수정합니다.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">장비명</Label>
+            <Input id="edit-name" {...register("name", { required: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-serial">시리얼 넘버</Label>
+            <Input id="edit-serial" {...register("serialNumber", { required: true })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-2">
+              <Label htmlFor="edit-category">카테고리</Label>
+              <Select defaultValue={asset.categoryId} onValueChange={(v) => register("categoryId").onChange({ target: { value: v, name: "categoryId" } })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-cycle">점검 주기 (일)</Label>
+              <Input id="edit-cycle" type="number" {...register("inspectionCycleDays", { required: true })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit">저장</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          삭제
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>장비 삭제</DialogTitle>
+          <DialogDescription>
+            정말로 <strong>{asset.name}</strong> 장비를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>취소</Button>
+          <Button variant="destructive" onClick={() => {
+            onDelete(asset.id);
+            setOpen(false);
+          }}>삭제</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

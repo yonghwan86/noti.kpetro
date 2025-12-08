@@ -23,7 +23,7 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="flex h-16 items-center px-6 border-b border-sidebar-border/40">
         <ShieldCheck className="h-6 w-6 text-sidebar-primary mr-2" />
-        <span className="text-lg font-bold tracking-tight">AssetGuard</span>
+        <span className="text-lg font-bold tracking-tight">장비관리시스템</span>
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-3">

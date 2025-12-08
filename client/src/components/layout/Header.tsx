@@ -37,7 +37,7 @@ export function Header() {
       case '/assets': return '장비 관리';
       case '/team': return '팀 현황';
       case '/settings': return '시스템 설정';
-      default: return 'AssetGuard';
+      default: return '장비관리시스템';
     }
   };
 
