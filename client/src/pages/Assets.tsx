@@ -388,6 +388,7 @@ function EditAssetDialog({ asset, onEdit, categories }: { asset: Asset, onEdit: 
       name: asset.name,
       serialNumber: asset.serialNumber,
       categoryId: asset.categoryId,
+      teamId: asset.teamId,
       inspectionCycleMonths: asset.inspectionCycleMonths
     }
   });
@@ -437,9 +438,20 @@ function EditAssetDialog({ asset, onEdit, categories }: { asset: Asset, onEdit: 
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-cycle">점검 주기 (개월)</Label>
-              <Input id="edit-cycle" type="number" {...register("inspectionCycleMonths", { required: true })} />
+              <Label htmlFor="edit-team">관리 팀</Label>
+              <Select defaultValue={asset.teamId} onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEAMS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-cycle">점검 주기 (개월)</Label>
+            <Input id="edit-cycle" type="number" {...register("inspectionCycleMonths", { required: true })} />
           </div>
           <DialogFooter>
             <Button type="submit">저장</Button>
