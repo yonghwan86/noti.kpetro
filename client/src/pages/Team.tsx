@@ -198,8 +198,8 @@ export default function Team() {
         <div className="flex justify-between items-center">
           <TabsList>
             <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4"/> 팀</TabsTrigger>
-            <TabsTrigger value="admins" className="gap-2"><ShieldAlert className="w-4 h-4"/> 관리자</TabsTrigger>
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
+            <TabsTrigger value="admins" className="gap-2"><ShieldAlert className="w-4 h-4"/> 관리자</TabsTrigger>
           </TabsList>
           
           <div className="relative w-64">
@@ -214,7 +214,8 @@ export default function Team() {
         </div>
 
         <TabsContent value="teams" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">이메일과 휴대폰은 해당 팀의 팀장의 것으로 작성해주세요.</p>
             <AddTeamDialog />
           </div>
           <div className="rounded-md border bg-card shadow-sm">
