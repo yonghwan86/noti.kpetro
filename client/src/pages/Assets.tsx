@@ -241,9 +241,9 @@ export default function Assets() {
                 <TableRow>
                   <TableHead>장비명</TableHead>
                   <TableHead>카테고리</TableHead>
-                  <TableHead>관리 팀</TableHead>
                   <TableHead>장비 관리자</TableHead>
                   <TableHead>담당자</TableHead>
+                  <TableHead>담당팀</TableHead>
                   <TableHead>최근 점검일</TableHead>
                   <TableHead>다음 예정일</TableHead>
                   <TableHead>상태</TableHead>
@@ -265,13 +265,13 @@ export default function Assets() {
                         <div className="text-xs text-muted-foreground font-mono">{asset.serialNumber}</div>
                       </TableCell>
                       <TableCell>{getCategoryName(asset.categoryId)}</TableCell>
-                      <TableCell>{getTeamName(asset.teamId)}</TableCell>
                       <TableCell>
                         <span className="text-sm">{getUserName(asset.managerId)}</span>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">{getUserName(asset.staffId)}</span>
                       </TableCell>
+                      <TableCell>{getTeamName(asset.teamId)}</TableCell>
                       <TableCell>{format(new Date(asset.lastInspectedDate), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="font-medium">
                         {format(new Date(asset.nextDueDate), 'MMM d, yyyy')}
@@ -566,19 +566,6 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>관리 팀</Label>
-              <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label>장비 관리자</Label>
               <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
                 <SelectTrigger>
@@ -589,6 +576,8 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당자</Label>
               <Select defaultValue={asset.staffId} onValueChange={(v) => setValue("staffId", v)}>
@@ -597,6 +586,17 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
                 </SelectTrigger>
                 <SelectContent>
                   {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>담당팀</Label>
+              <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -729,20 +729,6 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>관리 팀</Label>
-              <Select onValueChange={(v) => setValue("teamId", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="관리 팀 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label>장비 관리자</Label>
               <Select onValueChange={(v) => setValue("managerId", v)}>
                 <SelectTrigger>
@@ -753,6 +739,9 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당자</Label>
               <Select onValueChange={(v) => setValue("staffId", v)}>
@@ -761,6 +750,17 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
                 </SelectTrigger>
                 <SelectContent>
                   {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>담당팀</Label>
+              <Select onValueChange={(v) => setValue("teamId", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="담당팀 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
