@@ -12,10 +12,11 @@ export interface Team {
 export interface User {
   id: string;
   username: string;
+  fullName?: string | null;
   role: Role;
   teamId: string;
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
   avatar?: string;
 }
 
