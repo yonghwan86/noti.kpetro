@@ -441,12 +441,14 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       username: user.username,
+      fullName: user.fullName || "",
       email: user.email || "",
       phone: user.phone || "",
       role: user.role,
       teamId: user.teamId
     }
   });
+  const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
 
   const filteredTeams = teams.filter(t => 
     t.name.toLowerCase().includes(teamInput.toLowerCase())
@@ -486,7 +488,25 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
           <DialogDescription>사용자 정보를 업데이트합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          {isAdminOrManager ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-username">관리 장비명</Label>
+                <Input
+                  id="edit-username"
+                  {...register("username", { required: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-fullName">이름</Label>
+                <Input
+                  id="edit-fullName"
+                  {...register("fullName")}
+                  placeholder="실제 이름"
+                />
+              </div>
+            </div>
+          ) : (
             <div className="space-y-2">
               <Label htmlFor="edit-username">이름</Label>
               <Input
@@ -494,6 +514,8 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 {...register("username", { required: true })}
               />
             </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
               <Label htmlFor="edit-team">소속 팀</Label>
               <Input
