@@ -29,11 +29,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (!currentUserId && users.length > 0) {
-      const adminUser = users.find(u => u.role === 'admin');
-      if (adminUser) {
-        setCurrentUserId(adminUser.id);
-        auth.setCurrentUserId(adminUser.id);
+    if (users.length > 0) {
+      const savedUser = users.find(u => u.id === currentUserId);
+      if (!savedUser) {
+        const adminUser = users.find(u => u.role === 'admin' && u.username === '시스템 관리자');
+        const fallbackAdmin = adminUser || users.find(u => u.role === 'admin');
+        if (fallbackAdmin) {
+          setCurrentUserId(fallbackAdmin.id);
+          auth.setCurrentUserId(fallbackAdmin.id);
+        }
       }
     }
   }, [users, currentUserId]);
