@@ -51,6 +51,11 @@ import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import { auth } from "@/lib/auth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function Team() {
   const { currentUser } = useUser();
@@ -188,32 +193,31 @@ export default function Team() {
             <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4"/> 팀</TabsTrigger>
           </TabsList>
           
-          <div className="flex items-center gap-2">
-             <div className="relative w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="검색..."
-                className="pl-8 h-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <AddUserDialog teams={teams} />
-            <AddTeamDialog />
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="검색..."
+              className="pl-8 h-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
         <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-end">
+            <AddUserDialog teams={teams} />
+          </div>
           <div className="rounded-md border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
                   <TableHead>이름</TableHead>
+                  <TableHead>소속 팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
                   <TableHead>역할</TableHead>
-                  <TableHead>소속 팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
@@ -237,12 +241,12 @@ export default function Team() {
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "Unknown"}
                       </TableCell>
+                      <TableCell>{user.email || "-"}</TableCell>
+                      <TableCell>{user.phone || "-"}</TableCell>
+                      <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <DropdownMenu>
@@ -277,6 +281,9 @@ export default function Team() {
         </TabsContent>
 
         <TabsContent value="teams" className="space-y-4">
+          <div className="flex justify-end">
+            <AddTeamDialog />
+          </div>
           <div className="rounded-md border bg-card shadow-sm">
             <Table>
               <TableHeader>
@@ -317,7 +324,7 @@ export default function Team() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditTeamDialog team={team} onEdit={handleEditTeam} />
+                              <EditTeamDialog team={team} teams={teams} onEdit={handleEditTeam} />
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive"
@@ -702,15 +709,23 @@ function AddTeamDialog() {
   );
 }
 
-function EditTeamDialog({ team, onEdit }: { team: TeamType, onEdit: (id: string, data: Partial<TeamType>) => void }) {
+function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamType[], onEdit: (id: string, data: Partial<TeamType>) => void }) {
   const [open, setOpen] = useState(false);
-  const { register, handleSubmit } = useForm({
+  const [teamNameOpen, setTeamNameOpen] = useState(false);
+  const [teamNameSearch, setTeamNameSearch] = useState(team.name);
+  const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: team.name,
       contactEmail: team.contactEmail,
       phone: team.phone || ""
     }
   });
+
+  const nameValue = watch("name");
+
+  const filteredTeamNames = teams.filter(t => 
+    t.name.toLowerCase().includes(teamNameSearch.toLowerCase()) && t.id !== team.id
+  );
 
   const onSubmit = (data: any) => {
     onEdit(team.id, data);
@@ -733,7 +748,43 @@ function EditTeamDialog({ team, onEdit }: { team: TeamType, onEdit: (id: string,
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-team-name">팀명</Label>
-            <Input id="edit-team-name" {...register("name", { required: true })} />
+            <Popover open={teamNameOpen} onOpenChange={setTeamNameOpen}>
+              <PopoverTrigger asChild>
+                <div className="relative">
+                  <Input
+                    id="edit-team-name"
+                    value={teamNameSearch}
+                    onChange={(e) => {
+                      setTeamNameSearch(e.target.value);
+                      setValue("name", e.target.value);
+                      if (!teamNameOpen) setTeamNameOpen(true);
+                    }}
+                    onFocus={() => setTeamNameOpen(true)}
+                    placeholder="팀명 입력 또는 선택"
+                    autoComplete="off"
+                  />
+                </div>
+              </PopoverTrigger>
+              {filteredTeamNames.length > 0 && (
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <div className="max-h-[200px] overflow-auto">
+                    {filteredTeamNames.map((t) => (
+                      <div
+                        key={t.id}
+                        className="px-3 py-2 cursor-pointer hover:bg-accent text-sm"
+                        onClick={() => {
+                          setTeamNameSearch(t.name);
+                          setValue("name", t.name);
+                          setTeamNameOpen(false);
+                        }}
+                      >
+                        {t.name}
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              )}
+            </Popover>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
