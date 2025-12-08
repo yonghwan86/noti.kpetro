@@ -4,22 +4,21 @@ import { addMonths, differenceInDays, parseISO, subDays, subHours } from 'date-f
 // Initial Mock Data
 
 export const TEAMS: Team[] = [
-  { id: 't1', name: '엔지니어링 A팀', contactEmail: 'eng-a@example.com' },
-  { id: 't2', name: '물류팀', contactEmail: 'logistics@example.com' },
-  { id: 't3', name: '품질관리팀', contactEmail: 'qc@example.com' },
+  { id: 't1', name: '검사팀', contactEmail: 'inspection@example.com' },
+  { id: 't2', name: '관리팀', contactEmail: 'management@example.com' },
 ];
 
 export const CATEGORIES: Category[] = [
-  { id: 'c1', name: '계측기' },
+  { id: 'c1', name: '계량기' },
   { id: 'c2', name: '차량' },
-  { id: 'c3', name: '중장비' },
+  { id: 'c3', name: '검사장비' },
 ];
 
 export const USERS: User[] = [
   { id: 'u1', username: '슈퍼 관리자', role: 'admin', teamId: 't1' }, // Admin has access to all
-  { id: 'u2', username: '엔지니어링 팀장', role: 'manager', teamId: 't1' },
-  { id: 'u3', username: '엔지니어링 담당자', role: 'staff', teamId: 't1' },
-  { id: 'u4', username: '물류 팀장', role: 'manager', teamId: 't2' },
+  { id: 'u2', username: '검사 팀장', role: 'manager', teamId: 't1' },
+  { id: 'u3', username: '검사 담당자', role: 'staff', teamId: 't1' },
+  { id: 'u4', username: '관리 팀장', role: 'manager', teamId: 't2' },
 ];
 
 // Helper to calculate status
@@ -60,8 +59,8 @@ const initialAssets: Asset[] = [
     id: 'a3',
     name: '분광광도계 Pro',
     serialNumber: 'SP-112',
-    categoryId: 'c1',
-    teamId: 't3',
+    categoryId: 'c3',
+    teamId: 't1',
     inspectionCycleMonths: 6, // 6 months
     lastInspectedDate: '2025-01-10',
     nextDueDate: '2025-07-10',
