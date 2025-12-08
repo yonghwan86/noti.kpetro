@@ -170,17 +170,24 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>사용자 전환 (데모)</DropdownMenuLabel>
-              {USERS.map(user => (
-                <DropdownMenuItem 
-                  key={user.id} 
-                  onClick={() => handleSwitchUser(user.id)}
-                  className={user.id === currentUser.id ? "bg-accent" : ""}
-                >
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  <span>{user.username} ({user.role})</span>
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuLabel>역할별 보기 전환</DropdownMenuLabel>
+              {['admin', 'manager', 'staff'].map((role) => {
+                const representativeUser = USERS.find(u => u.role === role);
+                if (!representativeUser) return null;
+                
+                const roleName = role === 'admin' ? '슈퍼 관리자' : role === 'manager' ? '팀장' : '팀원';
+                
+                return (
+                  <DropdownMenuItem 
+                    key={role}
+                    onClick={() => handleSwitchUser(representativeUser.id)}
+                    className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
+                  >
+                    <UserIcon className="mr-2 h-4 w-4" />
+                    <span>{roleName} 보기</span>
+                  </DropdownMenuItem>
+                );
+              })}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
