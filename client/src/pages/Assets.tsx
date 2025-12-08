@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { store, TEAMS } from "@/lib/mockData";
-import { Asset, AssetStatus, Category } from "@/lib/types";
+import { TEAMS } from "@/lib/mockData";
+import { Asset, AssetStatus, Category, Team } from "@/lib/types";
 import { 
   Table, 
   TableBody, 
@@ -56,16 +56,64 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-
-// Helper functions defined outside to be accessible by all components in this file
-const getTeamName = (id: string) => TEAMS.find(t => t.id === id)?.name || id;
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export default function Assets() {
-  const [assets, setAssets] = useState<Asset[]>(store.getAssets());
-  const [categories, setCategories] = useState<Category[]>(store.getCategories());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+    queryFn: () => api.assets.getAll(),
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => api.categories.getAll(),
+  });
+
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: () => api.teams.getAll(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.assets.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      toast({
+        title: "장비 삭제 완료",
+        description: "장비가 목록에서 제거되었습니다.",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Asset> }) => api.assets.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      toast({
+        title: "장비 수정 완료",
+        description: "장비 정보가 업데이트되었습니다."
+      });
+    },
+  });
+
+  const inspectMutation = useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) => 
+      api.assets.inspect(id, { date, inspectorId: "u1" }),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      toast({
+        title: "점검 기록 완료",
+        description: `다음 점검 예정일이 계산되었습니다: ${updated.nextDueDate}`,
+      });
+    },
+  });
 
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -75,6 +123,7 @@ export default function Assets() {
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
+  const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || id;
 
   const getStatusBadge = (status: AssetStatus) => {
     switch (status) {
@@ -88,37 +137,15 @@ export default function Assets() {
   };
 
   const handleInspect = (id: string, date: Date) => {
-    const updated = store.updateAssetInspection(id, format(date, 'yyyy-MM-dd'));
-    if (updated) {
-      setAssets([...store.getAssets()]); // Refresh list
-      toast({
-        title: "점검 기록 완료",
-        description: `다음 점검 예정일이 계산되었습니다: ${updated.nextDueDate}`,
-      });
-    }
+    inspectMutation.mutate({ id, date: format(date, 'yyyy-MM-dd') });
   };
 
   const handleDelete = (id: string) => {
-    store.deleteAsset(id);
-    setAssets([...store.getAssets()]);
-    toast({
-      title: "장비 삭제 완료",
-      description: "장비가 목록에서 제거되었습니다.",
-      variant: "destructive"
-    });
+    deleteMutation.mutate(id);
   };
 
   const handleEdit = (id: string, data: Partial<Asset>) => {
-    store.updateAsset(id, data);
-    setAssets([...store.getAssets()]);
-    toast({
-      title: "장비 수정 완료",
-      description: "장비 정보가 업데이트되었습니다."
-    });
-  };
-
-  const refreshCategories = () => {
-    setCategories([...store.getCategories()]);
+    updateMutation.mutate({ id, data });
   };
 
   return (
@@ -129,8 +156,8 @@ export default function Assets() {
           <p className="text-muted-foreground">장비의 교정 및 점검 상태를 관리합니다.</p>
         </div>
         <div className="flex gap-2">
-            <ManageCategoriesDialog onUpdate={refreshCategories} categories={categories} />
-            <AddAssetDialog onAdd={() => setAssets([...store.getAssets()])} categories={categories} />
+            <ManageCategoriesDialog categories={categories} />
+            <AddAssetDialog categories={categories} teams={teams} />
         </div>
       </div>
 
@@ -204,7 +231,7 @@ export default function Assets() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>작업</DropdownMenuLabel>
-                          <EditAssetDialog asset={asset} onEdit={handleEdit} categories={categories} />
+                          <EditAssetDialog asset={asset} onEdit={handleEdit} categories={categories} teams={teams} />
                           <DropdownMenuSeparator />
                           <DeleteAssetDialog asset={asset} onDelete={handleDelete} />
                         </DropdownMenuContent>
@@ -221,29 +248,48 @@ export default function Assets() {
   );
 }
 
-function ManageCategoriesDialog({ onUpdate, categories }: { onUpdate: () => void, categories: Category[] }) {
+function ManageCategoriesDialog({ categories }: { categories: Category[] }) {
   const [newCategory, setNewCategory] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: (name: string) => api.categories.create({ name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setNewCategory("");
+      toast({ title: "카테고리 추가됨", description: "카테고리가 추가되었습니다." });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.categories.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "카테고리 삭제됨", description: "카테고리가 삭제되었습니다.", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.categories.update(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "카테고리 수정됨", description: "카테고리 이름이 변경되었습니다." });
+    },
+  });
 
   const handleAdd = () => {
     if (newCategory.trim()) {
-      store.addCategory(newCategory);
-      setNewCategory("");
-      onUpdate();
-      toast({ title: "카테고리 추가됨", description: `"${newCategory}" 카테고리가 추가되었습니다.` });
+      createMutation.mutate(newCategory);
     }
   };
 
   const handleDelete = (id: string) => {
-    store.deleteCategory(id);
-    onUpdate();
-    toast({ title: "카테고리 삭제됨", description: "카테고리가 삭제되었습니다.", variant: "destructive" });
+    deleteMutation.mutate(id);
   };
 
   const handleEdit = (id: string, name: string) => {
-    store.updateCategory(id, name);
-    onUpdate();
-    toast({ title: "카테고리 수정됨", description: "카테고리 이름이 변경되었습니다." });
+    updateMutation.mutate({ id, name });
   };
 
   return (
@@ -381,7 +427,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[] }) {
+function EditAssetDialog({ asset, onEdit, categories, teams }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[], teams: Team[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit } = useForm({
     defaultValues: {
@@ -444,7 +490,7 @@ function EditAssetDialog({ asset, onEdit, categories }: { asset: Asset, onEdit: 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TEAMS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -492,25 +538,37 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ onAdd, categories }: { onAdd: () => void, categories: Category[] }) {
+function AddAssetDialog({ categories, teams }: { categories: Category[], teams: Team[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const onSubmit = (data: any) => {
-    store.addAsset({
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.assets.create({
       name: data.name,
       serialNumber: data.serialNumber,
       categoryId: data.categoryId,
-      teamId: store.currentUser.teamId, // Assign to current user's team
+      teamId: data.teamId,
+      managerId: "u1",
+      usageTeamId: data.teamId,
+      staffId: "u1",
       inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
       lastInspectedDate: data.lastInspectedDate,
-    });
-    onAdd();
-    setOpen(false);
-    reset();
-    toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      setOpen(false);
+      reset();
+      toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createMutation.mutate(data);
   };
+
+  const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || "";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -521,7 +579,7 @@ function AddAssetDialog({ onAdd, categories }: { onAdd: () => void, categories: 
         <DialogHeader>
           <DialogTitle>신규 장비 등록</DialogTitle>
           <DialogDescription>
-            {getTeamName(store.currentUser.teamId)} 팀의 새로운 장비를 등록합니다.
+            새로운 장비를 등록합니다.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -555,7 +613,7 @@ function AddAssetDialog({ onAdd, categories }: { onAdd: () => void, categories: 
                   <SelectValue placeholder="관리 팀 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TEAMS.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

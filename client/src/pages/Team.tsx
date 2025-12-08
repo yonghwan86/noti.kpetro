@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { store } from "@/lib/mockData";
+import { useState } from "react";
 import { User, Role, Team as TeamType } from "@/lib/types";
 import {
   Table,
@@ -47,21 +46,69 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export default function Team() {
-  const [users, setUsers] = useState<User[]>(store.getUsers());
-  const [teams, setTeams] = useState<TeamType[]>(store.getTeams());
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Subscribe to store updates
-  useEffect(() => {
-    const unsubscribe = store.subscribe(() => {
-      setUsers([...store.getUsers()]);
-      setTeams([...store.getTeams()]);
-    });
-    return unsubscribe;
-  }, []);
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: () => api.users.getAll(),
+  });
+
+  const { data: teams = [] } = useQuery<TeamType[]>({
+    queryKey: ["/api/teams"],
+    queryFn: () => api.teams.getAll(),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: string) => api.users.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "사용자 삭제됨",
+        description: "사용자가 시스템에서 제거되었습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: (id: string) => api.teams.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      toast({
+        title: "팀 삭제됨",
+        description: "팀이 시스템에서 제거되었습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<TeamType> }) => api.teams.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      toast({
+        title: "팀 수정됨",
+        description: "팀 정보가 업데이트되었습니다.",
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) => api.users.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "사용자 수정됨",
+        description: "사용자 정보가 업데이트되었습니다.",
+      });
+    },
+  });
 
   const filteredUsers = users.filter(
     (user) =>
@@ -76,37 +123,19 @@ export default function Team() {
   );
 
   const handleDeleteUser = (id: string) => {
-    store.deleteUser(id);
-    toast({
-      title: "사용자 삭제됨",
-      description: "사용자가 시스템에서 제거되었습니다.",
-      variant: "destructive",
-    });
+    deleteUserMutation.mutate(id);
   };
 
   const handleDeleteTeam = (id: string) => {
-    store.deleteTeam(id);
-    toast({
-      title: "팀 삭제됨",
-      description: "팀이 시스템에서 제거되었습니다.",
-      variant: "destructive",
-    });
+    deleteTeamMutation.mutate(id);
   };
 
   const handleEditTeam = (id: string, data: Partial<TeamType>) => {
-    store.updateTeam(id, data);
-    toast({
-      title: "팀 수정됨",
-      description: "팀 정보가 업데이트되었습니다.",
-    });
+    updateTeamMutation.mutate({ id, data });
   };
 
   const handleEditUser = (id: string, data: Partial<User>) => {
-    store.updateUser(id, data);
-    toast({
-      title: "사용자 수정됨",
-      description: "사용자 정보가 업데이트되었습니다.",
-    });
+    updateUserMutation.mutate({ id, data });
   };
 
   const getRoleBadge = (role: Role) => {
@@ -363,19 +392,27 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const onSubmit = (data: any) => {
-    store.addUser({
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.users.create({
       username: data.username,
       role: data.role,
       teamId: data.teamId,
-    });
-    setOpen(false);
-    reset();
-    toast({
-      title: "사용자 추가됨",
-      description: "새로운 사용자가 등록되었습니다.",
-    });
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setOpen(false);
+      reset();
+      toast({
+        title: "사용자 추가됨",
+        description: "새로운 사용자가 등록되었습니다.",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createMutation.mutate(data);
   };
 
   return (
@@ -440,18 +477,26 @@ function AddTeamDialog() {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const onSubmit = (data: any) => {
-    store.addTeam({
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.teams.create({
       name: data.name,
       contactEmail: data.contactEmail,
-    });
-    setOpen(false);
-    reset();
-    toast({
-      title: "팀 추가됨",
-      description: "새로운 팀이 생성되었습니다.",
-    });
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      setOpen(false);
+      reset();
+      toast({
+        title: "팀 추가됨",
+        description: "새로운 팀이 생성되었습니다.",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createMutation.mutate(data);
   };
 
   return (

@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { store } from "@/lib/mockData";
 import { 
   BarChart, 
   Bar, 
@@ -13,19 +12,20 @@ import {
   Cell
 } from "recharts";
 import { AlertTriangle, CheckCircle, Clock, Activity } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Asset } from "@/lib/types";
+import { Asset, Category } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export default function Dashboard() {
-  const [assets, setAssets] = useState<Asset[]>(store.getAssets());
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+    queryFn: () => api.assets.getAll(),
+  });
 
-  useEffect(() => {
-    // Subscribe to store changes
-    const unsubscribe = store.subscribe(() => {
-      setAssets([...store.getAssets()]);
-    });
-    return unsubscribe;
-  }, []);
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => api.categories.getAll(),
+  });
   
   // Stats
   const totalAssets = assets.length;
@@ -42,11 +42,10 @@ export default function Dashboard() {
     { name: '지연', value: overdueAssets, color: 'var(--status-error)' },
   ];
 
-  const categoryData = [
-    { name: '계측기', value: assets.filter(a => a.categoryId === 'c1').length },
-    { name: '차량', value: assets.filter(a => a.categoryId === 'c2').length },
-    { name: '기계', value: assets.filter(a => a.categoryId === 'c3').length },
-  ];
+  const categoryData = categories.map(cat => ({
+    name: cat.name,
+    value: assets.filter(a => a.categoryId === cat.id).length,
+  }));
 
   return (
     <div className="space-y-6">
