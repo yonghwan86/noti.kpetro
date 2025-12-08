@@ -247,6 +247,16 @@ class Store {
     return newUser;
   }
 
+  updateUser(id: string, updates: Partial<User>) {
+    const index = this.users.findIndex(u => u.id === id);
+    if (index !== -1) {
+      this.users[index] = { ...this.users[index], ...updates };
+      this.notify();
+      return this.users[index];
+    }
+    return null;
+  }
+
   deleteUser(id: string) {
     this.users = this.users.filter(u => u.id !== id);
     this.notify();

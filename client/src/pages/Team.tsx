@@ -101,6 +101,14 @@ export default function Team() {
     });
   };
 
+  const handleEditUser = (id: string, data: Partial<User>) => {
+    store.updateUser(id, data);
+    toast({
+      title: "사용자 수정됨",
+      description: "사용자 정보가 업데이트되었습니다.",
+    });
+  };
+
   const getRoleBadge = (role: Role) => {
     switch (role) {
       case "admin":
@@ -182,15 +190,29 @@ export default function Team() {
                         {teams.find((t) => t.id === user.teamId)?.name || "Unknown"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={user.role === 'admin'}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>작업</DropdownMenuLabel>
+                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteUser(user.id)}
+                                disabled={user.role === 'admin'}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                삭제
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -261,6 +283,79 @@ export default function Team() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
+  const [open, setOpen] = useState(false);
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: {
+      username: user.username,
+      role: user.role,
+      teamId: user.teamId
+    }
+  });
+
+  const onSubmit = (data: any) => {
+    onEdit(user.id, data);
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <Pencil className="mr-2 h-4 w-4" />
+          수정
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>사용자 정보 수정</DialogTitle>
+          <DialogDescription>사용자 정보를 업데이트합니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-username">이름</Label>
+            <Input
+              id="edit-username"
+              {...register("username", { required: true })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">역할</Label>
+              <Select defaultValue={user.role} onValueChange={(v) => register("role").onChange({ target: { value: v, name: "role" } })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">슈퍼 관리자</SelectItem>
+                  <SelectItem value="manager">팀장</SelectItem>
+                  <SelectItem value="staff">팀원</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-team">소속 팀</Label>
+              <Select defaultValue={user.teamId} onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="submit">저장</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
