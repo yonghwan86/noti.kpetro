@@ -3,7 +3,13 @@ import {
   Search, 
   User as UserIcon,
   ChevronDown,
-  LogOut
+  LogOut,
+  LayoutDashboard,
+  Box,
+  Users,
+  Settings,
+  FileText,
+  Calendar
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -16,14 +22,50 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { store, USERS } from "@/lib/mockData";
-import { useState } from "react";
-import { User } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { User, InspectionLog } from "@/lib/types";
 import { useLocation } from "wouter";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Header() {
   // Simple local state to force re-render for demo purposes
   const [currentUser, setCurrentUser] = useState<User>(store.currentUser);
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [openSearch, setOpenSearch] = useState(false);
+  const [logs, setLogs] = useState<InspectionLog[]>(store.getLogs());
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpenSearch((open) => !open);
+      }
+    }
+    document.addEventListener("keydown", down);
+    
+    const unsubscribe = store.subscribe(() => {
+      setLogs([...store.getLogs()]);
+    });
+
+    return () => {
+      document.removeEventListener("keydown", down);
+      unsubscribe();
+    }
+  }, []);
 
   const handleSwitchUser = (userId: string) => {
     store.setCurrentUser(userId);
@@ -37,9 +79,12 @@ export function Header() {
       case '/assets': return '장비 관리';
       case '/team': return '팀 현황';
       case '/settings': return '시스템 설정';
+      case '/logs': return '활동 로그';
       default: return '장비관리시스템';
     }
   };
+
+  const assets = store.getAssets();
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-6 shadow-sm">
@@ -50,13 +95,51 @@ export function Header() {
         
         <div className="flex flex-1 items-center justify-end gap-x-4 lg:gap-x-6">
           <div className="flex items-center gap-x-4">
-            <Button variant="ghost" size="icon" className="text-muted-foreground">
+            <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => setOpenSearch(true)}>
               <Search className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-status-error ring-2 ring-background" />
-            </Button>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground relative">
+                  <Bell className="h-5 w-5" />
+                  {logs.length > 0 && (
+                    <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-status-error ring-2 ring-background" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">알림</h4>
+                    <p className="text-sm text-muted-foreground">
+                      최근 시스템 활동 내역입니다.
+                    </p>
+                  </div>
+                  <ScrollArea className="h-[300px]">
+                    <div className="grid gap-2">
+                      {logs.length === 0 ? (
+                        <p className="text-sm text-center text-muted-foreground py-4">새로운 알림이 없습니다.</p>
+                      ) : (
+                        logs.slice(0, 10).map((log) => (
+                          <div key={log.id} className="grid grid-cols-[25px_1fr] items-start pb-4 last:mb-0 last:pb-0 border-b last:border-0">
+                            <span className="flex h-2 w-2 translate-y-1.5 rounded-full bg-sky-500" />
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium leading-none">
+                                {log.notes}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(log.date), "MMM d, h:mm a")}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           
           <div className="h-6 w-px bg-border" aria-hidden="true" />
@@ -82,7 +165,7 @@ export function Header() {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{currentUser.username}</p>
                   <p className="text-xs leading-none text-muted-foreground capitalize">
-                    {currentUser.role} • {store.currentUser.teamId === 't1' ? '엔지니어링 A팀' : '물류팀'}
+                    {currentUser.role} • {store.currentUser.teamId === 't1' ? '검사팀' : '관리팀'}
                   </p>
                 </div>
               </DropdownMenuLabel>
@@ -107,6 +190,44 @@ export function Header() {
           </DropdownMenu>
         </div>
       </div>
+
+      <CommandDialog open={openSearch} onOpenChange={setOpenSearch}>
+        <CommandInput placeholder="검색어를 입력하세요... (장비, 메뉴 등)" />
+        <CommandList>
+          <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
+          <CommandGroup heading="페이지 이동">
+            <CommandItem onSelect={() => { setLocation("/"); setOpenSearch(false); }}>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              대시보드
+            </CommandItem>
+            <CommandItem onSelect={() => { setLocation("/assets"); setOpenSearch(false); }}>
+              <Box className="mr-2 h-4 w-4" />
+              장비 관리
+            </CommandItem>
+            <CommandItem onSelect={() => { setLocation("/team"); setOpenSearch(false); }}>
+              <Users className="mr-2 h-4 w-4" />
+              팀 현황
+            </CommandItem>
+             <CommandItem onSelect={() => { setLocation("/logs"); setOpenSearch(false); }}>
+              <FileText className="mr-2 h-4 w-4" />
+              활동 로그
+            </CommandItem>
+            <CommandItem onSelect={() => { setLocation("/settings"); setOpenSearch(false); }}>
+              <Settings className="mr-2 h-4 w-4" />
+              시스템 설정
+            </CommandItem>
+          </CommandGroup>
+          <CommandGroup heading="장비 검색">
+            {assets.map((asset) => (
+               <CommandItem key={asset.id} onSelect={() => { setLocation("/assets"); setOpenSearch(false); }}>
+                <Box className="mr-2 h-4 w-4" />
+                <span>{asset.name}</span>
+                <span className="ml-2 text-xs text-muted-foreground">({asset.serialNumber})</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }
