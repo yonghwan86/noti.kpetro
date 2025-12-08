@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   role: text("role").notNull(),
   teamId: varchar("team_id").notNull().references(() => teams.id),
+  email: text("email"),
   phone: text("phone"),
 });
 

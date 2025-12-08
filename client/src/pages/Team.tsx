@@ -54,23 +54,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 
 export default function Team() {
   const { currentUser } = useUser();
-
-  if (!auth.canManageTeams(currentUser)) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-md">
-          <CardHeader className="text-center">
-            <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <CardTitle>접근 권한이 없습니다</CardTitle>
-            <CardDescription>
-              팀 및 사용자 관리는 마스터 권한이 필요합니다. 
-              필요한 경우 시스템 관리자에게 문의하세요.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -130,6 +113,23 @@ export default function Team() {
       });
     },
   });
+
+  if (!auth.canManageTeams(currentUser)) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <CardTitle>접근 권한이 없습니다</CardTitle>
+            <CardDescription>
+              팀 및 사용자 관리는 마스터 권한이 필요합니다. 
+              필요한 경우 시스템 관리자에게 문의하세요.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   const filteredUsers = users.filter(
     (user) =>
@@ -210,6 +210,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
                   <TableHead>이름</TableHead>
+                  <TableHead>연락처</TableHead>
                   <TableHead>휴대폰</TableHead>
                   <TableHead>역할</TableHead>
                   <TableHead>소속 팀</TableHead>
@@ -219,7 +220,7 @@ export default function Team() {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       사용자가 없습니다.
                     </TableCell>
                   </TableRow>
@@ -236,6 +237,7 @@ export default function Team() {
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell>
@@ -342,22 +344,44 @@ export default function Team() {
 
 function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
   const [open, setOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm({
+  const [teamInput, setTeamInput] = useState(teams.find(t => t.id === user.teamId)?.name || "");
+  const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       username: user.username,
+      email: user.email || "",
       phone: user.phone || "",
       role: user.role,
       teamId: user.teamId
     }
   });
 
+  const filteredTeams = teams.filter(t => 
+    t.name.toLowerCase().includes(teamInput.toLowerCase())
+  );
+
   const onSubmit = (data: any) => {
-    onEdit(user.id, data);
+    const matchedTeam = teams.find(t => t.name === teamInput);
+    if (!matchedTeam && !data.teamId) {
+      return;
+    }
+    const submitData = {
+      ...data,
+      teamId: matchedTeam?.id || data.teamId
+    };
+    onEdit(user.id, submitData);
     setOpen(false);
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setTeamInput(teams.find(t => t.id === user.teamId)?.name || "");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
           <Pencil className="mr-2 h-4 w-4" />
@@ -379,18 +403,8 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">휴대폰</Label>
-              <Input
-                id="edit-phone"
-                {...register("phone")}
-                placeholder="010-0000-0000"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label htmlFor="edit-role">역할</Label>
-              <Select defaultValue={user.role} onValueChange={(v) => register("role").onChange({ target: { value: v, name: "role" } })}>
+              <Select defaultValue={user.role} onValueChange={(v) => setValue("role", v as Role)}>
                 <SelectTrigger>
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
@@ -401,19 +415,56 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-team">소속 팀</Label>
-              <Select defaultValue={user.teamId} onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-email">연락처 (이메일)</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                {...register("email")}
+                placeholder="user@example.com"
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">휴대폰</Label>
+              <Input
+                id="edit-phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 relative">
+            <Label htmlFor="edit-team">소속 팀</Label>
+            <Input
+              id="edit-team"
+              value={teamInput}
+              onChange={(e) => {
+                setTeamInput(e.target.value);
+                setShowTeamSuggestions(true);
+              }}
+              onFocus={() => setShowTeamSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
+              placeholder="팀 이름 입력 또는 선택"
+            />
+            {showTeamSuggestions && filteredTeams.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                {filteredTeams.map((t) => (
+                  <div
+                    key={t.id}
+                    className="px-3 py-2 cursor-pointer hover:bg-accent"
+                    onMouseDown={() => {
+                      setTeamInput(t.name);
+                      setValue("teamId", t.id);
+                      setShowTeamSuggestions(false);
+                    }}
+                  >
+                    {t.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">저장</Button>
@@ -426,13 +477,20 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
 
 function AddUserDialog({ teams }: { teams: TeamType[] }) {
   const [open, setOpen] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const [teamInput, setTeamInput] = useState("");
+  const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const filteredTeams = teams.filter(t => 
+    t.name.toLowerCase().includes(teamInput.toLowerCase())
+  );
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.users.create({
       username: data.username,
+      email: data.email || undefined,
       phone: data.phone || undefined,
       role: data.role,
       teamId: data.teamId,
@@ -449,11 +507,32 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
   });
 
   const onSubmit = (data: any) => {
-    createMutation.mutate(data);
+    const matchedTeam = teams.find(t => t.name === teamInput);
+    if (!matchedTeam && !data.teamId) {
+      toast({
+        title: "팀 선택 필요",
+        description: "목록에서 팀을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const submitData = {
+      ...data,
+      teamId: matchedTeam?.id || data.teamId
+    };
+    createMutation.mutate(submitData);
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setTeamInput("");
+      reset();
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" variant="outline">
           <UserPlus className="w-4 h-4" /> 사용자 추가
@@ -475,18 +554,8 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">휴대폰</Label>
-              <Input
-                id="phone"
-                {...register("phone")}
-                placeholder="010-0000-0000"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label htmlFor="role">역할</Label>
-              <Select onValueChange={(v) => register("role").onChange({ target: { value: v, name: "role" } })}>
+              <Select onValueChange={(v) => setValue("role", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
@@ -497,19 +566,56 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="team">소속 팀</Label>
-              <Select onValueChange={(v) => register("teamId").onChange({ target: { value: v, name: "teamId" } })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="email">연락처 (이메일)</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register("email")}
+                placeholder="user@example.com"
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">휴대폰</Label>
+              <Input
+                id="phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 relative">
+            <Label htmlFor="team">소속 팀</Label>
+            <Input
+              id="team"
+              value={teamInput}
+              onChange={(e) => {
+                setTeamInput(e.target.value);
+                setShowTeamSuggestions(true);
+              }}
+              onFocus={() => setShowTeamSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
+              placeholder="팀 이름 입력 또는 선택"
+            />
+            {showTeamSuggestions && filteredTeams.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                {filteredTeams.map((t) => (
+                  <div
+                    key={t.id}
+                    className="px-3 py-2 cursor-pointer hover:bg-accent"
+                    onMouseDown={() => {
+                      setTeamInput(t.name);
+                      setValue("teamId", t.id);
+                      setShowTeamSuggestions(false);
+                    }}
+                  >
+                    {t.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">등록</Button>
