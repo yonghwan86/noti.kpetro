@@ -18,7 +18,7 @@ export function Sidebar() {
   const navigation = [
     { name: '대시보드', href: '/', icon: LayoutDashboard, show: true },
     { name: '장비 관리', href: '/assets', icon: Package, show: true },
-    { name: '팀 관리', href: '/team', icon: Users, show: auth.canManageTeams(currentUser) },
+    { name: '팀 및 사용자 관리', href: '/team', icon: Users, show: auth.canManageTeams(currentUser) },
     { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
   ].filter(item => item.show);
 
