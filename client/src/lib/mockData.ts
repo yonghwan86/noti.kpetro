@@ -1,5 +1,5 @@
 import { Asset, AssetStatus, Category, Team, User } from './types';
-import { addDays, differenceInDays, isBefore, isPast, parseISO } from 'date-fns';
+import { addMonths, differenceInDays, parseISO } from 'date-fns';
 
 // Initial Mock Data
 
@@ -40,9 +40,9 @@ const initialAssets: Asset[] = [
     serialNumber: 'SN-2023-001',
     categoryId: 'c1',
     teamId: 't1',
-    inspectionCycleDays: 30,
+    inspectionCycleMonths: 1, // 1 month
     lastInspectedDate: '2025-05-01',
-    nextDueDate: '2025-05-31',
+    nextDueDate: '2025-06-01',
     status: 'overdue', // Example: manually set or calculated to be overdue for demo
   },
   {
@@ -51,9 +51,9 @@ const initialAssets: Asset[] = [
     serialNumber: 'VH-9982',
     categoryId: 'c2',
     teamId: 't2',
-    inspectionCycleDays: 90,
+    inspectionCycleMonths: 3, // 3 months
     lastInspectedDate: '2025-06-15',
-    nextDueDate: '2025-09-13',
+    nextDueDate: '2025-09-15',
     status: 'ok',
   },
   {
@@ -62,9 +62,9 @@ const initialAssets: Asset[] = [
     serialNumber: 'SP-112',
     categoryId: 'c1',
     teamId: 't3',
-    inspectionCycleDays: 180,
+    inspectionCycleMonths: 6, // 6 months
     lastInspectedDate: '2025-01-10',
-    nextDueDate: '2025-07-09',
+    nextDueDate: '2025-07-10',
     status: 'upcoming',
   },
 ];
@@ -72,6 +72,7 @@ const initialAssets: Asset[] = [
 // Simple in-memory store
 class Store {
   assets: Asset[];
+  categories: Category[];
   currentUser: User;
 
   constructor() {
@@ -79,6 +80,7 @@ class Store {
       ...a,
       status: calculateStatus(a.nextDueDate) // Recalculate on load for demo
     }));
+    this.categories = [...CATEGORIES];
     this.currentUser = USERS[0]; // Default to Admin
   }
 
@@ -86,12 +88,29 @@ class Store {
     return this.assets;
   }
 
+  getCategories() {
+    return this.categories;
+  }
+
+  addCategory(name: string) {
+    const newCategory: Category = {
+      id: Math.random().toString(36).substr(2, 9),
+      name
+    };
+    this.categories.push(newCategory);
+    return newCategory;
+  }
+
+  deleteCategory(id: string) {
+    this.categories = this.categories.filter(c => c.id !== id);
+  }
+
   getAssetsByTeam(teamId: string) {
     return this.assets.filter(a => a.teamId === teamId);
   }
 
   addAsset(asset: Omit<Asset, 'id' | 'status' | 'nextDueDate'>) {
-    const nextDueDate = addDays(parseISO(asset.lastInspectedDate), asset.inspectionCycleDays).toISOString().split('T')[0];
+    const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
     const newAsset: Asset = {
       ...asset,
       id: Math.random().toString(36).substr(2, 9),
@@ -106,7 +125,7 @@ class Store {
     const index = this.assets.findIndex(a => a.id === id);
     if (index !== -1) {
       const asset = this.assets[index];
-      const nextDueDate = addDays(parseISO(newDate), asset.inspectionCycleDays).toISOString().split('T')[0];
+      const nextDueDate = addMonths(parseISO(newDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
       this.assets[index] = {
         ...asset,
         lastInspectedDate: newDate,
@@ -123,9 +142,9 @@ class Store {
     if (index !== -1) {
       this.assets[index] = { ...this.assets[index], ...updates };
       // Recalculate logic if cycle changed
-      if (updates.inspectionCycleDays || updates.lastInspectedDate) {
+      if (updates.inspectionCycleMonths || updates.lastInspectedDate) {
          const asset = this.assets[index];
-         const nextDueDate = addDays(parseISO(asset.lastInspectedDate), asset.inspectionCycleDays).toISOString().split('T')[0];
+         const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
          this.assets[index].nextDueDate = nextDueDate;
          this.assets[index].status = calculateStatus(nextDueDate);
       }

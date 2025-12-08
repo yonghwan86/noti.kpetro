@@ -1,3 +1,5 @@
+import { addMonths, differenceInDays, parseISO } from 'date-fns';
+
 export type Role = 'admin' | 'manager' | 'staff';
 
 export interface Team {
@@ -27,7 +29,7 @@ export interface Asset {
   serialNumber: string;
   categoryId: string;
   teamId: string;
-  inspectionCycleDays: number;
+  inspectionCycleMonths: number;
   lastInspectedDate: string; // ISO date string
   nextDueDate: string; // ISO date string
   status: AssetStatus;

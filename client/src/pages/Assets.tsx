@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { store, CATEGORIES, TEAMS } from "@/lib/mockData";
-import { Asset, AssetStatus } from "@/lib/types";
+import { store, TEAMS } from "@/lib/mockData";
+import { Asset, AssetStatus, Category } from "@/lib/types";
 import { 
   Table, 
   TableBody, 
@@ -41,7 +41,8 @@ import {
   Clock,
   Pencil,
   Trash2,
-  MoreHorizontal
+  MoreHorizontal,
+  Tags
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -58,10 +59,10 @@ import { Label } from "@/components/ui/label";
 
 // Helper functions defined outside to be accessible by all components in this file
 const getTeamName = (id: string) => TEAMS.find(t => t.id === id)?.name || id;
-const getCategoryName = (id: string) => CATEGORIES.find(c => c.id === id)?.name || id;
 
 export default function Assets() {
   const [assets, setAssets] = useState<Asset[]>(store.getAssets());
+  const [categories, setCategories] = useState<Category[]>(store.getCategories());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
   const { toast } = useToast();
@@ -72,6 +73,8 @@ export default function Assets() {
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
 
   const getStatusBadge = (status: AssetStatus) => {
     switch (status) {
@@ -114,6 +117,10 @@ export default function Assets() {
     });
   };
 
+  const refreshCategories = () => {
+    setCategories([...store.getCategories()]);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -121,7 +128,10 @@ export default function Assets() {
           <h2 className="text-2xl font-bold tracking-tight">장비 관리</h2>
           <p className="text-muted-foreground">장비의 교정 및 점검 상태를 관리합니다.</p>
         </div>
-        <AddAssetDialog onAdd={() => setAssets([...store.getAssets()])} />
+        <div className="flex gap-2">
+            <ManageCategoriesDialog onUpdate={refreshCategories} categories={categories} />
+            <AddAssetDialog onAdd={() => setAssets([...store.getAssets()])} categories={categories} />
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -194,7 +204,7 @@ export default function Assets() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>작업</DropdownMenuLabel>
-                          <EditAssetDialog asset={asset} onEdit={handleEdit} />
+                          <EditAssetDialog asset={asset} onEdit={handleEdit} categories={categories} />
                           <DropdownMenuSeparator />
                           <DeleteAssetDialog asset={asset} onDelete={handleDelete} />
                         </DropdownMenuContent>
@@ -211,6 +221,64 @@ export default function Assets() {
   );
 }
 
+function ManageCategoriesDialog({ onUpdate, categories }: { onUpdate: () => void, categories: Category[] }) {
+  const [newCategory, setNewCategory] = useState("");
+  const { toast } = useToast();
+
+  const handleAdd = () => {
+    if (newCategory.trim()) {
+      store.addCategory(newCategory);
+      setNewCategory("");
+      onUpdate();
+      toast({ title: "카테고리 추가됨", description: `"${newCategory}" 카테고리가 추가되었습니다.` });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    store.deleteCategory(id);
+    onUpdate();
+    toast({ title: "카테고리 삭제됨", description: "카테고리가 삭제되었습니다.", variant: "destructive" });
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <Tags className="w-4 h-4" /> 카테고리 관리
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>카테고리 관리</DialogTitle>
+          <DialogDescription>
+            장비 분류 카테고리를 추가하거나 삭제합니다.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="flex gap-2">
+            <Input 
+              placeholder="새 카테고리 이름" 
+              value={newCategory} 
+              onChange={(e) => setNewCategory(e.target.value)}
+            />
+            <Button onClick={handleAdd} disabled={!newCategory.trim()}>추가</Button>
+          </div>
+          <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+            {categories.map((category) => (
+              <div key={category.id} className="flex items-center justify-between p-2 px-3 text-sm">
+                <span>{category.name}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(category.id)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: string, date: Date) => void }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [open, setOpen] = useState(false);
@@ -224,7 +292,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
         <DialogHeader>
           <DialogTitle>점검 기록</DialogTitle>
           <DialogDescription>
-            <strong>{asset.name}</strong>의 점검일을 업데이트합니다. {asset.inspectionCycleDays}일 주기로 다음 예정일이 자동 계산됩니다.
+            <strong>{asset.name}</strong>의 점검일을 업데이트합니다. {asset.inspectionCycleMonths}개월 주기로 다음 예정일이 자동 계산됩니다.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -267,21 +335,21 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void }) {
+function EditAssetDialog({ asset, onEdit, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit } = useForm({
     defaultValues: {
       name: asset.name,
       serialNumber: asset.serialNumber,
       categoryId: asset.categoryId,
-      inspectionCycleDays: asset.inspectionCycleDays
+      inspectionCycleMonths: asset.inspectionCycleMonths
     }
   });
 
   const onSubmit = (data: any) => {
     onEdit(asset.id, {
       ...data,
-      inspectionCycleDays: parseInt(data.inspectionCycleDays)
+      inspectionCycleMonths: parseInt(data.inspectionCycleMonths)
     });
     setOpen(false);
   };
@@ -318,13 +386,13 @@ function EditAssetDialog({ asset, onEdit }: { asset: Asset, onEdit: (id: string,
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-cycle">점검 주기 (일)</Label>
-              <Input id="edit-cycle" type="number" {...register("inspectionCycleDays", { required: true })} />
+              <Label htmlFor="edit-cycle">점검 주기 (개월)</Label>
+              <Input id="edit-cycle" type="number" {...register("inspectionCycleMonths", { required: true })} />
             </div>
           </div>
           <DialogFooter>
@@ -366,7 +434,7 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ onAdd }: { onAdd: () => void }) {
+function AddAssetDialog({ onAdd, categories }: { onAdd: () => void, categories: Category[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
@@ -377,7 +445,7 @@ function AddAssetDialog({ onAdd }: { onAdd: () => void }) {
       serialNumber: data.serialNumber,
       categoryId: data.categoryId,
       teamId: store.currentUser.teamId, // Assign to current user's team
-      inspectionCycleDays: parseInt(data.inspectionCycleDays),
+      inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
       lastInspectedDate: data.lastInspectedDate,
     });
     onAdd();
@@ -418,13 +486,13 @@ function AddAssetDialog({ onAdd }: { onAdd: () => void }) {
                   <SelectValue placeholder="종류 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cycle">점검 주기 (일)</Label>
-              <Input id="cycle" type="number" {...register("inspectionCycleDays", { required: true })} placeholder="30" />
+              <Label htmlFor="cycle">점검 주기 (개월)</Label>
+              <Input id="cycle" type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
             </div>
           </div>
 
