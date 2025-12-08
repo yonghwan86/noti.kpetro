@@ -240,6 +240,12 @@ function ManageCategoriesDialog({ onUpdate, categories }: { onUpdate: () => void
     toast({ title: "카테고리 삭제됨", description: "카테고리가 삭제되었습니다.", variant: "destructive" });
   };
 
+  const handleEdit = (id: string, name: string) => {
+    store.updateCategory(id, name);
+    onUpdate();
+    toast({ title: "카테고리 수정됨", description: "카테고리 이름이 변경되었습니다." });
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -265,17 +271,57 @@ function ManageCategoriesDialog({ onUpdate, categories }: { onUpdate: () => void
           </div>
           <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
             {categories.map((category) => (
-              <div key={category.id} className="flex items-center justify-between p-2 px-3 text-sm">
-                <span>{category.name}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(category.id)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
+              <CategoryItem 
+                key={category.id} 
+                category={category} 
+                onEdit={handleEdit} 
+                onDelete={handleDelete} 
+              />
             ))}
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CategoryItem({ category, onEdit, onDelete }: { category: Category, onEdit: (id: string, name: string) => void, onDelete: (id: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(category.name);
+
+  const handleSave = () => {
+    if (editName.trim()) {
+      onEdit(category.id, editName);
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2 p-2 px-3">
+        <Input 
+          value={editName} 
+          onChange={(e) => setEditName(e.target.value)}
+          className="h-8 text-sm"
+        />
+        <Button size="sm" onClick={handleSave} className="h-8 px-2">저장</Button>
+        <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 px-2">취소</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between p-2 px-3 text-sm">
+      <span>{category.name}</span>
+      <div className="flex gap-1">
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => setIsEditing(true)}>
+          <Pencil className="w-3 h-3" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(category.id)}>
+          <Trash2 className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

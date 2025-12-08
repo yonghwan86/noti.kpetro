@@ -198,6 +198,15 @@ class Store {
     this.notify();
     return newCategory;
   }
+  updateCategory(id: string, name: string) {
+    const index = this.categories.findIndex(c => c.id === id);
+    if (index !== -1) {
+      this.categories[index] = { ...this.categories[index], name };
+      this.notify();
+      return this.categories[index];
+    }
+    return null;
+  }
   deleteCategory(id: string) { 
     this.categories = this.categories.filter(c => c.id !== id);
     this.notify();
