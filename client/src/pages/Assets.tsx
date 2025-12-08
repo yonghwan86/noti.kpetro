@@ -549,7 +549,6 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
       categoryId: asset.categoryId,
       teamId: asset.teamId,
       managerId: asset.managerId,
-      usageTeamId: asset.usageTeamId,
       staffId: asset.staffId,
       inspectionCycleMonths: asset.inspectionCycleMonths
     }
@@ -618,17 +617,6 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>담당자</Label>
-              <Select defaultValue={asset.staffId} onValueChange={(v) => setValue("staffId", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label>담당팀</Label>
               <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
                 <SelectTrigger>
@@ -639,19 +627,19 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>사용 팀</Label>
-              <Select defaultValue={asset.usageTeamId} onValueChange={(v) => setValue("usageTeamId", v)}>
+              <Label>담당자</Label>
+              <Select defaultValue={asset.staffId} onValueChange={(v) => setValue("staffId", v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>점검 주기 (개월)</Label>
               <Input type="number" {...register("inspectionCycleMonths", { required: true })} />
@@ -722,7 +710,7 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
       categoryId: data.categoryId,
       teamId: data.teamId,
       managerId: data.managerId || currentUser?.id || managers[0]?.id,
-      usageTeamId: data.usageTeamId || data.teamId,
+      usageTeamId: data.teamId,
       staffId: data.staffId || staffMembers[0]?.id,
       inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
       lastInspectedDate: data.lastInspectedDate,
@@ -801,17 +789,6 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>담당자</Label>
-              <Select onValueChange={(v) => setValue("staffId", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="담당자 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label>담당팀</Label>
               <Select onValueChange={(v) => setValue("teamId", v)}>
                 <SelectTrigger>
@@ -822,20 +799,20 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>사용 팀</Label>
-              <Select onValueChange={(v) => setValue("usageTeamId", v)}>
+              <Label>담당자</Label>
+              <Select onValueChange={(v) => setValue("staffId", v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="사용 팀 선택" />
+                  <SelectValue placeholder="담당자 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>점검 주기 (개월)</Label>
               <Input type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
