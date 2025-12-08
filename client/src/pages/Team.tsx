@@ -491,18 +491,36 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 {...register("username", { required: true })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">역할</Label>
-              <Select defaultValue={user.role} onValueChange={(v) => setValue("role", v as Role)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">마스터</SelectItem>
-                  <SelectItem value="manager">장비 관리자</SelectItem>
-                  <SelectItem value="staff">담당자</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2 relative">
+              <Label htmlFor="edit-team">소속 팀</Label>
+              <Input
+                id="edit-team"
+                value={teamInput}
+                onChange={(e) => {
+                  setTeamInput(e.target.value);
+                  setShowTeamSuggestions(true);
+                }}
+                onFocus={() => setShowTeamSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
+                placeholder="팀 이름 입력 또는 선택"
+              />
+              {showTeamSuggestions && filteredTeams.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                  {filteredTeams.map((t) => (
+                    <div
+                      key={t.id}
+                      className="px-3 py-2 cursor-pointer hover:bg-accent"
+                      onMouseDown={() => {
+                        setTeamInput(t.name);
+                        setValue("teamId", t.id);
+                        setShowTeamSuggestions(false);
+                      }}
+                    >
+                      {t.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -524,36 +542,18 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               />
             </div>
           </div>
-          <div className="space-y-2 relative">
-            <Label htmlFor="edit-team">소속 팀</Label>
-            <Input
-              id="edit-team"
-              value={teamInput}
-              onChange={(e) => {
-                setTeamInput(e.target.value);
-                setShowTeamSuggestions(true);
-              }}
-              onFocus={() => setShowTeamSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
-              placeholder="팀 이름 입력 또는 선택"
-            />
-            {showTeamSuggestions && filteredTeams.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
-                {filteredTeams.map((t) => (
-                  <div
-                    key={t.id}
-                    className="px-3 py-2 cursor-pointer hover:bg-accent"
-                    onMouseDown={() => {
-                      setTeamInput(t.name);
-                      setValue("teamId", t.id);
-                      setShowTeamSuggestions(false);
-                    }}
-                  >
-                    {t.name}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label htmlFor="edit-role">역할</Label>
+            <Select defaultValue={user.role} onValueChange={(v) => setValue("role", v as Role)}>
+              <SelectTrigger>
+                <SelectValue placeholder="선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">마스터</SelectItem>
+                <SelectItem value="manager">장비 관리자</SelectItem>
+                <SelectItem value="staff">담당자</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">저장</Button>
