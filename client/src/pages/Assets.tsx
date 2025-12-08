@@ -241,7 +241,7 @@ export default function Assets() {
                 <TableRow>
                   <TableHead>장비명</TableHead>
                   <TableHead>카테고리</TableHead>
-                  <TableHead>장비 관리자</TableHead>
+                  <TableHead>관리 장비명</TableHead>
                   <TableHead>담당자</TableHead>
                   <TableHead>담당팀</TableHead>
                   <TableHead>최근 점검일</TableHead>
@@ -381,7 +381,7 @@ function ManageCategoriesDialog({ categories, users }: { categories: Category[],
         <DialogHeader>
           <DialogTitle>카테고리 관리</DialogTitle>
           <DialogDescription>
-            장비 분류 카테고리와 기본 장비관리자를 설정합니다.
+            장비 분류 카테고리와 기본 관리 장비명을 설정합니다.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -394,7 +394,7 @@ function ManageCategoriesDialog({ categories, users }: { categories: Category[],
             />
             <Select value={newManagerId || ""} onValueChange={(v) => setNewManagerId(v || undefined)}>
               <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="관리자 선택" />
+                <SelectValue placeholder="관리 장비명 선택" />
               </SelectTrigger>
               <SelectContent>
                 {managers.map(m => (
@@ -450,7 +450,7 @@ function CategoryItem({ category, managers, onEdit, onDelete }: {
         />
         <Select value={editManagerId || ""} onValueChange={(v) => setEditManagerId(v || undefined)}>
           <SelectTrigger className="w-[120px] h-8">
-            <SelectValue placeholder="관리자" />
+            <SelectValue placeholder="관리 장비명" />
           </SelectTrigger>
           <SelectContent>
             {managers.map(m => (
@@ -604,7 +604,7 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>장비 관리자</Label>
+              <Label>관리 장비명</Label>
               <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -775,10 +775,10 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>장비 관리자</Label>
+              <Label>관리 장비명</Label>
               <Select value={selectedManagerId} onValueChange={(v) => { setSelectedManagerId(v); setValue("managerId", v); }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="관리자 선택" />
+                  <SelectValue placeholder="관리 장비명 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}

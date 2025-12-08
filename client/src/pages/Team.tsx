@@ -288,6 +288,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
+                  <TableHead>관리 장비명</TableHead>
                   <TableHead>이름</TableHead>
                   <TableHead>소속 팀</TableHead>
                   <TableHead>이메일</TableHead>
@@ -299,7 +300,7 @@ export default function Team() {
               <TableBody>
                 {filteredAdmins.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                       관리자가 없습니다.
                     </TableCell>
                   </TableRow>
@@ -316,6 +317,7 @@ export default function Team() {
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{user.fullName || "-"}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "Unknown"}
                       </TableCell>
@@ -731,6 +733,7 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
   const createMutation = useMutation({
     mutationFn: (data: any) => api.users.create({
       username: data.username,
+      fullName: data.fullName || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
       role: data.role,
@@ -740,6 +743,7 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
+      setTeamInput("");
       toast({
         title: "관리자 추가됨",
         description: "새로운 관리자가 등록되었습니다.",
@@ -787,13 +791,23 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-username">이름</Label>
+              <Label htmlFor="admin-username">관리 장비명</Label>
               <Input
                 id="admin-username"
                 {...register("username", { required: true })}
+                placeholder="계량기, 차량 등"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-fullname">이름</Label>
+              <Input
+                id="admin-fullname"
+                {...register("fullName")}
                 placeholder="홍길동"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
               <Label htmlFor="admin-team">소속 팀</Label>
               <Input
@@ -825,8 +839,6 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
                 </div>
               )}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="admin-email">이메일</Label>
               <Input
@@ -836,6 +848,8 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
                 placeholder="user@example.com"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="admin-phone">휴대폰</Label>
               <Input
@@ -844,18 +858,18 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
                 placeholder="010-0000-0000"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="admin-role">역할</Label>
-            <Select onValueChange={(v) => setValue("role", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">마스터</SelectItem>
-                <SelectItem value="manager">장비 관리자</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="admin-role">역할</Label>
+              <Select onValueChange={(v) => setValue("role", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">마스터</SelectItem>
+                  <SelectItem value="manager">장비 관리자</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">등록</Button>
