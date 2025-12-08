@@ -210,7 +210,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
                   <TableHead>이름</TableHead>
-                  <TableHead>연락처</TableHead>
+                  <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
                   <TableHead>역할</TableHead>
                   <TableHead>소속 팀</TableHead>
@@ -282,7 +282,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>팀명</TableHead>
-                  <TableHead>연락처 이메일</TableHead>
+                  <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
                   <TableHead>소속 인원</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -418,7 +418,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-email">연락처 (이메일)</Label>
+              <Label htmlFor="edit-email">이메일</Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -569,7 +569,7 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">연락처 (이메일)</Label>
+              <Label htmlFor="email">이메일</Label>
               <Input
                 id="email"
                 type="email"
@@ -676,7 +676,7 @@ function AddTeamDialog() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="team-email">연락처 이메일</Label>
+              <Label htmlFor="team-email">이메일</Label>
               <Input
                 id="team-email"
                 type="email"
@@ -737,7 +737,7 @@ function EditTeamDialog({ team, onEdit }: { team: TeamType, onEdit: (id: string,
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-team-email">연락처 이메일</Label>
+              <Label htmlFor="edit-team-email">이메일</Label>
               <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
             </div>
             <div className="space-y-2">
