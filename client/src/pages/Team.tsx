@@ -210,6 +210,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
                   <TableHead>이름</TableHead>
+                  <TableHead>휴대폰</TableHead>
                   <TableHead>역할</TableHead>
                   <TableHead>소속 팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -218,7 +219,7 @@ export default function Team() {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       사용자가 없습니다.
                     </TableCell>
                   </TableRow>
@@ -235,6 +236,7 @@ export default function Team() {
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{user.phone || "-"}</TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "Unknown"}
@@ -279,6 +281,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead>팀명</TableHead>
                   <TableHead>연락처 이메일</TableHead>
+                  <TableHead>휴대폰</TableHead>
                   <TableHead>소속 인원</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -286,7 +289,7 @@ export default function Team() {
               <TableBody>
                 {filteredTeams.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       팀이 없습니다.
                     </TableCell>
                   </TableRow>
@@ -295,6 +298,7 @@ export default function Team() {
                     <TableRow key={team.id}>
                       <TableCell className="font-medium">{team.name}</TableCell>
                       <TableCell>{team.contactEmail}</TableCell>
+                      <TableCell>{team.phone || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">
                           {users.filter(u => u.teamId === team.id).length} 명
@@ -341,6 +345,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const { register, handleSubmit, reset } = useForm({
     defaultValues: {
       username: user.username,
+      phone: user.phone || "",
       role: user.role,
       teamId: user.teamId
     }
@@ -365,12 +370,22 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
           <DialogDescription>사용자 정보를 업데이트합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-username">이름</Label>
-            <Input
-              id="edit-username"
-              {...register("username", { required: true })}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">이름</Label>
+              <Input
+                id="edit-username"
+                {...register("username", { required: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">휴대폰</Label>
+              <Input
+                id="edit-phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -418,6 +433,7 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
   const createMutation = useMutation({
     mutationFn: (data: any) => api.users.create({
       username: data.username,
+      phone: data.phone || undefined,
       role: data.role,
       teamId: data.teamId,
     }),
@@ -449,13 +465,23 @@ function AddUserDialog({ teams }: { teams: TeamType[] }) {
           <DialogDescription>새로운 팀원을 등록합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">이름</Label>
-            <Input
-              id="username"
-              {...register("username", { required: true })}
-              placeholder="홍길동"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">이름</Label>
+              <Input
+                id="username"
+                {...register("username", { required: true })}
+                placeholder="홍길동"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">휴대폰</Label>
+              <Input
+                id="phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -504,6 +530,7 @@ function AddTeamDialog() {
     mutationFn: (data: any) => api.teams.create({
       name: data.name,
       contactEmail: data.contactEmail,
+      phone: data.phone || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
@@ -541,14 +568,24 @@ function AddTeamDialog() {
               placeholder="예: 시설관리팀"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="team-email">연락처 이메일</Label>
-            <Input
-              id="team-email"
-              type="email"
-              {...register("contactEmail", { required: true })}
-              placeholder="team@example.com"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="team-email">연락처 이메일</Label>
+              <Input
+                id="team-email"
+                type="email"
+                {...register("contactEmail", { required: true })}
+                placeholder="team@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team-phone">휴대폰</Label>
+              <Input
+                id="team-phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">생성</Button>
@@ -564,7 +601,8 @@ function EditTeamDialog({ team, onEdit }: { team: TeamType, onEdit: (id: string,
   const { register, handleSubmit } = useForm({
     defaultValues: {
       name: team.name,
-      contactEmail: team.contactEmail
+      contactEmail: team.contactEmail,
+      phone: team.phone || ""
     }
   });
 
@@ -591,9 +629,15 @@ function EditTeamDialog({ team, onEdit }: { team: TeamType, onEdit: (id: string,
             <Label htmlFor="edit-team-name">팀명</Label>
             <Input id="edit-team-name" {...register("name", { required: true })} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-team-email">연락처 이메일</Label>
-            <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-team-email">연락처 이메일</Label>
+              <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-team-phone">휴대폰</Label>
+              <Input id="edit-team-phone" {...register("phone")} placeholder="010-0000-0000" />
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit">저장</Button>

@@ -6,6 +6,7 @@ export interface Team {
   id: string;
   name: string;
   contactEmail: string;
+  phone?: string;
 }
 
 export interface User {
@@ -13,6 +14,7 @@ export interface User {
   username: string;
   role: Role;
   teamId: string;
+  phone?: string;
   avatar?: string;
 }
 

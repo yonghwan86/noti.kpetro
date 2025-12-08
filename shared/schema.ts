@@ -7,6 +7,7 @@ export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   contactEmail: text("contact_email").notNull(),
+  phone: text("phone"),
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });
@@ -27,6 +28,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   role: text("role").notNull(),
   teamId: varchar("team_id").notNull().references(() => teams.id),
+  phone: text("phone"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
