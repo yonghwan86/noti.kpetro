@@ -11,7 +11,7 @@ import {
   Pie,
   Cell
 } from "recharts";
-import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck } from "lucide-react";
 import { Asset, Category, InspectionLog, User } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -60,8 +60,9 @@ export default function Dashboard() {
 
   const getCategoryIcon = (name: string) => {
     if (name.includes('계량') || name.includes('미터')) return Gauge;
-    if (name.includes('시험') || name.includes('검사장비')) return FlaskConical;
-    if (name.includes('차량')) return Truck;
+    if (name.includes('시험')) return FlaskConical;
+    if (name.includes('검사차량') || name.includes('차량')) return Truck;
+    if (name.includes('검사장비') || name.includes('검사')) return ClipboardCheck;
     return Package;
   };
 
