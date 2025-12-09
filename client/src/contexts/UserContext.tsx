@@ -16,7 +16,11 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(auth.getCurrentUserId());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    const savedId = auth.getCurrentUserId();
+    return savedId && savedId.length > 0 ? savedId : null;
+  });
+  const [initialized, setInitialized] = useState(false);
 
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -29,8 +33,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (users.length > 0) {
-      const savedUser = users.find(u => u.id === currentUserId);
+    if (users.length > 0 && !initialized) {
+      const savedUser = currentUserId ? users.find(u => u.id === currentUserId) : null;
       if (!savedUser) {
         const adminUser = users.find(u => u.role === 'admin' && u.username === '시스템 관리자');
         const fallbackAdmin = adminUser || users.find(u => u.role === 'admin');
@@ -39,8 +43,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           auth.setCurrentUserId(fallbackAdmin.id);
         }
       }
+      setInitialized(true);
     }
-  }, [users, currentUserId]);
+  }, [users, currentUserId, initialized]);
 
   const currentUser = users.find(u => u.id === currentUserId) || null;
   const currentTeam = currentUser ? teams.find(t => t.id === currentUser.teamId) || null : null;
