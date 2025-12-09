@@ -11,7 +11,7 @@ import {
   Pie,
   Cell
 } from "recharts";
-import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package } from "lucide-react";
 import { Asset, Category, InspectionLog, User } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -53,14 +53,22 @@ export default function Dashboard() {
   const complianceRate = totalAssets > 0 ? Math.round(((totalAssets - overdueAssets) / totalAssets) * 100) : 100;
 
   const statusData = [
-    { name: '정상', value: okAssets, color: 'var(--status-ok)' },
-    { name: '임박', value: upcomingAssets, color: 'var(--status-warning)' },
-    { name: '지연', value: overdueAssets, color: 'var(--status-error)' },
+    { name: '정상', value: okAssets, color: '#22c55e' },
+    { name: '임박', value: upcomingAssets, color: '#eab308' },
+    { name: '지연', value: overdueAssets, color: '#ef4444' },
   ];
+
+  const getCategoryIcon = (name: string) => {
+    if (name.includes('계량') || name.includes('미터')) return Gauge;
+    if (name.includes('시험') || name.includes('검사장비')) return FlaskConical;
+    if (name.includes('차량')) return Truck;
+    return Package;
+  };
 
   const categoryData = categories.map(cat => ({
     name: cat.name,
     value: assets.filter(a => a.categoryId === cat.id).length,
+    icon: getCategoryIcon(cat.name),
   })).filter(c => c.value > 0);
 
   const getUserName = (id: string) => users.find(u => u.id === id)?.username || '알 수 없음';
@@ -183,31 +191,40 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="pl-2">
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex justify-center gap-6 mt-4">
+                <div className="relative">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={85}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {statusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ height: 200 }}>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold">{totalAssets}</div>
+                      <div className="text-xs text-muted-foreground">전체</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-4 mt-2">
                   {statusData.map((item) => (
-                    <div key={item.name} className="flex items-center gap-2">
+                    <div key={item.name} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: `${item.color}15` }}>
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-sm text-muted-foreground">{item.name} ({item.value})</span>
+                      <span className="text-sm font-medium" style={{ color: item.color }}>{item.name}</span>
+                      <span className="text-sm font-bold" style={{ color: item.color }}>{item.value}</span>
                     </div>
                   ))}
                 </div>
@@ -221,22 +238,34 @@ export default function Dashboard() {
               <CardDescription>종류별 장비 수</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
+              <div className="space-y-4">
                 {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={categoryData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        cursor={{ fill: 'hsl(var(--muted))' }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      />
-                      <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={32} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  categoryData.map((cat) => {
+                    const IconComponent = cat.icon;
+                    const maxValue = Math.max(...categoryData.map(c => c.value));
+                    const percentage = maxValue > 0 ? (cat.value / maxValue) * 100 : 0;
+                    return (
+                      <div key={cat.name} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <IconComponent className="h-4 w-4 text-primary" />
+                            </div>
+                            <span className="text-sm font-medium">{cat.name}</span>
+                          </div>
+                          <span className="text-lg font-bold text-primary">{cat.value}개</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
                     카테고리 데이터가 없습니다
                   </div>
                 )}
