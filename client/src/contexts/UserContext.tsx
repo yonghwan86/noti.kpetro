@@ -55,13 +55,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCurrentUserId(userId);
   };
 
+  const isReady = !usersLoading && !teamsLoading && initialized && currentUser !== null;
+
+  if (usersLoading || teamsLoading || !initialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">시스템 초기화 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <UserContext.Provider value={{
       currentUser,
       currentTeam,
       users,
       teams,
-      isLoading: usersLoading || teamsLoading,
+      isLoading: !isReady,
       switchUser,
     }}>
       {children}
