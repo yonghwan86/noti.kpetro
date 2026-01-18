@@ -27,7 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload } from "lucide-react";
+import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
@@ -233,7 +234,22 @@ export default function Team() {
         <TabsContent value="teams" className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">해당 팀장님의 이메일과 휴대폰으로 등록해주시길 바랍니다.</p>
-            <AddTeamDialog />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-2" asChild>
+                <a href="/api/teams/export" download>
+                  <Download className="h-4 w-4" />
+                  엑셀 다운로드
+                </a>
+              </Button>
+              <ExcelImportDialog
+                title="팀 엑셀 업로드"
+                description="엑셀 파일에서 팀 목록을 일괄 등록합니다."
+                templateUrl="/api/teams/template"
+                importUrl="/api/teams/import"
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/teams"] })}
+              />
+              <AddTeamDialog />
+            </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm">
             <Table>
@@ -297,7 +313,20 @@ export default function Team() {
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <a href="/api/users/export" download>
+                <Download className="h-4 w-4" />
+                엑셀 다운로드
+              </a>
+            </Button>
+            <ExcelImportDialog
+              title="사용자 엑셀 업로드"
+              description="엑셀 파일에서 사용자 목록을 일괄 등록합니다. 역할은 '마스터', '장비관리자', '담당자' 중 하나로 입력하세요."
+              templateUrl="/api/users/template"
+              importUrl="/api/users/import"
+              onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+            />
             <AddAdminDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm">
@@ -381,7 +410,20 @@ export default function Team() {
         </TabsContent>
 
         <TabsContent value="staff" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <a href="/api/users/export" download>
+                <Download className="h-4 w-4" />
+                엑셀 다운로드
+              </a>
+            </Button>
+            <ExcelImportDialog
+              title="사용자 엑셀 업로드"
+              description="엑셀 파일에서 사용자 목록을 일괄 등록합니다."
+              templateUrl="/api/users/template"
+              importUrl="/api/users/import"
+              onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+            />
             <AddStaffDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm">

@@ -42,8 +42,10 @@ import {
   Trash2,
   MoreHorizontal,
   Tags,
-  Eye
+  Eye,
+  Download
 } from "lucide-react";
+import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -179,6 +181,23 @@ export default function Assets() {
           <p className="text-muted-foreground">{getRoleDescription()}</p>
         </div>
         <div className="flex gap-2">
+          {auth.canAddAsset(currentUser) && (
+            <>
+              <Button variant="outline" size="sm" className="gap-2" asChild>
+                <a href="/api/assets/export" download>
+                  <Download className="h-4 w-4" />
+                  엑셀 다운로드
+                </a>
+              </Button>
+              <ExcelImportDialog
+                title="장비 엑셀 업로드"
+                description="엑셀 파일에서 장비 목록을 일괄 등록합니다. 카테고리, 팀, 관리자명은 기존 등록된 이름과 동일해야 합니다."
+                templateUrl="/api/assets/template"
+                importUrl="/api/assets/import"
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/assets"] })}
+              />
+            </>
+          )}
           {auth.canManageCategories(currentUser) && (
             <ManageCategoriesDialog categories={categories} users={users} />
           )}
