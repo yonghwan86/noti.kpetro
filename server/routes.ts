@@ -9,15 +9,15 @@ import {
   insertAssetSchema,
   insertInspectionLogSchema 
 } from "@shared/schema";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  setupEmailAuth(app);
+  registerEmailAuthRoutes(app);
   
   app.get("/api/teams", async (req, res) => {
     try {

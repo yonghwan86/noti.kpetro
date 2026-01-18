@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import type { User, Asset } from "@shared/schema";
-import { authStorage } from "./replit_integrations/auth/storage";
+import { getUserById } from "./emailAuth";
 
 export type Role = 'admin' | 'manager' | 'staff';
 
@@ -56,30 +56,21 @@ export const auth = {
 };
 
 export async function getCurrentUser(req: Request): Promise<User | null> {
-  const sessionUser = (req as any).user;
+  const userId = (req.session as any)?.userId;
   
-  if (!sessionUser || !sessionUser.claims?.sub) {
+  if (!userId) {
     return null;
   }
 
-  const replitId = sessionUser.claims.sub;
-  const email = sessionUser.claims.email;
-
-  let user = await authStorage.getUser(replitId);
-  
-  if (!user && email) {
-    const userByEmail = await authStorage.findUserByEmail(email);
-    if (userByEmail) {
-      user = await authStorage.linkReplitIdToUser(userByEmail.id, replitId);
-    }
-  }
-  
+  const user = await getUserById(userId);
   return user || null;
 }
 
 export function requireAuth(allowedRoles?: Role[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated || !req.isAuthenticated()) {
+    const userId = (req.session as any)?.userId;
+    
+    if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
