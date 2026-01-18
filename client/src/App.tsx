@@ -14,7 +14,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 
 function AuthenticatedRouter() {
-  const { currentUser, isLoading, isAuthenticated, isRegistered } = useUser();
+  const { currentUser, isLoading, isAuthenticated } = useUser();
 
   if (isLoading) {
     return (
@@ -24,7 +24,7 @@ function AuthenticatedRouter() {
     );
   }
 
-  if (!isAuthenticated || !isRegistered || !currentUser) {
+  if (!isAuthenticated || !currentUser) {
     return <Login />;
   }
 

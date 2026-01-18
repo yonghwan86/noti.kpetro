@@ -54,7 +54,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
-  const { currentUser, currentTeam, users, switchUser, isAuthenticated, login, logout } = useUser();
+  const { currentUser, currentTeam, users, switchUser, logout } = useUser();
   const [location, setLocation] = useLocation();
   const [openSearch, setOpenSearch] = useState(false);
 
@@ -236,11 +236,6 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
             </DropdownMenu>
           )}
 
-          {!currentUser && (
-            <Button onClick={login} data-testid="button-login">
-              로그인
-            </Button>
-          )}
         </div>
       </div>
 
