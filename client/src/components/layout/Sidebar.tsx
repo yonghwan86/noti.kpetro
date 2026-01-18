@@ -5,13 +5,20 @@ import {
   Users, 
   Settings, 
   ShieldCheck,
-  Activity
+  Activity,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { auth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+  isMobile?: boolean;
+}
+
+export function Sidebar({ onClose, isMobile }: SidebarProps) {
   const [location] = useLocation();
   const { currentUser } = useUser();
 
@@ -22,11 +29,29 @@ export function Sidebar() {
     { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
   ].filter(item => item.show);
 
+  const handleNavClick = () => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
+
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      <div className="flex h-16 items-center px-6 border-b border-sidebar-border/40">
-        <ShieldCheck className="h-6 w-6 text-sidebar-primary mr-2" />
-        <span className="text-lg font-bold tracking-tight">장비관리시스템</span>
+      <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border/40">
+        <div className="flex items-center">
+          <ShieldCheck className="h-6 w-6 text-sidebar-primary mr-2" />
+          <span className="text-lg font-bold tracking-tight">장비관리시스템</span>
+        </div>
+        {isMobile && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose}
+            className="text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-3">
@@ -34,7 +59,7 @@ export function Sidebar() {
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link key={item.name} href={item.href}>
+              <Link key={item.name} href={item.href} onClick={handleNavClick}>
                 <span
                   className={cn(
                     "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
@@ -62,7 +87,7 @@ export function Sidebar() {
             시스템
           </div>
           <nav className="space-y-1">
-            <Link href="/logs">
+            <Link href="/logs" onClick={handleNavClick}>
               <span className={cn(
                 "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
                 location === '/logs'

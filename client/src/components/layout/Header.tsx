@@ -11,7 +11,8 @@ import {
   FileText,
   Shield,
   Wrench,
-  UserCheck
+  UserCheck,
+  Menu
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -47,7 +48,12 @@ import { auth } from "@/lib/auth";
 import { Asset, InspectionLog } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+  showMenuButton?: boolean;
+}
+
+export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
   const { currentUser, currentTeam, users, switchUser } = useUser();
   const [location, setLocation] = useLocation();
   const [openSearch, setOpenSearch] = useState(false);
@@ -108,7 +114,7 @@ export function Header() {
 
   if (!currentUser) {
     return (
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-6 shadow-sm">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
         <div className="flex flex-1 items-center justify-center">
           <p className="text-muted-foreground">로딩 중...</p>
         </div>
@@ -119,16 +125,27 @@ export function Header() {
   const filteredAssets = auth.filterAssetsForUser(assets, currentUser);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-6 shadow-sm">
-      <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-foreground">{getPageTitle()}</h1>
-          {getRoleBadge(currentUser.role)}
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-2 md:gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
+      <div className="flex flex-1 gap-x-2 md:gap-x-4 self-stretch lg:gap-x-6">
+        <div className="flex items-center gap-2 md:gap-4">
+          {showMenuButton && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onMenuClick}
+              className="text-foreground"
+              data-testid="button-mobile-menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          <h1 className="text-base md:text-lg font-semibold text-foreground truncate">{getPageTitle()}</h1>
+          <span className="hidden sm:inline-flex">{getRoleBadge(currentUser.role)}</span>
         </div>
         
-        <div className="flex flex-1 items-center justify-end gap-x-4 lg:gap-x-6">
-          <div className="flex items-center gap-x-4">
-            <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => setOpenSearch(true)}>
+        <div className="flex flex-1 items-center justify-end gap-x-2 md:gap-x-4 lg:gap-x-6">
+          <div className="flex items-center gap-x-2 md:gap-x-4">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hidden sm:flex" onClick={() => setOpenSearch(true)}>
               <Search className="h-5 w-5" />
             </Button>
             
@@ -175,7 +192,7 @@ export function Header() {
             </Popover>
           </div>
           
-          <div className="h-6 w-px bg-border" aria-hidden="true" />
+          <div className="h-6 w-px bg-border hidden md:block" aria-hidden="true" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
