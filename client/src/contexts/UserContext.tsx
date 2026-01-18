@@ -54,9 +54,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   let currentUser: User | null = null;
   
   if (isAuthenticated && authStatus?.user) {
-    currentUser = authStatus.user;
-  } else if (devModeUserId) {
-    currentUser = users.find(u => u.id === devModeUserId) || null;
+    if (devModeUserId) {
+      currentUser = users.find(u => u.id === devModeUserId) || authStatus.user;
+    } else {
+      currentUser = authStatus.user;
+    }
   }
 
   const currentTeam = currentUser ? teams.find(t => t.id === currentUser.teamId) || null : null;
