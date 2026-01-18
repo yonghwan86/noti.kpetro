@@ -55,6 +55,15 @@ export async function setUserPassword(userId: string, password: string) {
   return updated;
 }
 
+export async function resetUserPassword(userId: string) {
+  const [updated] = await db
+    .update(users)
+    .set({ passwordHash: null })
+    .where(eq(users.id, userId))
+    .returning();
+  return updated;
+}
+
 export async function getUserById(userId: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   return user;

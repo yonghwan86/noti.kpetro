@@ -139,6 +139,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users/:id/reset-password", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const { resetUserPassword } = await import("./emailAuth");
+      const updated = await resetUserPassword(req.params.id);
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ success: true, message: "비밀번호가 초기화되었습니다." });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
   app.get("/api/assets", async (req, res) => {
     try {
       const assets = await storage.getAssets();

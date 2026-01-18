@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
@@ -118,6 +118,23 @@ export default function Team() {
       });
     },
   });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) => fetch(`/api/users/${id}/reset-password`, { method: 'POST' }).then(res => res.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "비밀번호 초기화됨",
+        description: "사용자가 다음 로그인 시 새 비밀번호를 설정할 수 있습니다.",
+      });
+    },
+  });
+
+  const handleResetPassword = (id: string, username: string) => {
+    if (confirm(`${username}님의 비밀번호를 초기화하시겠습니까?\n다음 로그인 시 새 비밀번호를 설정해야 합니다.`)) {
+      resetPasswordMutation.mutate(id);
+    }
+  };
 
   if (!auth.canManageTeams(currentUser)) {
     return (
@@ -336,6 +353,12 @@ export default function Team() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
                               <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <DropdownMenuItem 
+                                onClick={() => handleResetPassword(user.id, user.username)}
+                              >
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                비밀번호 초기화
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive"
@@ -410,6 +433,12 @@ export default function Team() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
                               <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <DropdownMenuItem 
+                                onClick={() => handleResetPassword(user.id, user.username)}
+                              >
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                비밀번호 초기화
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive"
