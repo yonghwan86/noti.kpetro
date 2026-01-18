@@ -112,29 +112,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
     }
   };
 
-  if (!currentUser) {
-    return (
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-2 md:gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
-        <div className="flex flex-1 gap-x-2 md:gap-x-4 self-stretch lg:gap-x-6">
-          <div className="flex items-center gap-2 md:gap-4">
-            {showMenuButton && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onMenuClick}
-                className="text-foreground"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-            )}
-            <h1 className="text-base md:text-lg font-semibold text-foreground truncate">장비관리시스템</h1>
-          </div>
-        </div>
-      </header>
-    );
-  }
-
-  const filteredAssets = auth.filterAssetsForUser(assets, currentUser);
+  const filteredAssets = currentUser ? auth.filterAssetsForUser(assets, currentUser) : [];
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-2 md:gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
@@ -152,7 +130,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
             </Button>
           )}
           <h1 className="text-base md:text-lg font-semibold text-foreground truncate">{getPageTitle()}</h1>
-          <span className="hidden sm:inline-flex">{getRoleBadge(currentUser.role)}</span>
+          {currentUser && <span className="hidden sm:inline-flex">{getRoleBadge(currentUser.role)}</span>}
         </div>
         
         <div className="flex flex-1 items-center justify-end gap-x-2 md:gap-x-4 lg:gap-x-6">
@@ -206,55 +184,57 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
           
           <div className="h-6 w-px bg-border hidden md:block" aria-hidden="true" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="-m-1.5 flex items-center p-1.5">
-                <span className="sr-only">Open user menu</span>
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`} />
-                  <AvatarFallback>U</AvatarFallback>
-                </Avatar>
-                <span className="hidden lg:flex lg:items-center">
-                  <span className="ml-4 text-sm font-semibold leading-6 text-foreground" aria-hidden="true">
-                    {currentUser.username}
+          {currentUser && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="-m-1.5 flex items-center p-1.5">
+                  <span className="sr-only">Open user menu</span>
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`} />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:flex lg:items-center">
+                    <span className="ml-4 text-sm font-semibold leading-6 text-foreground" aria-hidden="true">
+                      {currentUser.username}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </span>
-                  <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{currentUser.username}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {auth.getRoleName(currentUser.role as any)} • {currentTeam?.name || '팀 없음'}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>역할별 보기 전환</DropdownMenuLabel>
-              {['admin', 'manager', 'staff'].map((role) => {
-                const representativeUser = users.find(u => u.role === role);
-                if (!representativeUser) return null;
-                
-                return (
-                  <DropdownMenuItem 
-                    key={role}
-                    onClick={() => handleSwitchUser(representativeUser.id)}
-                    className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
-                  >
-                    {getRoleIcon(role)}
-                    <span className="ml-2">{auth.getRoleName(role as any)} 보기</span>
-                  </DropdownMenuItem>
-                );
-              })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>로그아웃</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{currentUser.username}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {auth.getRoleName(currentUser.role as any)} • {currentTeam?.name || '팀 없음'}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>역할별 보기 전환</DropdownMenuLabel>
+                {['admin', 'manager', 'staff'].map((role) => {
+                  const representativeUser = users.find(u => u.role === role);
+                  if (!representativeUser) return null;
+                  
+                  return (
+                    <DropdownMenuItem 
+                      key={role}
+                      onClick={() => handleSwitchUser(representativeUser.id)}
+                      className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
+                    >
+                      {getRoleIcon(role)}
+                      <span className="ml-2">{auth.getRoleName(role as any)} 보기</span>
+                    </DropdownMenuItem>
+                  );
+                })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>로그아웃</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
