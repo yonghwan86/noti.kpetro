@@ -252,7 +252,7 @@ export default function Team() {
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table>
+            <Table className="min-w-[500px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>팀명</TableHead>
@@ -330,7 +330,7 @@ export default function Team() {
             <AddAdminDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table>
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>
@@ -427,7 +427,7 @@ export default function Team() {
             <AddStaffDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table>
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[80px]">프로필</TableHead>

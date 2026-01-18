@@ -41,7 +41,7 @@ export default function Logs() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="로그 검색 (장비, 작업자, 내용)..." 
@@ -52,9 +52,9 @@ export default function Logs() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
+      <Card className="overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[180px]">일시</TableHead>
