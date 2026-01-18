@@ -61,10 +61,29 @@ export default function ExcelImportDialog({
         method: "POST",
         body: formData,
       });
+      
       const data = await response.json();
-      setResult(data);
+      
+      if (!response.ok) {
+        setResult({
+          success: false,
+          successCount: 0,
+          errorCount: 1,
+          errors: [{ row: 0, field: "", message: data.error || "서버 오류가 발생했습니다" }],
+        });
+        return;
+      }
+      
+      const normalizedResult: ImportResult = {
+        success: data.success ?? false,
+        successCount: data.successCount ?? 0,
+        errorCount: data.errorCount ?? (data.errors?.length ?? 0),
+        errors: Array.isArray(data.errors) ? data.errors : [],
+      };
+      
+      setResult(normalizedResult);
 
-      if (data.success || data.successCount > 0) {
+      if (normalizedResult.success || normalizedResult.successCount > 0) {
         onSuccess();
       }
     } catch (error) {
