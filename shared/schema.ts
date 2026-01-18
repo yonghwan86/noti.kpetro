@@ -42,10 +42,10 @@ export const users = pgTable("users", {
   teamId: varchar("team_id").notNull().references(() => teams.id),
   email: text("email"),
   phone: text("phone"),
-  replitId: varchar("replit_id").unique(),
+  passwordHash: text("password_hash"),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
