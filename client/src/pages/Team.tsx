@@ -213,14 +213,14 @@ export default function Team() {
       </div>
 
       <Tabs defaultValue="teams" className="space-y-4">
-        <div className="flex justify-between items-center">
-          <TabsList>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4"/> 팀</TabsTrigger>
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
             <TabsTrigger value="admins" className="gap-2"><ShieldAlert className="w-4 h-4"/> 관리자</TabsTrigger>
           </TabsList>
           
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="검색..."
@@ -232,13 +232,13 @@ export default function Team() {
         </div>
 
         <TabsContent value="teams" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">해당 팀장님의 이메일과 휴대폰으로 등록해주시길 바랍니다.</p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2" asChild>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <p className="text-sm text-muted-foreground hidden sm:block">해당 팀장님의 이메일과 휴대폰으로 등록해주시길 바랍니다.</p>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none" asChild>
                 <a href="/api/teams/export" download>
                   <Download className="h-4 w-4" />
-                  엑셀 다운로드
+                  다운로드
                 </a>
               </Button>
               <ExcelImportDialog
@@ -251,7 +251,7 @@ export default function Team() {
               <AddTeamDialog />
             </div>
           </div>
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -313,11 +313,11 @@ export default function Team() {
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <a href="/api/users/export" download>
                 <Download className="h-4 w-4" />
-                엑셀 다운로드
+                다운로드
               </a>
             </Button>
             <ExcelImportDialog
@@ -329,7 +329,7 @@ export default function Team() {
             />
             <AddAdminDialog teams={teams} />
           </div>
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -410,11 +410,11 @@ export default function Team() {
         </TabsContent>
 
         <TabsContent value="staff" className="space-y-4">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <a href="/api/users/export" download>
                 <Download className="h-4 w-4" />
-                엑셀 다운로드
+                다운로드
               </a>
             </Button>
             <ExcelImportDialog
@@ -426,7 +426,7 @@ export default function Team() {
             />
             <AddStaffDialog teams={teams} />
           </div>
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
