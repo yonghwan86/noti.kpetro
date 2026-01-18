@@ -25,7 +25,7 @@ async function handleResponse<T>(res: Response, errorMessage: string): Promise<T
 export const api = {
   teams: {
     getAll: async (): Promise<Team[]> => {
-      const res = await fetch(`${API_BASE}/teams`);
+      const res = await fetch(`${API_BASE}/teams`, { cache: 'no-store' });
       return handleResponse(res, "Failed to fetch teams");
     },
     create: async (team: Omit<Team, "id">): Promise<Team> => {
@@ -58,7 +58,7 @@ export const api = {
 
   categories: {
     getAll: async (): Promise<Category[]> => {
-      const res = await fetch(`${API_BASE}/categories`);
+      const res = await fetch(`${API_BASE}/categories`, { cache: 'no-store' });
       return handleResponse(res, "Failed to fetch categories");
     },
     create: async (category: Omit<Category, "id">): Promise<Category> => {
@@ -91,7 +91,7 @@ export const api = {
 
   users: {
     getAll: async (): Promise<User[]> => {
-      const res = await fetch(`${API_BASE}/users`);
+      const res = await fetch(`${API_BASE}/users`, { cache: 'no-store' });
       return handleResponse(res, "Failed to fetch users");
     },
     create: async (user: Omit<User, "id">): Promise<User> => {
@@ -124,7 +124,7 @@ export const api = {
 
   assets: {
     getAll: async (): Promise<Asset[]> => {
-      const res = await fetch(`${API_BASE}/assets`);
+      const res = await fetch(`${API_BASE}/assets`, { cache: 'no-store' });
       return handleResponse(res, "Failed to fetch assets");
     },
     create: async (asset: Omit<Asset, "id" | "status" | "nextDueDate"> & { inspectorId?: string }): Promise<Asset> => {
@@ -165,7 +165,7 @@ export const api = {
 
   logs: {
     getAll: async (): Promise<InspectionLog[]> => {
-      const res = await fetch(`${API_BASE}/logs`);
+      const res = await fetch(`${API_BASE}/logs`, { cache: 'no-store' });
       return handleResponse(res, "Failed to fetch logs");
     },
   },
