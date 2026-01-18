@@ -54,7 +54,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
-  const { currentUser, currentTeam, users, switchUser } = useUser();
+  const { currentUser, currentTeam, users, switchUser, isAuthenticated, login, logout } = useUser();
   const [location, setLocation] = useLocation();
   const [openSearch, setOpenSearch] = useState(false);
 
@@ -228,12 +228,18 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
                   );
                 })}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>로그아웃</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+
+          {!currentUser && (
+            <Button onClick={login} data-testid="button-login">
+              로그인
+            </Button>
           )}
         </div>
       </div>

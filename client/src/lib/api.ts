@@ -1,18 +1,17 @@
 import { Asset, Team, User, Category, InspectionLog } from "./types";
-import { auth as authHelper } from "./auth";
 
 const API_BASE = "/api";
 
 function getAuthHeaders(): HeadersInit {
-  const userId = authHelper.getCurrentUserId();
-  const headers: HeadersInit = {
+  return {
     "Content-Type": "application/json",
   };
-  if (userId) {
-    headers["x-user-id"] = userId;
-  }
-  return headers;
 }
+
+const fetchOptions = {
+  credentials: 'include' as RequestCredentials,
+  cache: 'no-store' as RequestCache,
+};
 
 async function handleResponse<T>(res: Response, errorMessage: string): Promise<T> {
   if (!res.ok) {
@@ -25,7 +24,7 @@ async function handleResponse<T>(res: Response, errorMessage: string): Promise<T
 export const api = {
   teams: {
     getAll: async (): Promise<Team[]> => {
-      const res = await fetch(`${API_BASE}/teams`, { cache: 'no-store' });
+      const res = await fetch(`${API_BASE}/teams`, fetchOptions);
       return handleResponse(res, "Failed to fetch teams");
     },
     create: async (team: Omit<Team, "id">): Promise<Team> => {
@@ -33,6 +32,7 @@ export const api = {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(team),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to create team");
     },
@@ -41,6 +41,7 @@ export const api = {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to update team");
     },
@@ -48,6 +49,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/teams/${id}`, { 
         method: "DELETE",
         headers: getAuthHeaders(),
+        ...fetchOptions,
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: "Failed to delete team" }));
@@ -58,7 +60,7 @@ export const api = {
 
   categories: {
     getAll: async (): Promise<Category[]> => {
-      const res = await fetch(`${API_BASE}/categories`, { cache: 'no-store' });
+      const res = await fetch(`${API_BASE}/categories`, fetchOptions);
       return handleResponse(res, "Failed to fetch categories");
     },
     create: async (category: Omit<Category, "id">): Promise<Category> => {
@@ -66,6 +68,7 @@ export const api = {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(category),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to create category");
     },
@@ -74,6 +77,7 @@ export const api = {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to update category");
     },
@@ -81,6 +85,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/categories/${id}`, { 
         method: "DELETE",
         headers: getAuthHeaders(),
+        ...fetchOptions,
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: "Failed to delete category" }));
@@ -91,7 +96,7 @@ export const api = {
 
   users: {
     getAll: async (): Promise<User[]> => {
-      const res = await fetch(`${API_BASE}/users`, { cache: 'no-store' });
+      const res = await fetch(`${API_BASE}/users`, fetchOptions);
       return handleResponse(res, "Failed to fetch users");
     },
     create: async (user: Omit<User, "id">): Promise<User> => {
@@ -99,6 +104,7 @@ export const api = {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(user),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to create user");
     },
@@ -107,6 +113,7 @@ export const api = {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to update user");
     },
@@ -114,6 +121,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/users/${id}`, { 
         method: "DELETE",
         headers: getAuthHeaders(),
+        ...fetchOptions,
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: "Failed to delete user" }));
@@ -124,7 +132,7 @@ export const api = {
 
   assets: {
     getAll: async (): Promise<Asset[]> => {
-      const res = await fetch(`${API_BASE}/assets`, { cache: 'no-store' });
+      const res = await fetch(`${API_BASE}/assets`, fetchOptions);
       return handleResponse(res, "Failed to fetch assets");
     },
     create: async (asset: Omit<Asset, "id" | "status" | "nextDueDate"> & { inspectorId?: string }): Promise<Asset> => {
@@ -132,6 +140,7 @@ export const api = {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(asset),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to create asset");
     },
@@ -140,6 +149,7 @@ export const api = {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to update asset");
     },
@@ -148,6 +158,7 @@ export const api = {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
+        ...fetchOptions,
       });
       return handleResponse(res, "Failed to update inspection");
     },
@@ -155,6 +166,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/assets/${id}`, { 
         method: "DELETE",
         headers: getAuthHeaders(),
+        ...fetchOptions,
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: "Failed to delete asset" }));
@@ -165,7 +177,7 @@ export const api = {
 
   logs: {
     getAll: async (): Promise<InspectionLog[]> => {
-      const res = await fetch(`${API_BASE}/logs`, { cache: 'no-store' });
+      const res = await fetch(`${API_BASE}/logs`, fetchOptions);
       return handleResponse(res, "Failed to fetch logs");
     },
   },

@@ -9,10 +9,25 @@ import Assets from "@/pages/Assets";
 import Team from "@/pages/Team";
 import Settings from "@/pages/Settings";
 import Logs from "@/pages/Logs";
+import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { UserProvider } from "@/contexts/UserContext";
+import { UserProvider, useUser } from "@/contexts/UserContext";
 
-function Router() {
+function AuthenticatedRouter() {
+  const { currentUser, isLoading, isAuthenticated, isRegistered } = useUser();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !isRegistered || !currentUser) {
+    return <Login />;
+  }
+
   return (
     <AppLayout>
       <Switch>
@@ -33,7 +48,7 @@ function App() {
       <UserProvider>
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <AuthenticatedRouter />
         </TooltipProvider>
       </UserProvider>
     </QueryClientProvider>

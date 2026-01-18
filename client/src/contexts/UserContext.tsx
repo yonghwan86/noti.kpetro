@@ -1,8 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User, Team } from "@/lib/types";
 import { api } from "@/lib/api";
-import { auth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
+
+interface AuthStatus {
+  authenticated: boolean;
+  registered?: boolean;
+  user?: User;
+  replitId?: string;
+  email?: string;
+  message?: string;
+}
 
 interface UserContextType {
   currentUser: User | null;
@@ -10,17 +18,30 @@ interface UserContextType {
   users: User[];
   teams: Team[];
   isLoading: boolean;
+  isAuthenticated: boolean;
+  isRegistered: boolean;
+  authMessage: string | null;
+  login: () => void;
+  logout: () => void;
   switchUser: (userId: string) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
-    const savedId = auth.getCurrentUserId();
-    return savedId && savedId.length > 0 ? savedId : null;
+  const [devModeUserId, setDevModeUserId] = useState<string | null>(null);
+
+  const { data: authStatus, isLoading: authLoading } = useQuery<AuthStatus>({
+    queryKey: ["/api/auth/user"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/user", { credentials: "include", cache: 'no-store' });
+      if (res.status === 401) {
+        return { authenticated: false };
+      }
+      return res.json();
+    },
+    retry: false,
   });
-  const [initialized, setInitialized] = useState(false);
 
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -32,27 +53,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
     queryFn: () => api.teams.getAll(),
   });
 
-  useEffect(() => {
-    if (users.length > 0 && !initialized) {
-      const savedUser = currentUserId ? users.find(u => u.id === currentUserId) : null;
-      if (!savedUser) {
-        const staffUser = users.find(u => u.role === 'staff');
-        const fallbackUser = staffUser || users.find(u => u.role === 'manager') || users.find(u => u.role === 'admin');
-        if (fallbackUser) {
-          setCurrentUserId(fallbackUser.id);
-          auth.setCurrentUserId(fallbackUser.id);
-        }
-      }
-      setInitialized(true);
-    }
-  }, [users, currentUserId, initialized]);
+  const isAuthenticated = authStatus?.authenticated ?? false;
+  const isRegistered = authStatus?.registered ?? false;
+  const authMessage = authStatus?.message || null;
+  
+  let currentUser: User | null = null;
+  
+  if (isAuthenticated && isRegistered && authStatus?.user) {
+    currentUser = authStatus.user;
+  } else if (devModeUserId) {
+    currentUser = users.find(u => u.id === devModeUserId) || null;
+  }
 
-  const currentUser = users.find(u => u.id === currentUserId) || null;
   const currentTeam = currentUser ? teams.find(t => t.id === currentUser.teamId) || null : null;
 
+  const login = () => {
+    window.location.href = "/api/login";
+  };
+
+  const logout = () => {
+    window.location.href = "/api/logout";
+  };
+
   const switchUser = (userId: string) => {
-    auth.setCurrentUserId(userId);
-    setCurrentUserId(userId);
+    setDevModeUserId(userId);
   };
 
   return (
@@ -61,7 +85,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       currentTeam,
       users,
       teams,
-      isLoading: usersLoading || teamsLoading,
+      isLoading: authLoading || usersLoading || teamsLoading,
+      isAuthenticated,
+      isRegistered,
+      authMessage,
+      login,
+      logout,
       switchUser,
     }}>
       {children}

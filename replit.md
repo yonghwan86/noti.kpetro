@@ -49,10 +49,14 @@ Preferred communication style: Simple, everyday language.
 - `/api/logs` - Inspection history and audit trails
 
 **Authentication & Authorization**: 
-- Currently uses a simplified session-based approach with user ID stored in localStorage and passed via `x-user-id` header
-- Role-based access control (RBAC) with three roles: admin, manager, staff
+- Uses Replit Auth (OpenID Connect) for secure login via Google, GitHub, or Apple
+- Pre-registration workflow: Admin creates users with email addresses, users login with Replit Auth, system matches by email
+- Session management via express-session with PostgreSQL session store (connect-pg-simple)
+- Database tables: `sessions` for session storage, `users.replit_id` links Replit identity to app users
+- Role-based access control (RBAC) with three roles: admin (마스터), manager (장비관리자), staff (담당자)
 - Permission middleware (`requireAuth`) enforces role requirements on protected routes
 - Authorization logic is centralized in `server/auth.ts`
+- Auth routes: `/api/login` (login), `/api/logout` (logout), `/api/auth/user` (get current user)
 
 **Business Logic**: 
 - Asset status calculation is automated based on inspection due dates (ok, upcoming within 7 days, overdue)
@@ -131,5 +135,17 @@ Preferred communication style: Simple, everyday language.
 **Notable Architectural Decisions**:
 - Shared schema definitions between client and server prevent type drift
 - Mock data utility exists but application is designed to work with real database
-- Session management prepared for connect-pg-simple (PostgreSQL session store) though simplified auth is currently active
+- Session management uses connect-pg-simple (PostgreSQL session store) for secure session persistence
 - Build process bundles specific server dependencies to optimize cold start performance on serverless platforms
+
+## Recent Changes
+
+### January 2026 - Replit Auth Integration
+- Integrated Replit Auth (OpenID Connect) for secure user authentication
+- Added `sessions` table for session storage
+- Added `replit_id` column to users table for linking Replit identities
+- Created Login page (`client/src/pages/Login.tsx`) that shows for unauthenticated users
+- Updated `UserContext` to check authentication status from `/api/auth/user`
+- Updated `requireAuth` middleware to use session-based auth instead of x-user-id header
+- Authentication flow: Admin pre-registers users with email → Users login via Replit → System matches by email and links Replit ID
+- Admin can edit user email and phone numbers via Team management page
