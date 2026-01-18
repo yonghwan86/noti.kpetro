@@ -36,11 +36,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (users.length > 0 && !initialized) {
       const savedUser = currentUserId ? users.find(u => u.id === currentUserId) : null;
       if (!savedUser) {
-        const adminUser = users.find(u => u.role === 'admin' && u.username === '시스템 관리자');
-        const fallbackAdmin = adminUser || users.find(u => u.role === 'admin');
-        if (fallbackAdmin) {
-          setCurrentUserId(fallbackAdmin.id);
-          auth.setCurrentUserId(fallbackAdmin.id);
+        const staffUser = users.find(u => u.role === 'staff');
+        const fallbackUser = staffUser || users.find(u => u.role === 'manager') || users.find(u => u.role === 'admin');
+        if (fallbackUser) {
+          setCurrentUserId(fallbackUser.id);
+          auth.setCurrentUserId(fallbackUser.id);
         }
       }
       setInitialized(true);
