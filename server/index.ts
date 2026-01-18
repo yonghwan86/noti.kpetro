@@ -3,6 +3,9 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
+const BUILD_VERSION = "v2.0.0-email-auth-20260118";
+console.log(`[SERVER] Starting with build version: ${BUILD_VERSION}`);
+
 const app = express();
 const httpServer = createServer(app);
 
