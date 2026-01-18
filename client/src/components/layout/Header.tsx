@@ -114,9 +114,21 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
 
   if (!currentUser) {
     return (
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-muted-foreground">로딩 중...</p>
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-2 md:gap-x-4 border-b border-border bg-background px-4 md:px-6 shadow-sm">
+        <div className="flex flex-1 gap-x-2 md:gap-x-4 self-stretch lg:gap-x-6">
+          <div className="flex items-center gap-2 md:gap-4">
+            {showMenuButton && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onMenuClick}
+                className="text-foreground"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
+            <h1 className="text-base md:text-lg font-semibold text-foreground truncate">장비관리시스템</h1>
+          </div>
         </div>
       </header>
     );
