@@ -2,8 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { initializeDatabase } from "./initDb";
 
-const BUILD_VERSION = "v2.0.0-email-auth-20260118";
+const BUILD_VERSION = "v2.1.0-auto-init-20260118";
 console.log(`[SERVER] Starting with build version: ${BUILD_VERSION}`);
 
 const app = express();
@@ -63,6 +64,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database with default data if empty (for production)
+  await initializeDatabase();
+  
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
