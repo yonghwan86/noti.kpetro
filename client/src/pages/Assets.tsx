@@ -180,13 +180,13 @@ export default function Assets() {
           <h2 className="text-2xl font-bold tracking-tight">장비 관리</h2>
           <p className="text-muted-foreground">{getRoleDescription()}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {auth.canAddAsset(currentUser) && (
             <>
               <Button variant="outline" size="sm" className="gap-2" asChild>
                 <a href="/api/assets/export" download>
                   <Download className="h-4 w-4" />
-                  엑셀 다운로드
+                  다운로드
                 </a>
               </Button>
               <ExcelImportDialog
@@ -230,8 +230,8 @@ export default function Assets() {
 
       {(assets.length > 0 || currentUser?.role === 'admin') && (
         <>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1 sm:max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="장비 검색..." 
@@ -241,7 +241,7 @@ export default function Assets() {
               />
             </div>
             <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="상태 필터" />
               </SelectTrigger>
@@ -254,8 +254,8 @@ export default function Assets() {
             </Select>
           </div>
 
-          <div className="rounded-md border bg-card shadow-sm">
-            <Table>
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+            <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>장비명</TableHead>
