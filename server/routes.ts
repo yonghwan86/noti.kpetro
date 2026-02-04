@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
+import { sendTestEmail, sendInspectionReminder } from "./emailService";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -394,6 +395,51 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import assets" });
+    }
+  });
+
+  // Email API endpoints
+  app.post("/api/email/test", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const { to } = req.body;
+      if (!to) {
+        return res.status(400).json({ error: "수신자 이메일 주소가 필요합니다" });
+      }
+      const result = await sendTestEmail(to);
+      if (result.success) {
+        res.json({ message: "테스트 이메일이 발송되었습니다", messageId: result.messageId });
+      } else {
+        res.status(500).json({ error: result.error || "이메일 발송 실패" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "이메일 발송 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.post("/api/email/team-test", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const { teamId } = req.body;
+      if (!teamId) {
+        return res.status(400).json({ error: "팀 ID가 필요합니다" });
+      }
+      const team = await storage.getTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ error: "팀을 찾을 수 없습니다" });
+      }
+      if (!team.contactEmail) {
+        return res.status(400).json({ error: "팀 연락처 이메일이 설정되어 있지 않습니다" });
+      }
+      const result = await sendTestEmail(team.contactEmail);
+      if (result.success) {
+        res.json({ 
+          message: `${team.name}(${team.contactEmail})으로 테스트 이메일이 발송되었습니다`, 
+          messageId: result.messageId 
+        });
+      } else {
+        res.status(500).json({ error: result.error || "이메일 발송 실패" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "이메일 발송 중 오류가 발생했습니다" });
     }
   });
 
