@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Mail } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -131,9 +131,41 @@ export default function Team() {
     },
   });
 
+  const sendTestEmailMutation = useMutation({
+    mutationFn: (teamId: string) => fetch('/api/email/team-test', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId })
+    }).then(res => {
+      if (!res.ok) {
+        return res.json().then(data => { throw new Error(data.error || '이메일 발송 실패'); });
+      }
+      return res.json();
+    }),
+    onSuccess: (data) => {
+      toast({
+        title: "테스트 이메일 발송 완료",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "이메일 발송 실패",
+        description: error.message || "이메일 발송 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleResetPassword = (id: string, username: string) => {
     if (confirm(`${username}님의 비밀번호를 초기화하시겠습니까?\n다음 로그인 시 새 비밀번호를 설정해야 합니다.`)) {
       resetPasswordMutation.mutate(id);
+    }
+  };
+
+  const handleSendTestEmail = (teamId: string, teamName: string, email: string) => {
+    if (confirm(`${teamName}(${email})으로 테스트 이메일을 발송하시겠습니까?`)) {
+      sendTestEmailMutation.mutate(teamId);
     }
   };
 
@@ -292,6 +324,15 @@ export default function Team() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
                               <EditTeamDialog team={team} teams={teams} onEdit={handleEditTeam} />
+                              {team.contactEmail && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleSendTestEmail(team.id, team.name, team.contactEmail!)}
+                                  disabled={sendTestEmailMutation.isPending}
+                                >
+                                  <Mail className="mr-2 h-4 w-4" />
+                                  테스트 메일 발송
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive"
