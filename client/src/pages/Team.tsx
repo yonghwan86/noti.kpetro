@@ -215,7 +215,7 @@ export default function Team() {
       <Tabs defaultValue="teams" className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4"/> 팀</TabsTrigger>
+            <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4"/> 관리팀</TabsTrigger>
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
             <TabsTrigger value="admins" className="gap-2"><ShieldAlert className="w-4 h-4"/> 관리자</TabsTrigger>
           </TabsList>
