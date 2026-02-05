@@ -211,9 +211,25 @@ export default function Dashboard() {
                         ))}
                       </Pie>
                       <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'white', padding: '8px 12px' }}
-                        formatter={(value: number, name: string, props: any) => [`${value}대`, props.payload.name]}
-                        labelFormatter={() => ''}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div style={{ 
+                                backgroundColor: 'white', 
+                                padding: '8px 12px', 
+                                borderRadius: '8px', 
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                border: `2px solid ${data.color}`
+                              }}>
+                                <p style={{ margin: 0, fontWeight: 'bold', color: data.color }}>
+                                  {data.name}: {data.value}대
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>

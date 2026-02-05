@@ -67,6 +67,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default function Assets() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
@@ -133,7 +134,8 @@ export default function Assets() {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === "all" || asset.categoryId === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
@@ -254,6 +256,30 @@ export default function Assets() {
             </Select>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={categoryFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter("all")}
+            >
+              <Tags className="w-4 h-4 mr-1" />
+              전체 ({assets.length})
+            </Button>
+            {categories.map((cat) => {
+              const count = assets.filter(a => a.categoryId === cat.id).length;
+              return (
+                <Button
+                  key={cat.id}
+                  variant={categoryFilter === cat.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCategoryFilter(cat.id)}
+                >
+                  {cat.name} ({count})
+                </Button>
+              );
+            })}
+          </div>
+
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table className="min-w-[900px]">
               <TableHeader>
@@ -273,7 +299,7 @@ export default function Assets() {
                 {filteredAssets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="h-24 text-center">
-                      {searchTerm || statusFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
+                      {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
                     </TableCell>
                   </TableRow>
                 ) : (
