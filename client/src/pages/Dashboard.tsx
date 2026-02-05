@@ -19,9 +19,11 @@ import { useUser } from "@/contexts/UserContext";
 import { auth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const { currentUser, currentTeam } = useUser();
+  const [, setLocation] = useLocation();
 
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
@@ -67,6 +69,7 @@ export default function Dashboard() {
   };
 
   const categoryData = categories.map(cat => ({
+    id: cat.id,
     name: cat.name,
     value: assets.filter(a => a.categoryId === cat.id).length,
     icon: getCategoryIcon(cat.name),
@@ -149,7 +152,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setLocation('/assets?status=upcoming')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">점검 임박</CardTitle>
             <Clock className="h-4 w-4 text-status-warning" />
@@ -160,7 +166,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setLocation('/assets?status=overdue')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">점검 지연</CardTitle>
             <AlertTriangle className="h-4 w-4 text-status-error" />
@@ -266,7 +275,11 @@ export default function Dashboard() {
                     const maxValue = Math.max(...categoryData.map(c => c.value));
                     const percentage = maxValue > 0 ? (cat.value / maxValue) * 100 : 0;
                     return (
-                      <div key={cat.name} className="space-y-2">
+                      <div 
+                        key={cat.name} 
+                        className="space-y-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg transition-colors -mx-2"
+                        onClick={() => setLocation(`/assets?category=${cat.id}`)}
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="p-2 rounded-lg bg-primary/10">

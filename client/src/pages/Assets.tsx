@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Asset, AssetStatus, Category, Team, User } from "@/lib/types";
+import { useLocation, useSearch } from "wouter";
 import { 
   Table, 
   TableBody, 
@@ -71,6 +72,20 @@ export default function Assets() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
+  const searchString = useSearch();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const status = params.get('status');
+    const category = params.get('category');
+    
+    if (status && ['ok', 'upcoming', 'overdue'].includes(status)) {
+      setStatusFilter(status as AssetStatus);
+    }
+    if (category) {
+      setCategoryFilter(category);
+    }
+  }, [searchString]);
 
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],

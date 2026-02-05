@@ -86,11 +86,11 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
   const getPageTitle = () => {
     switch (location) {
       case '/': return '대시보드';
-      case '/assets': return '장비 관리';
+      case '/assets': return '스케쥴 관리';
       case '/team': return '팀 현황';
       case '/settings': return '시스템 설정';
       case '/logs': return '활동 로그';
-      default: return '장비관리시스템';
+      default: return '스케쥴관리시스템';
     }
   };
 
@@ -250,7 +250,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
             </CommandItem>
             <CommandItem onSelect={() => { setLocation("/assets"); setOpenSearch(false); }}>
               <Box className="mr-2 h-4 w-4" />
-              장비 관리
+              스케쥴 관리
             </CommandItem>
             {auth.canManageTeams(currentUser) && (
               <CommandItem onSelect={() => { setLocation("/team"); setOpenSearch(false); }}>
