@@ -140,6 +140,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### February 2026 - Automated Email Notifications
+- Added Gmail integration using Replit Google Mail connector
+- Created `server/emailService.ts` for sending HTML emails via Gmail API
+- Created `server/scheduler.ts` with node-cron for daily inspection checks
+- Scheduler runs at 9:00 AM KST daily to check for assets with inspections due within 7 days
+- Automatic email reminders sent to team contact emails for upcoming inspections
+- Admin API endpoint `/api/email/check-inspections` for manual trigger
+- Email templates use Korean content with proper UTF-8 encoding
+
 ### January 2026 - Replit Auth Integration
 - Integrated Replit Auth (OpenID Connect) for secure user authentication
 - Added `sessions` table for session storage
