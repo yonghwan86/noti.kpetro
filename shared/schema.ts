@@ -18,6 +18,8 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   contactEmail: text("contact_email").notNull(),
   phone: text("phone"),
+  staffEmail: text("staff_email"),
+  staffPhone: text("staff_phone"),
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });

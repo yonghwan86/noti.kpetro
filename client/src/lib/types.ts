@@ -6,7 +6,9 @@ export interface Team {
   id: string;
   name: string;
   contactEmail: string;
-  phone?: string;
+  phone?: string | null;
+  staffEmail?: string | null;
+  staffPhone?: string | null;
 }
 
 export interface User {

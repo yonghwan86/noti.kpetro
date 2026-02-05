@@ -252,12 +252,14 @@ export default function Team() {
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[500px]">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>팀명</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>휴대폰</TableHead>
+                  <TableHead>팀장 이메일</TableHead>
+                  <TableHead>팀장 휴대폰</TableHead>
+                  <TableHead>담당자 이메일</TableHead>
+                  <TableHead>담당자 휴대폰</TableHead>
                   <TableHead>소속 인원</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -265,7 +267,7 @@ export default function Team() {
               <TableBody>
                 {filteredTeams.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       팀이 없습니다.
                     </TableCell>
                   </TableRow>
@@ -275,6 +277,8 @@ export default function Team() {
                       <TableCell className="font-medium">{team.name}</TableCell>
                       <TableCell>{team.contactEmail}</TableCell>
                       <TableCell>{team.phone || "-"}</TableCell>
+                      <TableCell>{team.staffEmail || "-"}</TableCell>
+                      <TableCell>{team.staffPhone || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">
                           {users.filter(u => u.teamId === team.id).length} 명
@@ -1120,6 +1124,8 @@ function AddTeamDialog() {
       name: data.name,
       contactEmail: data.contactEmail,
       phone: data.phone || undefined,
+      staffEmail: data.staffEmail || undefined,
+      staffPhone: data.staffPhone || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
@@ -1157,23 +1163,48 @@ function AddTeamDialog() {
               placeholder="예: 시설관리팀"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="team-email">이메일</Label>
-              <Input
-                id="team-email"
-                type="email"
-                {...register("contactEmail", { required: true })}
-                placeholder="team@example.com"
-              />
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">팀장 연락처</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="team-email">이메일</Label>
+                <Input
+                  id="team-email"
+                  type="email"
+                  {...register("contactEmail", { required: true })}
+                  placeholder="leader@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="team-phone">휴대폰</Label>
+                <Input
+                  id="team-phone"
+                  {...register("phone")}
+                  placeholder="010-0000-0000"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="team-phone">휴대폰</Label>
-              <Input
-                id="team-phone"
-                {...register("phone")}
-                placeholder="010-0000-0000"
-              />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">담당자 연락처</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="staff-email">이메일</Label>
+                <Input
+                  id="staff-email"
+                  type="email"
+                  {...register("staffEmail")}
+                  placeholder="staff@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-phone">휴대폰</Label>
+                <Input
+                  id="staff-phone"
+                  {...register("staffPhone")}
+                  placeholder="010-0000-0000"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="mt-4">
@@ -1193,7 +1224,9 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
     defaultValues: {
       name: team.name,
       contactEmail: team.contactEmail,
-      phone: team.phone || ""
+      phone: team.phone || "",
+      staffEmail: team.staffEmail || "",
+      staffPhone: team.staffPhone || ""
     }
   });
 
@@ -1262,14 +1295,30 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
               )}
             </Popover>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-team-email">이메일</Label>
-              <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">팀장 연락처</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-team-email">이메일</Label>
+                <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-team-phone">휴대폰</Label>
+                <Input id="edit-team-phone" {...register("phone")} placeholder="010-0000-0000" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-team-phone">휴대폰</Label>
-              <Input id="edit-team-phone" {...register("phone")} placeholder="010-0000-0000" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-muted-foreground">담당자 연락처</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-staff-email">이메일</Label>
+                <Input id="edit-staff-email" {...register("staffEmail")} placeholder="staff@example.com" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-staff-phone">휴대폰</Label>
+                <Input id="edit-staff-phone" {...register("staffPhone")} placeholder="010-0000-0000" />
+              </div>
             </div>
           </div>
           <DialogFooter>
