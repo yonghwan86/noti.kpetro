@@ -69,15 +69,23 @@ export async function registerRoutes(
   app.get("/api/users", async (req, res) => {
     try {
       const users = await storage.getUsers();
-      res.json(users);
+      const safeUsers = users.map(({ passwordHash, ...user }) => ({
+        ...user,
+        hasPassword: !!passwordHash,
+      }));
+      res.json(safeUsers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
 
-  app.post("/api/users", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.post("/api/users", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
       const user = insertUserSchema.parse(req.body);
+      if (currentUser.role === 'manager' && user.role !== 'staff') {
+        return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 생성할 수 있습니다." });
+      }
       const created = await storage.createUser(user);
       res.status(201).json(created);
     } catch (error) {
@@ -85,8 +93,15 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/users/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.patch("/api/users/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const targetUser = await storage.getUser(req.params.id);
+        if (targetUser && targetUser.role !== 'staff') {
+          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 수정할 수 있습니다." });
+        }
+      }
       const updated = await storage.updateUser(req.params.id, req.body);
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
@@ -97,8 +112,15 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/users/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.delete("/api/users/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const targetUser = await storage.getUser(req.params.id);
+        if (targetUser && targetUser.role !== 'staff') {
+          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 삭제할 수 있습니다." });
+        }
+      }
       await storage.deleteUser(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -106,8 +128,15 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users/:id/reset-password", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.post("/api/users/:id/reset-password", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const targetUser = await storage.getUser(req.params.id);
+        if (targetUser && targetUser.role !== 'staff') {
+          return res.status(403).json({ error: "장비관리자는 담당자(staff)의 비밀번호만 초기화할 수 있습니다." });
+        }
+      }
       const { resetUserPassword } = await import("./emailAuth");
       const updated = await resetUserPassword(req.params.id);
       if (!updated) {

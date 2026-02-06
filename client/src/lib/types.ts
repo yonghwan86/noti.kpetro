@@ -21,6 +21,7 @@ export interface User {
   email?: string | null;
   phone?: string | null;
   avatar?: string;
+  hasPassword?: boolean;
 }
 
 export type AssetStatus = 'ok' | 'upcoming' | 'overdue';
