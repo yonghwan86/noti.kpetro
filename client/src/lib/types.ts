@@ -23,19 +23,13 @@ export interface User {
   avatar?: string;
 }
 
-export interface Category {
-  id: string;
-  name: string;
-  managerId?: string | null;
-}
-
 export type AssetStatus = 'ok' | 'upcoming' | 'overdue';
 
 export interface Asset {
   id: string;
   name: string;
   serialNumber: string;
-  categoryId: string;
+  categoryId?: string | null;
   teamId: string; // Managing Team (관리 팀)
   managerId: string; // Equipment Manager (장비 관리자)
   usageTeamId: string; // Usage Team (사용 팀)

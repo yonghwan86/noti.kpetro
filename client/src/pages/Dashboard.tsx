@@ -12,7 +12,7 @@ import {
   Cell
 } from "recharts";
 import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck } from "lucide-react";
-import { Asset, Category, InspectionLog, User } from "@/lib/types";
+import { Asset, InspectionLog, User } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -28,11 +28,6 @@ export default function Dashboard() {
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
     queryFn: () => api.assets.getAll(),
-  });
-
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-    queryFn: () => api.categories.getAll(),
   });
 
   const { data: logs = [] } = useQuery<InspectionLog[]>({
@@ -60,7 +55,7 @@ export default function Dashboard() {
     { name: '지연', value: overdueAssets, color: '#ef4444' },
   ];
 
-  const getCategoryIcon = (name: string) => {
+  const getManagerIcon = (name: string) => {
     if (name.includes('계량') || name.includes('미터')) return Gauge;
     if (name.includes('시험')) return FlaskConical;
     if (name.includes('검사차량') || name.includes('차량')) return Truck;
@@ -68,12 +63,15 @@ export default function Dashboard() {
     return Package;
   };
 
-  const categoryData = categories.map(cat => ({
-    id: cat.id,
-    name: cat.name,
-    value: assets.filter(a => a.categoryId === cat.id).length,
-    icon: getCategoryIcon(cat.name),
-  })).filter(c => c.value > 0);
+  const managerData = users
+    .filter(u => u.role === 'manager' || u.role === 'admin')
+    .map(manager => ({
+      id: manager.id,
+      name: manager.username,
+      value: assets.filter(a => a.managerId === manager.id).length,
+      icon: getManagerIcon(manager.username),
+    }))
+    .filter(m => m.value > 0);
 
   const getUserName = (id: string) => users.find(u => u.id === id)?.username || '알 수 없음';
   const getAssetName = (id: string) => allAssets.find(a => a.id === id)?.name || '알 수 없음';
@@ -264,30 +262,30 @@ export default function Dashboard() {
 
           <Card className="lg:col-span-3">
             <CardHeader>
-              <CardTitle>카테고리별 분포</CardTitle>
-              <CardDescription>종류별 장비 수</CardDescription>
+              <CardTitle>장비 구분별 분포</CardTitle>
+              <CardDescription>구분별 장비 수</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {categoryData.length > 0 ? (
-                  categoryData.map((cat) => {
-                    const IconComponent = cat.icon;
-                    const maxValue = Math.max(...categoryData.map(c => c.value));
-                    const percentage = maxValue > 0 ? (cat.value / maxValue) * 100 : 0;
+                {managerData.length > 0 ? (
+                  managerData.map((item) => {
+                    const IconComponent = item.icon;
+                    const maxValue = Math.max(...managerData.map(m => m.value));
+                    const percentage = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                     return (
                       <div 
-                        key={cat.name} 
+                        key={item.id} 
                         className="space-y-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg transition-colors -mx-2"
-                        onClick={() => setLocation(`/assets?category=${cat.id}`)}
+                        onClick={() => setLocation(`/assets?manager=${item.id}`)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="p-2 rounded-lg bg-primary/10">
                               <IconComponent className="h-4 w-4 text-primary" />
                             </div>
-                            <span className="text-sm font-medium">{cat.name}</span>
+                            <span className="text-sm font-medium">{item.name}</span>
                           </div>
-                          <span className="text-lg font-bold text-primary">{cat.value}개</span>
+                          <span className="text-lg font-bold text-primary">{item.value}개</span>
                         </div>
                         <div className="h-2 bg-muted rounded-full overflow-hidden">
                           <div 
@@ -300,7 +298,7 @@ export default function Dashboard() {
                   })
                 ) : (
                   <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                    카테고리 데이터가 없습니다
+                    장비 구분 데이터가 없습니다
                   </div>
                 )}
               </div>

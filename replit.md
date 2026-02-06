@@ -43,7 +43,6 @@ Preferred communication style: Simple, everyday language.
 
 **API Design**: RESTful API structure with resource-based endpoints:
 - `/api/teams` - Team CRUD operations
-- `/api/categories` - Category management
 - `/api/users` - User management
 - `/api/assets` - Asset CRUD and inspection operations
 - `/api/logs` - Inspection history and audit trails
@@ -77,16 +76,18 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design** (defined in `shared/schema.ts`):
 - **teams**: Organization teams with contact information
-- **categories**: Asset categories for classification
-- **users**: System users with roles and team assignments
+- **categories**: Asset categories (legacy table, no longer actively used - replaced by manager-based classification)
+- **users**: System users with roles and team assignments; managers represent equipment types (장비 구분)
 - **assets**: Equipment assets with detailed tracking fields including:
   - Basic info (name, serial number)
-  - Category and team relationships
-  - Manager and staff assignments
+  - Team relationships (managing team and usage team)
+  - Manager assignment (doubles as equipment type classification)
+  - Staff assignment (person in charge)
   - Inspection cycle configuration
   - Date tracking (last inspected, next due)
   - Computed status field
   - Optional notes
+  - categoryId (nullable, legacy field)
 - **inspectionLogs**: Historical record of inspections performed
 
 **Key Relationships**:
@@ -139,6 +140,16 @@ Preferred communication style: Simple, everyday language.
 - Build process bundles specific server dependencies to optimize cold start performance on serverless platforms
 
 ## Recent Changes
+
+### February 2026 - Manager-based Classification & Category Removal
+- Removed two-level category system (카테고리 → 관리 장비명), replaced with single-level manager-based classification (장비 구분)
+- Made assets.categoryId nullable in database schema
+- Removed all category CRUD API routes, Excel export/import/template routes
+- Updated Assets page: removed category filter/column/management, replaced with manager-based filtering
+- Updated Dashboard: replaced category distribution chart with manager-based equipment distribution
+- Updated Team page: simplified user management UI (removed "관리팀" tab, kept "사용자" and "관리자")
+- Updated admin table columns to: 장비 구분, 관리자, 소속팀, 이메일, 휴대폰, 역할, 관리
+- Excel import supports backward compatibility - accepts "장비 구분", "장비관리자", or legacy "카테고리" column names
 
 ### February 2026 - Automated Email Notifications
 - Added Gmail integration using Replit Google Mail connector

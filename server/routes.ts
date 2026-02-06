@@ -5,7 +5,6 @@ import { storage } from "./storage";
 import { auth, getCurrentUser, requireAuth } from "./auth";
 import { 
   insertTeamSchema, 
-  insertCategorySchema, 
   insertUserSchema, 
   insertAssetSchema,
   insertInspectionLogSchema 
@@ -64,46 +63,6 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete team" });
-    }
-  });
-
-  app.get("/api/categories", async (req, res) => {
-    try {
-      const categories = await storage.getCategories();
-      res.json(categories);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch categories" });
-    }
-  });
-
-  app.post("/api/categories", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const category = insertCategorySchema.parse(req.body);
-      const created = await storage.createCategory(category);
-      res.status(201).json(created);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid category data" });
-    }
-  });
-
-  app.patch("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const updated = await storage.updateCategory(req.params.id, req.body);
-      if (!updated) {
-        return res.status(404).json({ error: "Category not found" });
-      }
-      res.json(updated);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update category" });
-    }
-  });
-
-  app.delete("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      await storage.deleteCategory(req.params.id);
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete category" });
     }
   });
 
@@ -274,17 +233,6 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/categories/export", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const buffer = await excel.exportCategoriesToExcel();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=categories.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to export categories" });
-    }
-  });
-
   app.get("/api/users/export", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const buffer = await excel.exportUsersToExcel();
@@ -313,17 +261,6 @@ export async function registerRoutes(
       const buffer = excel.getTeamTemplate();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=teams_template.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to generate template" });
-    }
-  });
-
-  app.get("/api/categories/template", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const buffer = excel.getCategoryTemplate();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=categories_template.xlsx");
       res.send(buffer);
     } catch (error) {
       res.status(500).json({ error: "Failed to generate template" });
@@ -362,18 +299,6 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import teams" });
-    }
-  });
-
-  app.post("/api/categories/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "파일을 업로드해주세요" });
-      }
-      const result = await excel.importCategoriesFromExcel(req.file.buffer);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to import categories" });
     }
   });
 

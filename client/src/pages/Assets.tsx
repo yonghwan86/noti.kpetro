@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Asset, AssetStatus, Category, Team, User } from "@/lib/types";
+import { Asset, AssetStatus, Team, User } from "@/lib/types";
 import { useLocation, useSearch } from "wouter";
 import { 
   Table, 
@@ -68,7 +68,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default function Assets() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [managerFilter, setManagerFilter] = useState<string>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
@@ -77,24 +77,19 @@ export default function Assets() {
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     const status = params.get('status');
-    const category = params.get('category');
+    const manager = params.get('manager');
     
     if (status && ['ok', 'upcoming', 'overdue'].includes(status)) {
       setStatusFilter(status as AssetStatus);
     }
-    if (category) {
-      setCategoryFilter(category);
+    if (manager) {
+      setManagerFilter(manager);
     }
   }, [searchString]);
 
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
     queryFn: () => api.assets.getAll(),
-  });
-
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-    queryFn: () => api.categories.getAll(),
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
@@ -149,11 +144,10 @@ export default function Assets() {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || asset.categoryId === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+    const matchesManager = managerFilter === "all" || asset.managerId === managerFilter;
+    return matchesSearch && matchesStatus && matchesManager;
   });
 
-  const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || id;
   const getUserName = (id: string) => users.find(u => u.id === id)?.username || id;
 
@@ -208,19 +202,15 @@ export default function Assets() {
               </Button>
               <ExcelImportDialog
                 title="장비 엑셀 업로드"
-                description="엑셀 파일에서 장비 목록을 일괄 등록합니다. 카테고리, 팀, 관리자명은 기존 등록된 이름과 동일해야 합니다."
+                description="엑셀 파일에서 장비 목록을 일괄 등록합니다. 팀, 관리자명은 기존 등록된 이름과 동일해야 합니다."
                 templateUrl="/api/assets/template"
                 importUrl="/api/assets/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/assets"] })}
               />
             </>
           )}
-          {auth.canManageCategories(currentUser) && (
-            <ManageCategoriesDialog categories={categories} users={users} />
-          )}
           {auth.canAddAsset(currentUser) && (
             <AddAssetDialog 
-              categories={categories} 
               teams={teams} 
               users={users}
               currentUser={currentUser}
@@ -273,23 +263,24 @@ export default function Assets() {
 
           <div className="flex flex-wrap gap-2">
             <Button
-              variant={categoryFilter === "all" ? "default" : "outline"}
+              variant={managerFilter === "all" ? "default" : "outline"}
               size="sm"
-              onClick={() => setCategoryFilter("all")}
+              onClick={() => setManagerFilter("all")}
             >
               <Tags className="w-4 h-4 mr-1" />
               전체 ({assets.length})
             </Button>
-            {categories.map((cat) => {
-              const count = assets.filter(a => a.categoryId === cat.id).length;
+            {users.filter(u => u.role === 'manager' || u.role === 'admin').map((manager) => {
+              const count = assets.filter(a => a.managerId === manager.id).length;
+              if (count === 0) return null;
               return (
                 <Button
-                  key={cat.id}
-                  variant={categoryFilter === cat.id ? "default" : "outline"}
+                  key={manager.id}
+                  variant={managerFilter === manager.id ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setCategoryFilter(cat.id)}
+                  onClick={() => setManagerFilter(manager.id)}
                 >
-                  {cat.name} ({count})
+                  {manager.username} ({count})
                 </Button>
               );
             })}
@@ -300,8 +291,7 @@ export default function Assets() {
               <TableHeader>
                 <TableRow>
                   <TableHead>장비명</TableHead>
-                  <TableHead>카테고리</TableHead>
-                  <TableHead>관리 장비명</TableHead>
+                  <TableHead>장비 구분</TableHead>
                   <TableHead>담당자</TableHead>
                   <TableHead>담당팀</TableHead>
                   <TableHead>최근 점검일</TableHead>
@@ -313,8 +303,8 @@ export default function Assets() {
               <TableBody>
                 {filteredAssets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
-                      {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      {searchTerm || statusFilter !== 'all' || managerFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -324,7 +314,6 @@ export default function Assets() {
                         <div className="font-medium">{asset.name}</div>
                         <div className="text-xs text-muted-foreground font-mono">{asset.serialNumber}</div>
                       </TableCell>
-                      <TableCell>{getCategoryName(asset.categoryId)}</TableCell>
                       <TableCell>
                         <span className="text-sm">{getUserName(asset.managerId)}</span>
                       </TableCell>
@@ -355,7 +344,6 @@ export default function Assets() {
                                 <EditAssetDialog 
                                   asset={asset} 
                                   onEdit={handleEdit} 
-                                  categories={categories} 
                                   teams={teams}
                                   users={users}
                                 />
@@ -378,168 +366,6 @@ export default function Assets() {
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function ManageCategoriesDialog({ categories, users }: { categories: Category[], users: User[] }) {
-  const [newCategory, setNewCategory] = useState("");
-  const [newManagerId, setNewManagerId] = useState<string | undefined>(undefined);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  const managers = users.filter(u => u.role === 'manager' || u.role === 'admin');
-
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; managerId?: string }) => api.categories.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      setNewCategory("");
-      setNewManagerId(undefined);
-      toast({ title: "카테고리 추가됨", description: "카테고리가 추가되었습니다." });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.categories.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "카테고리 삭제됨", description: "카테고리가 삭제되었습니다.", variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; managerId?: string | null } }) => api.categories.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "카테고리 수정됨", description: "카테고리가 업데이트되었습니다." });
-    },
-  });
-
-  const handleAdd = () => {
-    if (newCategory.trim()) {
-      createMutation.mutate({ name: newCategory, managerId: newManagerId });
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id);
-  };
-
-  const handleEdit = (id: string, data: { name?: string; managerId?: string | null }) => {
-    updateMutation.mutate({ id, data });
-  };
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Tags className="w-4 h-4" /> 카테고리 관리
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>카테고리 관리</DialogTitle>
-          <DialogDescription>
-            장비 분류 카테고리와 기본 관리 장비명을 설정합니다.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="flex gap-2">
-            <Input 
-              placeholder="새 카테고리 이름" 
-              value={newCategory} 
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="flex-1"
-            />
-            <Select value={newManagerId || ""} onValueChange={(v) => setNewManagerId(v || undefined)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="관리 장비명 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {managers.map(m => (
-                  <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleAdd} disabled={!newCategory.trim()}>추가</Button>
-          </div>
-          <div className="border rounded-md divide-y max-h-[300px] overflow-y-auto">
-            {categories.map((category) => (
-              <CategoryItem 
-                key={category.id} 
-                category={category} 
-                managers={managers}
-                onEdit={handleEdit} 
-                onDelete={handleDelete} 
-              />
-            ))}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CategoryItem({ category, managers, onEdit, onDelete }: { 
-  category: Category, 
-  managers: User[],
-  onEdit: (id: string, data: { name?: string; managerId?: string | null }) => void, 
-  onDelete: (id: string) => void 
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(category.name);
-  const [editManagerId, setEditManagerId] = useState<string | undefined>(category.managerId || undefined);
-  
-  const currentManager = managers.find(m => m.id === category.managerId);
-
-  const handleSave = () => {
-    if (editName.trim()) {
-      onEdit(category.id, { name: editName, managerId: editManagerId || null });
-      setIsEditing(false);
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <div className="flex items-center gap-2 p-2 px-3">
-        <Input 
-          value={editName} 
-          onChange={(e) => setEditName(e.target.value)}
-          className="h-8 text-sm flex-1"
-        />
-        <Select value={editManagerId || ""} onValueChange={(v) => setEditManagerId(v || undefined)}>
-          <SelectTrigger className="w-[120px] h-8">
-            <SelectValue placeholder="관리 장비명" />
-          </SelectTrigger>
-          <SelectContent>
-            {managers.map(m => (
-              <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button size="sm" onClick={handleSave} className="h-8 px-2">저장</Button>
-        <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="h-8 px-2">취소</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center justify-between p-2 px-3 text-sm">
-      <div className="flex items-center gap-3">
-        <span className="font-medium">{category.name}</span>
-        {currentManager && (
-          <span className="text-muted-foreground text-xs">({currentManager.username})</span>
-        )}
-      </div>
-      <div className="flex gap-1">
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => setIsEditing(true)}>
-          <Pencil className="w-3 h-3" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(category.id)}>
-          <Trash2 className="w-3 h-3" />
-        </Button>
-      </div>
     </div>
   );
 }
@@ -600,13 +426,12 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, categories: Category[], teams: Team[], users: User[] }) {
+function EditAssetDialog({ asset, onEdit, teams, users }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: asset.name,
       serialNumber: asset.serialNumber,
-      categoryId: asset.categoryId,
       teamId: asset.teamId,
       managerId: asset.managerId,
       staffId: asset.staffId,
@@ -653,18 +478,7 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>카테고리</Label>
-              <Select defaultValue={asset.categoryId} onValueChange={(v) => setValue("categoryId", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>관리 장비명</Label>
+              <Label>장비 구분</Label>
               <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -674,8 +488,6 @@ function EditAssetDialog({ asset, onEdit, categories, teams, users }: { asset: A
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
@@ -744,9 +556,8 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ categories, teams, users, currentUser }: { categories: Category[], teams: Team[], users: User[], currentUser: User | null }) {
+function AddAssetDialog({ teams, users, currentUser }: { teams: Team[], users: User[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
-  const [selectedManagerId, setSelectedManagerId] = useState<string | undefined>(undefined);
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -754,20 +565,10 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
   const managers = users.filter(u => u.role === 'manager' || u.role === 'admin');
   const staffMembers = users.filter(u => u.role === 'staff');
 
-  const handleCategoryChange = (categoryId: string) => {
-    setValue("categoryId", categoryId);
-    const selectedCategory = categories.find(c => c.id === categoryId);
-    if (selectedCategory?.managerId) {
-      setSelectedManagerId(selectedCategory.managerId);
-      setValue("managerId", selectedCategory.managerId);
-    }
-  };
-
   const createMutation = useMutation({
     mutationFn: (data: any) => api.assets.create({
       name: data.name,
       serialNumber: data.serialNumber,
-      categoryId: data.categoryId,
       teamId: data.teamId,
       managerId: data.managerId || currentUser?.id || managers[0]?.id,
       usageTeamId: data.teamId,
@@ -781,7 +582,6 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
       queryClient.invalidateQueries({ queryKey: ["/api/logs"] });
       setOpen(false);
       reset();
-      setSelectedManagerId(undefined);
       toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
     },
   });
@@ -794,7 +594,6 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
     setOpen(isOpen);
     if (!isOpen) {
       reset();
-      setSelectedManagerId(undefined);
     }
   };
 
@@ -824,30 +623,16 @@ function AddAssetDialog({ categories, teams, users, currentUser }: { categories:
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>카테고리</Label>
-              <Select onValueChange={handleCategoryChange}>
+              <Label>장비 구분</Label>
+              <Select onValueChange={(v) => setValue("managerId", v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="종류 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>관리 장비명</Label>
-              <Select value={selectedManagerId} onValueChange={(v) => { setSelectedManagerId(v); setValue("managerId", v); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="관리 장비명 선택" />
+                  <SelectValue placeholder="장비 구분 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select onValueChange={(v) => setValue("teamId", v)}>

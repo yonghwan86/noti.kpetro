@@ -58,7 +58,7 @@ export const assets = pgTable("assets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   serialNumber: text("serial_number").notNull().unique(),
-  categoryId: varchar("category_id").notNull().references(() => categories.id),
+  categoryId: varchar("category_id"),
   teamId: varchar("team_id").notNull().references(() => teams.id),
   managerId: varchar("manager_id").notNull().references(() => users.id),
   usageTeamId: varchar("usage_team_id").notNull().references(() => teams.id),
@@ -72,6 +72,7 @@ export const assets = pgTable("assets", {
 
 export const insertAssetSchema = createInsertSchema(assets).omit({ 
   id: true,
+  categoryId: true,
   nextDueDate: true,
   status: true
 });

@@ -1,4 +1,4 @@
-import { Asset, Team, User, Category, InspectionLog } from "./types";
+import { Asset, Team, User, InspectionLog } from "./types";
 
 const API_BASE = "/api";
 
@@ -58,42 +58,6 @@ export const api = {
     },
   },
 
-  categories: {
-    getAll: async (): Promise<Category[]> => {
-      const res = await fetch(`${API_BASE}/categories`, fetchOptions);
-      return handleResponse(res, "Failed to fetch categories");
-    },
-    create: async (category: Omit<Category, "id">): Promise<Category> => {
-      const res = await fetch(`${API_BASE}/categories`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(category),
-        ...fetchOptions,
-      });
-      return handleResponse(res, "Failed to create category");
-    },
-    update: async (id: string, updates: Partial<Category>): Promise<Category> => {
-      const res = await fetch(`${API_BASE}/categories/${id}`, {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updates),
-        ...fetchOptions,
-      });
-      return handleResponse(res, "Failed to update category");
-    },
-    delete: async (id: string): Promise<void> => {
-      const res = await fetch(`${API_BASE}/categories/${id}`, { 
-        method: "DELETE",
-        headers: getAuthHeaders(),
-        ...fetchOptions,
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: "Failed to delete category" }));
-        throw new Error(error.error || "Failed to delete category");
-      }
-    },
-  },
-
   users: {
     getAll: async (): Promise<User[]> => {
       const res = await fetch(`${API_BASE}/users`, fetchOptions);
@@ -135,7 +99,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/assets`, fetchOptions);
       return handleResponse(res, "Failed to fetch assets");
     },
-    create: async (asset: Omit<Asset, "id" | "status" | "nextDueDate"> & { inspectorId?: string }): Promise<Asset> => {
+    create: async (asset: Omit<Asset, "id" | "status" | "nextDueDate" | "categoryId"> & { inspectorId?: string }): Promise<Asset> => {
       const res = await fetch(`${API_BASE}/assets`, {
         method: "POST",
         headers: getAuthHeaders(),
