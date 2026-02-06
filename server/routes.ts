@@ -61,8 +61,19 @@ export async function registerRoutes(
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete team" });
+    } catch (error: any) {
+      if (error.message?.startsWith("REFERENCED:")) {
+        const parts = error.message.split(":");
+        const count = parts[1];
+        const type = parts[2];
+        if (type === 'users') {
+          res.status(409).json({ error: `이 팀에 소속된 사용자가 ${count}명 있어 삭제할 수 없습니다. 먼저 사용자의 소속팀을 변경해주세요.` });
+        } else {
+          res.status(409).json({ error: `이 팀에 연결된 장비가 ${count}건 있어 삭제할 수 없습니다. 먼저 해당 장비의 팀을 변경해주세요.` });
+        }
+      } else {
+        res.status(500).json({ error: "팀 삭제에 실패했습니다." });
+      }
     }
   });
 
@@ -108,12 +119,24 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/users/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.delete("/api/users/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const targetUser = await storage.getUser(req.params.id);
+        if (targetUser && targetUser.role !== 'staff') {
+          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 삭제할 수 있습니다." });
+        }
+      }
       await storage.deleteUser(req.params.id);
       res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete user" });
+    } catch (error: any) {
+      if (error.message?.startsWith("REFERENCED:")) {
+        const count = error.message.split(":")[1];
+        res.status(409).json({ error: `이 사용자에게 연결된 장비가 ${count}건 있어 삭제할 수 없습니다. 먼저 해당 장비의 담당자 또는 장비관리자를 변경해주세요.` });
+      } else {
+        res.status(500).json({ error: "사용자 삭제에 실패했습니다." });
+      }
     }
   });
 

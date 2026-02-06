@@ -83,6 +83,13 @@ export default function Team() {
         variant: "destructive",
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "삭제 실패",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteTeamMutation = useMutation({
@@ -92,6 +99,13 @@ export default function Team() {
       toast({
         title: "팀 삭제됨",
         description: "팀이 시스템에서 제거되었습니다.",
+        variant: "destructive",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "삭제 실패",
+        description: error.message,
         variant: "destructive",
       });
     },

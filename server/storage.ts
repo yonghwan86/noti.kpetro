@@ -16,7 +16,7 @@ import {
   assets,
   inspectionLogs
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, or, desc } from "drizzle-orm";
 import { addMonths, parseISO, differenceInDays } from "date-fns";
 
 const calculateStatus = (nextDueDate: string): 'ok' | 'upcoming' | 'overdue' => {
@@ -82,6 +82,16 @@ export class PostgresStorage implements IStorage {
   }
 
   async deleteTeam(id: string): Promise<void> {
+    const referencedUsers = await db.select({ id: users.id }).from(users)
+      .where(eq(users.teamId, id));
+    if (referencedUsers.length > 0) {
+      throw new Error(`REFERENCED:${referencedUsers.length}:users`);
+    }
+    const referencedAssets = await db.select({ id: assets.id }).from(assets)
+      .where(or(eq(assets.teamId, id), eq(assets.usageTeamId, id)));
+    if (referencedAssets.length > 0) {
+      throw new Error(`REFERENCED:${referencedAssets.length}:assets`);
+    }
     await db.delete(teams).where(eq(teams.id, id));
   }
 
@@ -133,6 +143,16 @@ export class PostgresStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
+    const referencedAssets = await db.select({ id: assets.id }).from(assets)
+      .where(or(eq(assets.managerId, id), eq(assets.staffId, id)));
+    if (referencedAssets.length > 0) {
+      throw new Error(`REFERENCED:${referencedAssets.length}`);
+    }
+    const referencedLogs = await db.select({ id: inspectionLogs.id }).from(inspectionLogs)
+      .where(eq(inspectionLogs.inspectorId, id));
+    if (referencedLogs.length > 0) {
+      await db.delete(inspectionLogs).where(eq(inspectionLogs.inspectorId, id));
+    }
     await db.delete(users).where(eq(users.id, id));
   }
 
