@@ -164,11 +164,18 @@ export default function Team() {
   );
 
   const filteredStaffUsers = users.filter(
-    (user) =>
-      user.role === 'staff' &&
-      (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    (user) => {
+      if (user.role !== 'staff') return false;
+      if (isManager && currentUser) {
+        if (user.managerId !== currentUser.id) return false;
+      }
+      const search = searchTerm.toLowerCase();
+      return (
+        user.username.toLowerCase().includes(search) ||
+        (user.email || '').toLowerCase().includes(search) ||
+        teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(search)
+      );
+    }
   );
 
   const handleDeleteUser = (id: string) => {
@@ -325,7 +332,11 @@ export default function Team() {
 
         <TabsContent value="staff" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">장비를 사용하는 담당자 계정을 관리합니다. 이메일을 등록하면 로그인할 수 있습니다.</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              {isAdmin 
+                ? "회사 직원(담당자) 계정을 등록하고 관리합니다." 
+                : "내 장비 구분에 배정된 담당자 목록입니다. 담당자가 변경되면 수정할 수 있습니다."}
+            </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {isAdmin && (
                 <>
@@ -364,7 +375,9 @@ export default function Team() {
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">
-                      등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.
+                      {isAdmin 
+                        ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
+                        : '배정된 담당자가 없습니다.'}
                     </TableCell>
                   </TableRow>
                 ) : (
