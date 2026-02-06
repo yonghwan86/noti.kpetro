@@ -256,13 +256,14 @@ export default function Team() {
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
+                  <TableHead>로그인</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredManagers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
@@ -279,6 +280,17 @@ export default function Team() {
                       </TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
+                      <TableCell>
+                        {user.email ? (
+                          user.hasPassword ? (
+                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                          ) : (
+                            <Badge variant="outline">미설정</Badge>
+                          )
+                        ) : (
+                          <Badge variant="secondary">이메일 없음</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <DropdownMenu>
