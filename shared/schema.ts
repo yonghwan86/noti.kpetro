@@ -23,7 +23,9 @@ export const teams = pgTable("teams", {
   staffPhone: text("staff_phone"),
 });
 
-export const insertTeamSchema = createInsertSchema(teams).omit({ id: true });
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
+  type: z.enum(["management", "usage"]).default("management"),
+});
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
 

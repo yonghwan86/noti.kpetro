@@ -6,9 +6,12 @@ export async function exportTeamsToExcel(): Promise<Buffer> {
   const teams = await storage.getTeams();
   
   const data = teams.map(t => ({
+    "구분": t.type === 'management' ? '관리팀' : '사용자',
     "팀명": t.name,
-    "담당자 이메일": t.contactEmail,
-    "연락처": t.phone || "",
+    "팀장 이메일": t.contactEmail,
+    "팀장 휴대폰": t.phone || "",
+    "담당자 이메일": t.staffEmail || "",
+    "담당자 휴대폰": t.staffPhone || "",
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
@@ -109,25 +112,34 @@ export async function importTeamsFromExcel(buffer: Buffer): Promise<ImportResult
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
   
+  const typeMap: Record<string, string> = {
+    '관리팀': 'management',
+    '사용자': 'usage'
+  };
+  
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 2;
     
+    const typeLabel = row["구분"]?.toString().trim();
     const name = row["팀명"]?.toString().trim();
-    const contactEmail = row["담당자 이메일"]?.toString().trim();
-    const phone = row["연락처"]?.toString().trim() || null;
+    const contactEmail = (row["팀장 이메일"] || row["담당자 이메일"])?.toString().trim();
+    const phone = (row["팀장 휴대폰"] || row["연락처"])?.toString().trim() || null;
+    const staffEmail = row["담당자 이메일"]?.toString().trim() || null;
+    const staffPhone = row["담당자 휴대폰"]?.toString().trim() || null;
+    const type = (typeMap[typeLabel || ''] || 'management') as 'management' | 'usage';
     
     if (!name) {
       errors.push({ row: rowNum, field: "팀명", message: "필수 항목입니다" });
       continue;
     }
     if (!contactEmail) {
-      errors.push({ row: rowNum, field: "담당자 이메일", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "팀장 이메일", message: "필수 항목입니다" });
       continue;
     }
     
     try {
-      await storage.createTeam({ name, contactEmail, phone });
+      await storage.createTeam({ name, type, contactEmail, phone, staffEmail, staffPhone });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "팀명", message: e.message || "등록 실패" });
@@ -377,7 +389,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
 }
 
 export function getTeamTemplate(): Buffer {
-  const data = [{ "팀명": "예시팀", "담당자 이메일": "example@email.com", "연락처": "010-1234-5678" }];
+  const data = [{ "구분": "관리팀", "팀명": "예시팀", "팀장 이메일": "leader@email.com", "팀장 휴대폰": "010-1234-5678", "담당자 이메일": "staff@email.com", "담당자 휴대폰": "010-5678-1234" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "팀");

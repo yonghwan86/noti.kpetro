@@ -46,7 +46,9 @@ export async function registerRoutes(
 
   app.patch("/api/teams/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
-      const updated = await storage.updateTeam(req.params.id, req.body);
+      const updateSchema = insertTeamSchema.partial();
+      const validatedData = updateSchema.parse(req.body);
+      const updated = await storage.updateTeam(req.params.id, validatedData);
       if (!updated) {
         return res.status(404).json({ error: "Team not found" });
       }
