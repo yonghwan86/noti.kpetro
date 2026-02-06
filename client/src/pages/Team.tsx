@@ -210,15 +210,13 @@ export default function Team() {
 
       <Tabs defaultValue={isAdmin ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <TabsList>
-              {isAdmin && (
-                <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
-              )}
-              <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
-            </TabsList>
+          <TabsList className="w-full sm:w-auto">
+            {isAdmin && (
+              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
+            )}
+            <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
             {isAdmin && <AddMasterAccountDialog teams={teams} />}
-          </div>
+          </TabsList>
           
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -746,9 +744,13 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2" data-testid="button-add-master">
+        <button
+          type="button"
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 gap-2 hover:bg-accent hover:text-accent-foreground"
+          data-testid="button-add-master"
+        >
           <Shield className="w-4 h-4" /> 마스터 계정 추가
-        </Button>
+        </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
