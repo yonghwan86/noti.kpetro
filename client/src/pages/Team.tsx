@@ -210,12 +210,15 @@ export default function Team() {
 
       <Tabs defaultValue={isAdmin ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <TabsList className="w-full sm:w-auto">
-            {isAdmin && (
-              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
-            )}
-            <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <TabsList>
+              {isAdmin && (
+                <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
+              )}
+              <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
+            </TabsList>
+            {isAdmin && <AddMasterAccountDialog teams={teams} />}
+          </div>
           
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -243,7 +246,6 @@ export default function Team() {
               importUrl="/api/users/import"
               onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
             />
-            <AddMasterAccountDialog teams={teams} />
             <AddEquipTypeDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
