@@ -145,7 +145,7 @@ export default function Team() {
             <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <CardTitle>접근 권한이 없습니다</CardTitle>
             <CardDescription>
-              팀 및 사용자 관리는 마스터 권한이 필요합니다. 
+              관리자 및 사용자 관리는 마스터 권한이 필요합니다. 
               필요한 경우 시스템 관리자에게 문의하세요.
             </CardDescription>
           </CardHeader>
@@ -206,9 +206,9 @@ export default function Team() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">팀 및 사용자 관리</h2>
+        <h2 className="text-2xl font-bold tracking-tight">관리자 및 사용자 관리</h2>
         <p className="text-muted-foreground">
-          팀 구조와 사용자 계정 권한을 관리합니다.
+          관리팀, 사용자, 관리자 계정을 관리합니다.
         </p>
       </div>
 
