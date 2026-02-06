@@ -158,7 +158,7 @@ export default function Team() {
 
   const filteredManagers = users.filter(
     (user) =>
-      user.role === 'manager' &&
+      (user.role === 'manager' || user.role === 'admin') &&
       (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -250,8 +250,8 @@ export default function Team() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>장비 구분</TableHead>
-                  <TableHead>관리자</TableHead>
+                  <TableHead>이름</TableHead>
+                  <TableHead>역할</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
@@ -268,8 +268,11 @@ export default function Team() {
                 ) : (
                   filteredManagers.map((user) => (
                     <TableRow key={user.id} data-testid={`row-equiptype-${user.id}`}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell>{user.fullName || "-"}</TableCell>
+                      <TableCell className="font-medium">
+                        {user.username}
+                        {user.fullName && <span className="text-muted-foreground text-xs ml-1">({user.fullName})</span>}
+                      </TableCell>
+                      <TableCell>{getRoleBadge(user.role as Role)}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
