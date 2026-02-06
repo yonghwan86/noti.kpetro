@@ -315,13 +315,14 @@ export default function Team() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">장비를 사용하는 담당자 계정을 관리합니다. 이메일을 등록하면 로그인할 수 있습니다.</p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <AddStaffUserDialog teams={teams} />
+              <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} />
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead>장비 구분</TableHead>
                   <TableHead>이름</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
@@ -333,13 +334,16 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStaffUsers.map((user) => (
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
+                      <TableCell>
+                        {user.managerId ? (users.find(u => u.id === user.managerId)?.username || "-") : "-"}
+                      </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
@@ -368,7 +372,7 @@ export default function Team() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <EditUserDialog user={user} teams={teams} managers={users.filter(u => u.role === 'manager')} onEdit={handleEditUser} />
                               {user.hasPassword && (
                                 <>
                                   <DropdownMenuSeparator />
@@ -402,10 +406,11 @@ export default function Team() {
   );
 }
 
-function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
+function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: TeamType[], managers?: User[], onEdit: (id: string, data: Partial<User>) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState(teams.find(t => t.id === user.teamId)?.name || "");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState(user.managerId || "");
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       username: user.username,
@@ -428,7 +433,8 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
     }
     const submitData = {
       ...data,
-      teamId: matchedTeam?.id || data.teamId
+      teamId: matchedTeam?.id || data.teamId,
+      ...(managers ? { managerId: selectedManagerId || null } : {}),
     };
     onEdit(user.id, submitData);
     setOpen(false);
@@ -438,6 +444,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
     setOpen(isOpen);
     if (isOpen) {
       setTeamInput(teams.find(t => t.id === user.teamId)?.name || "");
+      setSelectedManagerId(user.managerId || "");
     }
   };
 
@@ -474,13 +481,30 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label htmlFor="edit-username">이름</Label>
-              <Input
-                id="edit-username"
-                {...register("username", { required: true })}
-              />
-            </div>
+            <>
+              {managers && managers.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-manager">장비 구분</Label>
+                  <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="장비 구분 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {managers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="edit-username">이름</Label>
+                <Input
+                  id="edit-username"
+                  {...register("username", { required: true })}
+                />
+              </div>
+            </>
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
@@ -849,10 +873,11 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   );
 }
 
-function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
+function AddStaffUserDialog({ teams, managers }: { teams: TeamType[], managers: User[] }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState("");
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -869,12 +894,14 @@ function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
       phone: data.phone || undefined,
       role: 'staff',
       teamId: data.teamId,
+      managerId: data.managerId || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
       setTeamInput("");
+      setSelectedManagerId("");
       toast({
         title: "사용자 추가 완료",
         description: "새로운 사용자 계정이 생성되었습니다. 이메일이 등록되어 있으면 로그인할 수 있습니다.",
@@ -894,7 +921,8 @@ function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
     }
     const submitData = {
       ...data,
-      teamId: matchedTeam?.id || data.teamId
+      teamId: matchedTeam?.id || data.teamId,
+      managerId: selectedManagerId || undefined,
     };
     createMutation.mutate(submitData);
   };
@@ -903,6 +931,7 @@ function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
     setOpen(isOpen);
     if (!isOpen) {
       setTeamInput("");
+      setSelectedManagerId("");
       reset();
     }
   };
@@ -920,6 +949,19 @@ function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
           <DialogDescription>장비를 사용하는 담당자 계정을 추가합니다. 이메일을 입력하면 해당 이메일로 로그인할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="staff-manager">장비 구분</Label>
+            <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
+              <SelectTrigger data-testid="select-staff-manager">
+                <SelectValue placeholder="장비 구분 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {managers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="staff-username">이름</Label>
             <Input

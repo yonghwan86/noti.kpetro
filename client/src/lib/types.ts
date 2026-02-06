@@ -18,6 +18,7 @@ export interface User {
   fullName?: string | null;
   role: Role;
   teamId: string;
+  managerId?: string | null;
   email?: string | null;
   phone?: string | null;
   avatar?: string;
