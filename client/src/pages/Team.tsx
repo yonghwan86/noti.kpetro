@@ -412,7 +412,6 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
       fullName: user.fullName || "",
       email: user.email || "",
       phone: user.phone || "",
-      role: user.role,
       teamId: user.teamId
     }
   });
@@ -534,19 +533,6 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 placeholder="010-0000-0000"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-role">역할</Label>
-            <Select defaultValue={user.role} onValueChange={(v) => setValue("role", v as Role)}>
-              <SelectTrigger>
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">마스터</SelectItem>
-                <SelectItem value="manager">장비 관리자</SelectItem>
-                <SelectItem value="staff">담당자</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit">저장</Button>
