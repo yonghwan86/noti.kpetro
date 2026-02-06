@@ -48,12 +48,12 @@ export async function exportUsersToExcel(): Promise<Buffer> {
   };
   
   const data = users.map(u => ({
-    "이름": u.username,
-    "실명": u.fullName || "",
-    "역할": roleMap[u.role] || u.role,
+    "장비 구분": u.username,
+    "관리자": u.fullName || "",
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
     "이메일": u.email || "",
-    "연락처": u.phone || "",
+    "휴대폰": u.phone || "",
+    "역할": roleMap[u.role] || u.role,
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
@@ -220,15 +220,15 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
     const row = rows[i];
     const rowNum = i + 2;
     
-    const username = row["이름"]?.toString().trim();
-    const fullName = row["실명"]?.toString().trim() || null;
+    const username = (row["장비 구분"] || row["이름"])?.toString().trim();
+    const fullName = (row["관리자"] || row["실명"])?.toString().trim() || null;
     const roleKor = row["역할"]?.toString().trim();
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
-    const phone = row["연락처"]?.toString().trim() || null;
+    const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
     
     if (!username) {
-      errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "장비 구분", message: "필수 항목입니다" });
       continue;
     }
     if (!roleKor) {
@@ -256,7 +256,7 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
       await storage.createUser({ username, fullName, role, teamId: team.id, email, phone });
       successCount++;
     } catch (e: any) {
-      errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
+      errors.push({ row: rowNum, field: "장비 구분", message: e.message || "등록 실패" });
     }
   }
   
@@ -405,7 +405,7 @@ export function getCategoryTemplate(): Buffer {
 }
 
 export function getUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "실명": "", "역할": "담당자", "소속팀": "팀명", "이메일": "email@example.com", "연락처": "010-1234-5678" }];
+  const data = [{ "장비 구분": "계량기", "관리자": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678", "역할": "장비관리자" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
