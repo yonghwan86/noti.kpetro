@@ -270,7 +270,7 @@ export default function Assets() {
               <Tags className="w-4 h-4 mr-1" />
               전체 ({assets.length})
             </Button>
-            {users.filter(u => u.role === 'manager' || u.role === 'admin').map((manager) => {
+            {users.filter(u => u.role === 'manager').map((manager) => {
               const count = assets.filter(a => a.managerId === manager.id).length;
               if (count === 0) return null;
               return (
@@ -562,7 +562,7 @@ function AddAssetDialog({ teams, users, currentUser }: { teams: Team[], users: U
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const managers = users.filter(u => u.role === 'manager' || u.role === 'admin');
+  const managers = users.filter(u => u.role === 'manager');
   const staffMembers = users.filter(u => u.role === 'staff');
 
   const createMutation = useMutation({

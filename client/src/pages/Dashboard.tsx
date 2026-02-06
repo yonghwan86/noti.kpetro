@@ -64,7 +64,7 @@ export default function Dashboard() {
   };
 
   const managerData = users
-    .filter(u => u.role === 'manager' || u.role === 'admin')
+    .filter(u => u.role === 'manager')
     .map(manager => ({
       id: manager.id,
       name: manager.username,

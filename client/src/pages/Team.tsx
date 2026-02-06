@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -153,9 +153,9 @@ export default function Team() {
     );
   }
 
-  const filteredAdmins = users.filter(
+  const filteredManagers = users.filter(
     (user) =>
-      (user.role === 'admin' || user.role === 'manager') &&
+      user.role === 'manager' &&
       (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -199,17 +199,17 @@ export default function Team() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">사용자 관리</h2>
+        <h2 className="text-2xl font-bold tracking-tight">관리</h2>
         <p className="text-muted-foreground">
-          사용자 및 관리자 계정을 관리합니다.
+          장비 구분과 사용자를 관리합니다.
         </p>
       </div>
 
-      <Tabs defaultValue="staff" className="space-y-4">
+      <Tabs defaultValue="equipTypes" className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
-            <TabsTrigger value="admins" className="gap-2"><ShieldAlert className="w-4 h-4"/> 관리자</TabsTrigger>
           </TabsList>
           
           <div className="relative w-full sm:w-64">
@@ -223,7 +223,7 @@ export default function Team() {
           </div>
         </div>
 
-        <TabsContent value="admins" className="space-y-4">
+        <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <a href="/api/users/export" download>
@@ -232,16 +232,16 @@ export default function Team() {
               </a>
             </Button>
             <ExcelImportDialog
-              title="사용자 엑셀 업로드"
-              description="엑셀 파일에서 사용자 목록을 일괄 등록합니다. 역할은 '마스터', '장비관리자', '담당자' 중 하나로 입력하세요."
+              title="장비 구분 엑셀 업로드"
+              description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
               templateUrl="/api/users/template"
               importUrl="/api/users/import"
               onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
             />
-            <AddAdminDialog teams={teams} />
+            <AddEquipTypeDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[800px]">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>장비 구분</TableHead>
@@ -249,20 +249,19 @@ export default function Team() {
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
-                  <TableHead>역할</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAdmins.length === 0 ? (
+                {filteredManagers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      관리자가 없습니다.
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAdmins.map((user) => (
-                    <TableRow key={user.id}>
+                  filteredManagers.map((user) => (
+                    <TableRow key={user.id} data-testid={`row-equiptype-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>{user.fullName || "-"}</TableCell>
                       <TableCell>
@@ -270,7 +269,6 @@ export default function Team() {
                       </TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <DropdownMenu>
@@ -283,17 +281,10 @@ export default function Team() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
                               <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
-                              <DropdownMenuItem 
-                                onClick={() => handleResetPassword(user.id, user.username)}
-                              >
-                                <KeyRound className="mr-2 h-4 w-4" />
-                                비밀번호 초기화
-                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => handleDeleteUser(user.id)}
-                                disabled={user.role === 'admin'}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 삭제
@@ -312,7 +303,7 @@ export default function Team() {
 
         <TabsContent value="staff" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">카테고리를 사용하는 팀의 팀장 및 담당자 연락처를 관리합니다.</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">사용하는 팀의 팀장 및 담당자 연락처를 관리합니다.</p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <AddUsageTeamDialog />
             </div>
@@ -535,7 +526,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   );
 }
 
-function AddAdminDialog({ teams }: { teams: TeamType[] }) {
+function AddEquipTypeDialog({ teams }: { teams: TeamType[] }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
@@ -553,7 +544,7 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
       fullName: data.fullName || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
-      role: data.role,
+      role: 'manager',
       teamId: data.teamId,
     }),
     onSuccess: () => {
@@ -562,8 +553,8 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
       reset();
       setTeamInput("");
       toast({
-        title: "관리자 추가됨",
-        description: "새로운 관리자가 등록되었습니다.",
+        title: "장비 구분 등록 완료",
+        description: "새로운 장비 구분이 등록되었습니다.",
       });
     },
   });
@@ -573,7 +564,7 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
     if (!matchedTeam && !data.teamId) {
       toast({
         title: "팀 선택 필요",
-        description: "목록에서 팀을 선택해주세요.",
+        description: "목록에서 소속팀을 선택해주세요.",
         variant: "destructive",
       });
       return;
@@ -596,100 +587,89 @@ function AddAdminDialog({ teams }: { teams: TeamType[] }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2" variant="outline">
-          <Plus className="w-4 h-4" /> 관리자 추가
+        <Button className="gap-2" data-testid="button-add-equiptype">
+          <Plus className="w-4 h-4" /> 장비 구분 등록
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>관리자 추가</DialogTitle>
-          <DialogDescription>마스터 또는 장비 관리자를 등록합니다.</DialogDescription>
+          <DialogTitle>장비 구분 등록</DialogTitle>
+          <DialogDescription>장비 구분을 먼저 등록한 뒤, 장비 관리 페이지에서 해당 구분에 장비를 등록할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-username">장비 구분</Label>
+              <Label htmlFor="equip-type-name">장비 구분명</Label>
               <Input
-                id="admin-username"
+                id="equip-type-name"
                 {...register("username", { required: true })}
-                placeholder="계량기, 차량 등"
+                placeholder="검사장비, 차량 등"
+                data-testid="input-equiptype-name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-fullname">이름</Label>
+              <Label htmlFor="equip-manager-name">관리자명</Label>
               <Input
-                id="admin-fullname"
+                id="equip-manager-name"
                 {...register("fullName")}
                 placeholder="홍길동"
+                data-testid="input-equiptype-manager"
               />
             </div>
           </div>
+          <div className="space-y-2 relative">
+            <Label htmlFor="equip-team">소속 팀</Label>
+            <Input
+              id="equip-team"
+              value={teamInput}
+              onChange={(e) => {
+                setTeamInput(e.target.value);
+                setShowTeamSuggestions(true);
+              }}
+              onFocus={() => setShowTeamSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
+              placeholder="팀 이름 입력 또는 선택"
+              data-testid="input-equiptype-team"
+            />
+            {showTeamSuggestions && filteredTeams.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                {filteredTeams.map((t) => (
+                  <div
+                    key={t.id}
+                    className="px-3 py-2 cursor-pointer hover:bg-accent"
+                    onMouseDown={() => {
+                      setTeamInput(t.name);
+                      setValue("teamId", t.id);
+                      setShowTeamSuggestions(false);
+                    }}
+                  >
+                    {t.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 relative">
-              <Label htmlFor="admin-team">소속 팀</Label>
-              <Input
-                id="admin-team"
-                value={teamInput}
-                onChange={(e) => {
-                  setTeamInput(e.target.value);
-                  setShowTeamSuggestions(true);
-                }}
-                onFocus={() => setShowTeamSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
-                placeholder="팀 이름 입력 또는 선택"
-              />
-              {showTeamSuggestions && filteredTeams.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
-                  {filteredTeams.map((t) => (
-                    <div
-                      key={t.id}
-                      className="px-3 py-2 cursor-pointer hover:bg-accent"
-                      onMouseDown={() => {
-                        setTeamInput(t.name);
-                        setValue("teamId", t.id);
-                        setShowTeamSuggestions(false);
-                      }}
-                    >
-                      {t.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-email">이메일</Label>
+              <Label htmlFor="equip-email">이메일</Label>
               <Input
-                id="admin-email"
+                id="equip-email"
                 type="email"
                 {...register("email")}
                 placeholder="user@example.com"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-phone">휴대폰</Label>
+              <Label htmlFor="equip-phone">휴대폰</Label>
               <Input
-                id="admin-phone"
+                id="equip-phone"
                 {...register("phone")}
                 placeholder="010-0000-0000"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="admin-role">역할</Label>
-              <Select onValueChange={(v) => setValue("role", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">마스터</SelectItem>
-                  <SelectItem value="manager">장비 관리자</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button type="submit">등록</Button>
+            <Button type="submit" data-testid="button-submit-equiptype">등록</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -737,7 +717,7 @@ function AddUsageTeamDialog() {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>사용자 추가</DialogTitle>
-          <DialogDescription>카테고리를 사용하는 팀을 추가합니다.</DialogDescription>
+          <DialogDescription>장비를 사용하는 팀을 추가합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
