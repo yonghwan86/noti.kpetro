@@ -152,6 +152,17 @@ Preferred communication style: Simple, everyday language.
 - Manager dropdowns/lists consistently filter to show only role='manager' users (excludes admins)
 - Login flow: email/password auth (emailAuth.ts) - user created with email, sets password on first login
 
+### February 2026 - Staff User Account Management & Security
+- "사용자" tab redesigned to manage individual staff accounts (role='staff') from users table
+- Staff user list shows: 이름, 소속팀, 이메일, 휴대폰, 로그인 상태 (설정완료/미설정/이메일없음)
+- Added AddStaffUserDialog for creating staff accounts with name, team, email, phone
+- Added EditUserDialog for editing staff user details
+- Login status based on `hasPassword` boolean field (derived server-side from passwordHash)
+- Password reset option available for users who have already set passwords
+- Security: passwordHash never exposed in API responses; replaced with `hasPassword: boolean`
+- Security: Manager role restricted to staff-only operations (create/edit/delete/reset-password)
+- Admin retains full access to all user operations
+
 ### February 2026 - Manager-based Classification & Category Removal
 - Removed two-level category system (카테고리 → 관리 장비명), replaced with single-level manager-based classification (장비 구분)
 - Made assets.categoryId nullable in database schema
