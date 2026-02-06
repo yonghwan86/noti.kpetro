@@ -60,6 +60,8 @@ import {
 export default function Team() {
   const { currentUser } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
+  const [recentUserId, setRecentUserId] = useState<string | null>(null);
+  const [recentTeamId, setRecentTeamId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -124,7 +126,8 @@ export default function Team() {
 
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<User> }) => api.users.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      setRecentUserId(variables.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "사용자 수정됨",
@@ -170,14 +173,23 @@ export default function Team() {
     );
   }
 
-  const filteredManagers = users.filter(
+  const sortRecent = (list: User[], recentId: string | null) => {
+    if (!recentId) return list;
+    return [...list].sort((a, b) => {
+      if (a.id === recentId) return -1;
+      if (b.id === recentId) return 1;
+      return 0;
+    });
+  };
+
+  const filteredManagers = sortRecent(users.filter(
     (user) =>
       (user.role === 'manager' || user.role === 'admin') &&
       (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ), recentUserId);
 
-  const filteredStaffUsers = users.filter(
+  const filteredStaffUsers = sortRecent(users.filter(
     (user) => {
       if (user.role !== 'staff') return false;
       if (isManager && currentUser) {
@@ -190,7 +202,7 @@ export default function Team() {
         teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(search)
       );
     }
-  );
+  ), recentUserId);
 
   const handleDeleteUser = (id: string) => {
     deleteUserMutation.mutate(id);
@@ -266,7 +278,7 @@ export default function Team() {
               importUrl="/api/users/import"
               onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
             />
-            <AddEquipTypeDialog teams={teams} />
+            <AddEquipTypeDialog teams={teams} onCreated={setRecentUserId} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table className="min-w-[700px]">
@@ -367,7 +379,7 @@ export default function Team() {
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
                   />
-                  <AddStaffUserDialog teams={teams} />
+                  <AddStaffUserDialog teams={teams} onCreated={setRecentUserId} />
                 </>
               )}
             </div>
@@ -624,7 +636,7 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
   );
 }
 
-function AddEquipTypeDialog({ teams }: { teams: TeamType[] }) {
+function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
@@ -645,7 +657,8 @@ function AddEquipTypeDialog({ teams }: { teams: TeamType[] }) {
       role: 'manager',
       teamId: data.teamId,
     }),
-    onSuccess: () => {
+    onSuccess: (created: any) => {
+      if (created?.id && onCreated) onCreated(created.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
@@ -930,7 +943,7 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   );
 }
 
-function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
+function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
@@ -952,7 +965,8 @@ function AddStaffUserDialog({ teams }: { teams: TeamType[] }) {
       role: 'staff',
       teamId: data.teamId,
     }),
-    onSuccess: () => {
+    onSuccess: (created: any) => {
+      if (created?.id && onCreated) onCreated(created.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
