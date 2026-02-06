@@ -5,6 +5,7 @@ export type Role = 'admin' | 'manager' | 'staff';
 export interface Team {
   id: string;
   name: string;
+  type: 'management' | 'usage';
   contactEmail: string;
   phone?: string | null;
   staffEmail?: string | null;

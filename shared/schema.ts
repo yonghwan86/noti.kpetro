@@ -16,6 +16,7 @@ export const sessions = pgTable(
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  type: text("type").notNull().default("management"),
   contactEmail: text("contact_email").notNull(),
   phone: text("phone"),
   staffEmail: text("staff_email"),
