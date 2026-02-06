@@ -141,14 +141,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### February 2026 - Equipment Type Registration Workflow & Role Permissions
+- Renamed "관리자" tab to "장비 구분" tab with dedicated equipment type registration interface
+- Added `AddEquipTypeDialog` with simplified form (defaults role to manager, no role selector)
+- Added `AddMasterAccountDialog` for admin to create additional admin (마스터) accounts
+- Added `canAccessTeamPage` permission to allow both admin and manager roles to access Team page
+- Admin sees both tabs (장비 구분 + 사용자); Manager sees only 사용자 tab
+- Updated API routes: POST/PATCH/DELETE /api/teams now allow both admin and manager roles
+- Navigation label updated from "사용자 관리" to "장비 구분 관리" across Sidebar and Header
+- Manager dropdowns/lists consistently filter to show only role='manager' users (excludes admins)
+- Login flow: email/password auth (emailAuth.ts) - user created with email, sets password on first login
+
 ### February 2026 - Manager-based Classification & Category Removal
 - Removed two-level category system (카테고리 → 관리 장비명), replaced with single-level manager-based classification (장비 구분)
 - Made assets.categoryId nullable in database schema
 - Removed all category CRUD API routes, Excel export/import/template routes
 - Updated Assets page: removed category filter/column/management, replaced with manager-based filtering
 - Updated Dashboard: replaced category distribution chart with manager-based equipment distribution
-- Updated Team page: simplified user management UI (removed "관리팀" tab, kept "사용자" and "관리자")
-- Updated admin table columns to: 장비 구분, 관리자, 소속팀, 이메일, 휴대폰, 역할, 관리
 - Excel import supports backward compatibility - accepts "장비 구분", "장비관리자", or legacy "카테고리" column names
 
 ### February 2026 - Automated Email Notifications
