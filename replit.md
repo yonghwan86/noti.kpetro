@@ -154,14 +154,16 @@ Preferred communication style: Simple, everyday language.
 
 ### February 2026 - Staff User Account Management & Security
 - "사용자" tab redesigned to manage individual staff accounts (role='staff') from users table
-- Staff user list shows: 이름, 소속팀, 이메일, 휴대폰, 로그인 상태 (설정완료/미설정/이메일없음)
-- Added AddStaffUserDialog for creating staff accounts with name, team, email, phone
-- Added EditUserDialog for editing staff user details
+- Staff user list shows: 이름, 직책, 소속팀, 이메일, 휴대폰, 로그인 상태 (설정완료/미설정/이메일없음)
+- Added `position` (직책) field to users table for identifying team leaders
+- Added AddStaffUserDialog for creating staff accounts with name, position, team, email, phone
+- Added EditUserDialog for editing staff user details including position
 - Login status based on `hasPassword` boolean field (derived server-side from passwordHash)
 - Password reset option available for users who have already set passwords
 - Security: passwordHash never exposed in API responses; replaced with `hasPassword: boolean`
 - Security: Manager role restricted to staff-only operations (create/edit/delete/reset-password)
 - Admin retains full access to all user operations
+- Staff Excel export/import/template includes 직책 column
 
 ### February 2026 - Manager-based Classification & Category Removal
 - Removed two-level category system (카테고리 → 관리 장비명), replaced with single-level manager-based classification (장비 구분)
@@ -176,7 +178,7 @@ Preferred communication style: Simple, everyday language.
 - Created `server/emailService.ts` for sending HTML emails via Gmail API
 - Created `server/scheduler.ts` with node-cron for daily inspection checks
 - Scheduler runs at 9:00 AM KST daily to check for assets with inspections due within 7 days
-- Automatic email reminders sent to team contact emails for upcoming inspections
+- Automatic email reminders sent to team contact emails and team leaders (직책='팀장') for upcoming inspections
 - Admin API endpoint `/api/email/check-inspections` for manual trigger
 - Email templates use Korean content with proper UTF-8 encoding
 
