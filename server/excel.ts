@@ -397,6 +397,98 @@ export function getUserTemplate(): Buffer {
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
+export async function exportStaffUsersToExcel(): Promise<Buffer> {
+  const users = await storage.getUsers();
+  const teams = await storage.getTeams();
+  const managers = users.filter(u => u.role === 'manager');
+  const staffUsers = users.filter(u => u.role === 'staff');
+
+  const data = staffUsers.map(u => ({
+    "장비 구분": managers.find(m => m.id === u.managerId)?.username || "",
+    "이름": u.username,
+    "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
+    "이메일": u.email || "",
+    "휴대폰": u.phone || "",
+    "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "사용자");
+
+  return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+}
+
+export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportResult> {
+  const wb = XLSX.read(buffer, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
+
+  const teams = await storage.getTeams();
+  const users = await storage.getUsers();
+  const managers = users.filter(u => u.role === 'manager');
+  const errors: ImportResult["errors"] = [];
+  let successCount = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+
+    const managerName = (row["장비 구분"] || row["장비관리자"])?.toString().trim();
+    const username = row["이름"]?.toString().trim();
+    const teamName = row["소속팀"]?.toString().trim();
+    const email = row["이메일"]?.toString().trim() || null;
+    const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
+
+    if (!username) {
+      errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
+      continue;
+    }
+    if (!teamName) {
+      errors.push({ row: rowNum, field: "소속팀", message: "필수 항목입니다" });
+      continue;
+    }
+
+    const team = teams.find(t => t.name === teamName);
+    if (!team) {
+      errors.push({ row: rowNum, field: "소속팀", message: `'${teamName}' 팀을 찾을 수 없습니다` });
+      continue;
+    }
+
+    let managerId: string | null = null;
+    if (managerName) {
+      const manager = managers.find(m => m.username === managerName);
+      if (!manager) {
+        errors.push({ row: rowNum, field: "장비 구분", message: `'${managerName}' 장비 구분을 찾을 수 없습니다` });
+        continue;
+      }
+      managerId = manager.id;
+    }
+
+    try {
+      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId });
+      successCount++;
+    } catch (e: any) {
+      errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    successCount,
+    errorCount: errors.length,
+    errors
+  };
+}
+
+export function getStaffUserTemplate(): Buffer {
+  const data = [{ "장비 구분": "계량기", "이름": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "사용자");
+  return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+}
+
 export function getAssetTemplate(): Buffer {
   const data = [{
     "장비명": "예시장비",

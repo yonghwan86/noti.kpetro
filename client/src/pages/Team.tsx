@@ -251,8 +251,8 @@ export default function Team() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
                   <TableHead>역할</TableHead>
+                  <TableHead>구분</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
@@ -269,11 +269,11 @@ export default function Team() {
                 ) : (
                   filteredManagers.map((user) => (
                     <TableRow key={user.id} data-testid={`row-equiptype-${user.id}`}>
+                      <TableCell>{getRoleBadge(user.role as Role)}</TableCell>
                       <TableCell className="font-medium">
                         {user.username}
                         {user.fullName && <span className="text-muted-foreground text-xs ml-1">({user.fullName})</span>}
                       </TableCell>
-                      <TableCell>{getRoleBadge(user.role as Role)}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
@@ -315,7 +315,24 @@ export default function Team() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">장비를 사용하는 담당자 계정을 관리합니다. 이메일을 등록하면 로그인할 수 있습니다.</p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              {isAdmin && <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} />}
+              {isAdmin && (
+                <>
+                  <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
+                    <a href="/api/staff/export" download>
+                      <Download className="h-4 w-4" />
+                      다운로드
+                    </a>
+                  </Button>
+                  <ExcelImportDialog
+                    title="사용자 엑셀 업로드"
+                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
+                    templateUrl="/api/staff/template"
+                    importUrl="/api/staff/import"
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                  />
+                  <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} />
+                </>
+              )}
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">

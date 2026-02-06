@@ -337,6 +337,41 @@ export async function registerRoutes(
     }
   });
 
+  // Staff User Excel endpoints
+  app.get("/api/staff/export", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = await excel.exportStaffUsersToExcel();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=staff_users.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export staff users" });
+    }
+  });
+
+  app.get("/api/staff/template", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = excel.getStaffUserTemplate();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=staff_template.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  app.post("/api/staff/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "파일을 업로드해주세요" });
+      }
+      const result = await excel.importStaffUsersFromExcel(req.file.buffer);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to import staff users" });
+    }
+  });
+
   // Email API endpoints
   app.post("/api/email/test", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
