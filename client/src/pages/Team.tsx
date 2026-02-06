@@ -362,7 +362,7 @@ export default function Team() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>장비 구분</TableHead>
+                  {!isAdmin && <TableHead>장비 구분</TableHead>}
                   <TableHead>이름</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
@@ -374,7 +374,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={isAdmin ? 6 : 7} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다.'}
@@ -383,9 +383,11 @@ export default function Team() {
                 ) : (
                   filteredStaffUsers.map((user) => (
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
-                      <TableCell>
-                        {user.managerId ? (users.find(u => u.id === user.managerId)?.username || "-") : "-"}
-                      </TableCell>
+                      {!isAdmin && (
+                        <TableCell>
+                          {user.managerId ? (users.find(u => u.id === user.managerId)?.username || "-") : "-"}
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
