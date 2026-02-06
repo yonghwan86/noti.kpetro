@@ -364,6 +364,7 @@ export default function Team() {
                 <TableRow>
                   {!isAdmin && <TableHead>장비 구분</TableHead>}
                   <TableHead>이름</TableHead>
+                  <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>휴대폰</TableHead>
@@ -374,7 +375,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 6 : 7} className="h-24 text-center">
+                    <TableCell colSpan={isAdmin ? 7 : 8} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다.'}
@@ -389,6 +390,7 @@ export default function Team() {
                         </TableCell>
                       )}
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{user.position || "-"}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
@@ -463,6 +465,7 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
     defaultValues: {
       username: user.username,
       fullName: user.fullName || "",
+      position: user.position || "",
       email: user.email || "",
       phone: user.phone || "",
       teamId: user.teamId
@@ -545,12 +548,22 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
                   </Select>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="edit-username">이름</Label>
-                <Input
-                  id="edit-username"
-                  {...register("username", { required: true })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-username">이름</Label>
+                  <Input
+                    id="edit-username"
+                    {...register("username", { required: true })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-position">직책</Label>
+                  <Input
+                    id="edit-position"
+                    {...register("position")}
+                    placeholder="팀장, 대리 등"
+                  />
+                </div>
               </div>
             </>
           )}
@@ -938,6 +951,7 @@ function AddStaffUserDialog({ teams, managers }: { teams: TeamType[], managers: 
     mutationFn: (data: any) => api.users.create({
       username: data.username,
       fullName: data.fullName || undefined,
+      position: data.position || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
       role: 'staff',
@@ -1010,14 +1024,25 @@ function AddStaffUserDialog({ teams, managers }: { teams: TeamType[], managers: 
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="staff-username">이름</Label>
-            <Input
-              id="staff-username"
-              {...register("username", { required: true })}
-              placeholder="홍길동"
-              data-testid="input-staff-username"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="staff-username">이름</Label>
+              <Input
+                id="staff-username"
+                {...register("username", { required: true })}
+                placeholder="홍길동"
+                data-testid="input-staff-username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff-position">직책</Label>
+              <Input
+                id="staff-position"
+                {...register("position")}
+                placeholder="팀장, 대리 등"
+                data-testid="input-staff-position"
+              />
+            </div>
           </div>
           <div className="space-y-2 relative">
             <Label htmlFor="staff-team">소속 팀</Label>

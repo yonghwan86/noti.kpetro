@@ -25,26 +25,40 @@ async function checkUpcomingInspections() {
     for (const asset of upcomingAssets) {
       const team = teams.find(t => t.id === asset.teamId);
       const staff = users.find(u => u.id === asset.staffId);
-      
+      const staffName = staff?.username || '담당자';
+      const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
+
+      const recipients: string[] = [];
+
       if (team?.contactEmail) {
-        const staffName = staff?.username || '담당자';
-        const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
-        
-        console.log(`[SCHEDULER] Sending reminder for ${asset.name} to ${team.contactEmail}`);
-        
+        recipients.push(team.contactEmail);
+      }
+
+      const teamLeaders = users.filter(
+        u => u.role === 'staff' && u.teamId === asset.teamId && u.position === '팀장' && u.email
+      );
+      for (const leader of teamLeaders) {
+        if (leader.email && !recipients.includes(leader.email)) {
+          recipients.push(leader.email);
+        }
+      }
+
+      for (const email of recipients) {
+        console.log(`[SCHEDULER] Sending reminder for ${asset.name} to ${email}`);
+
         const result = await sendInspectionReminder(
-          team.contactEmail,
+          email,
           asset.name,
           dueDate,
           staffName
         );
-        
+
         if (result.success) {
-          console.log(`[SCHEDULER] Sent reminder for ${asset.name} (ID: ${result.messageId})`);
+          console.log(`[SCHEDULER] Sent reminder for ${asset.name} to ${email} (ID: ${result.messageId})`);
         } else {
-          console.error(`[SCHEDULER] Failed to send reminder for ${asset.name}: ${result.error}`);
+          console.error(`[SCHEDULER] Failed to send reminder for ${asset.name} to ${email}: ${result.error}`);
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }

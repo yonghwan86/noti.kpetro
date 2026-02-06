@@ -19,6 +19,7 @@ export interface User {
   role: Role;
   teamId: string;
   managerId?: string | null;
+  position?: string | null;
   email?: string | null;
   phone?: string | null;
   avatar?: string;

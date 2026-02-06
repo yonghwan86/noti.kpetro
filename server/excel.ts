@@ -406,6 +406,7 @@ export async function exportStaffUsersToExcel(): Promise<Buffer> {
   const data = staffUsers.map(u => ({
     "장비 구분": managers.find(m => m.id === u.managerId)?.username || "",
     "이름": u.username,
+    "직책": u.position || "",
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
     "이메일": u.email || "",
     "휴대폰": u.phone || "",
@@ -436,6 +437,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
 
     const managerName = (row["장비 구분"] || row["장비관리자"])?.toString().trim();
     const username = row["이름"]?.toString().trim();
+    const position = row["직책"]?.toString().trim() || null;
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
@@ -466,7 +468,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     }
 
     try {
-      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId });
+      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId, position });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
@@ -482,7 +484,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "장비 구분": "계량기", "이름": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
+  const data = [{ "장비 구분": "계량기", "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
