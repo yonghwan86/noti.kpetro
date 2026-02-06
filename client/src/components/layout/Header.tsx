@@ -252,7 +252,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
               <Box className="mr-2 h-4 w-4" />
               스케줄 관리
             </CommandItem>
-            {auth.canManageTeams(currentUser) && (
+            {auth.canAccessTeamPage(currentUser) && (
               <CommandItem onSelect={() => { setLocation("/team"); setOpenSearch(false); }}>
                 <Users className="mr-2 h-4 w-4" />
                 장비 구분 관리

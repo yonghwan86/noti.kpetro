@@ -55,6 +55,11 @@ export const auth = {
     return user.role === 'admin';
   },
 
+  canAccessTeamPage: (user: User | null): boolean => {
+    if (!user) return false;
+    return user.role === 'admin' || user.role === 'manager';
+  },
+
   canManageUsers: (user: User | null): boolean => {
     if (!user) return false;
     return user.role === 'admin' || user.role === 'manager';

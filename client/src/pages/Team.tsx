@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -136,7 +136,10 @@ export default function Team() {
     }
   };
 
-  if (!auth.canManageTeams(currentUser)) {
+  const isAdmin = currentUser?.role === 'admin';
+  const isManager = currentUser?.role === 'manager';
+
+  if (!auth.canAccessTeamPage(currentUser)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="max-w-md">
@@ -144,7 +147,7 @@ export default function Team() {
             <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <CardTitle>접근 권한이 없습니다</CardTitle>
             <CardDescription>
-              사용자 관리는 마스터 권한이 필요합니다. 
+              이 페이지는 관리자 이상 권한이 필요합니다.
               필요한 경우 시스템 관리자에게 문의하세요.
             </CardDescription>
           </CardHeader>
@@ -205,10 +208,12 @@ export default function Team() {
         </p>
       </div>
 
-      <Tabs defaultValue="equipTypes" className="space-y-4">
+      <Tabs defaultValue={isAdmin ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
+            )}
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
           </TabsList>
           
@@ -223,7 +228,7 @@ export default function Team() {
           </div>
         </div>
 
-        <TabsContent value="equipTypes" className="space-y-4">
+        {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="gap-2" asChild>
               <a href="/api/users/export" download>
@@ -238,6 +243,7 @@ export default function Team() {
               importUrl="/api/users/import"
               onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
             />
+            <AddMasterAccountDialog teams={teams} />
             <AddEquipTypeDialog teams={teams} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -299,7 +305,7 @@ export default function Team() {
               </TableBody>
             </Table>
           </div>
-        </TabsContent>
+        </TabsContent>}
 
         <TabsContent value="staff" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -670,6 +676,157 @@ function AddEquipTypeDialog({ teams }: { teams: TeamType[] }) {
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" data-testid="button-submit-equiptype">등록</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
+  const [open, setOpen] = useState(false);
+  const [teamInput, setTeamInput] = useState("");
+  const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const { register, handleSubmit, reset, setValue } = useForm();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const filteredTeams = teams.filter(t => 
+    t.name.toLowerCase().includes(teamInput.toLowerCase())
+  );
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.users.create({
+      username: data.username,
+      fullName: data.fullName || undefined,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      role: 'admin',
+      teamId: data.teamId,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setOpen(false);
+      reset();
+      setTeamInput("");
+      toast({
+        title: "마스터 계정 생성 완료",
+        description: "새로운 마스터 계정이 생성되었습니다.",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    const matchedTeam = teams.find(t => t.name === teamInput);
+    if (!matchedTeam && !data.teamId) {
+      toast({
+        title: "팀 선택 필요",
+        description: "목록에서 소속팀을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const submitData = {
+      ...data,
+      teamId: matchedTeam?.id || data.teamId
+    };
+    createMutation.mutate(submitData);
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setTeamInput("");
+      reset();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2" data-testid="button-add-master">
+          <Shield className="w-4 h-4" /> 마스터 계정 추가
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>마스터 계정 추가</DialogTitle>
+          <DialogDescription>시스템 전체를 관리할 수 있는 마스터 계정을 추가합니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="master-username">이름</Label>
+              <Input
+                id="master-username"
+                {...register("username", { required: true })}
+                placeholder="홍길동"
+                data-testid="input-master-username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="master-fullname">표시 이름</Label>
+              <Input
+                id="master-fullname"
+                {...register("fullName")}
+                placeholder="관리자"
+                data-testid="input-master-fullname"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 relative">
+            <Label htmlFor="master-team">소속 팀</Label>
+            <Input
+              id="master-team"
+              value={teamInput}
+              onChange={(e) => {
+                setTeamInput(e.target.value);
+                setShowTeamSuggestions(true);
+              }}
+              onFocus={() => setShowTeamSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
+              placeholder="팀 이름 입력 또는 선택"
+              data-testid="input-master-team"
+            />
+            {showTeamSuggestions && filteredTeams.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                {filteredTeams.map((t) => (
+                  <div
+                    key={t.id}
+                    className="px-3 py-2 cursor-pointer hover:bg-accent"
+                    onMouseDown={() => {
+                      setTeamInput(t.name);
+                      setValue("teamId", t.id);
+                      setShowTeamSuggestions(false);
+                    }}
+                  >
+                    {t.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="master-email">이메일</Label>
+              <Input
+                id="master-email"
+                type="email"
+                {...register("email")}
+                placeholder="admin@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="master-phone">휴대폰</Label>
+              <Input
+                id="master-phone"
+                {...register("phone")}
+                placeholder="010-0000-0000"
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="submit" data-testid="button-submit-master">생성</Button>
           </DialogFooter>
         </form>
       </DialogContent>

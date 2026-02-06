@@ -33,7 +33,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/teams", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.post("/api/teams", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const team = insertTeamSchema.parse(req.body);
       const created = await storage.createTeam(team);
@@ -43,7 +43,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/teams/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.patch("/api/teams/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const updateSchema = insertTeamSchema.partial();
       const validatedData = updateSchema.parse(req.body);
@@ -57,7 +57,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/teams/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.delete("/api/teams/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
