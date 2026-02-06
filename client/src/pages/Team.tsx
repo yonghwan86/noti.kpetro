@@ -315,7 +315,7 @@ export default function Team() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">장비를 사용하는 담당자 계정을 관리합니다. 이메일을 등록하면 로그인할 수 있습니다.</p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} />
+              {isAdmin && <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} />}
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -373,7 +373,7 @@ export default function Team() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
                               <EditUserDialog user={user} teams={teams} managers={users.filter(u => u.role === 'manager')} onEdit={handleEditUser} />
-                              {user.hasPassword && (
+                              {isAdmin && user.hasPassword && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
@@ -382,14 +382,18 @@ export default function Team() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => handleDeleteUser(user.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                삭제
-                              </DropdownMenuItem>
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => handleDeleteUser(user.id)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
