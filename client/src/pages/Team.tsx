@@ -60,8 +60,11 @@ import {
 export default function Team() {
   const { currentUser } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
-  const [recentUserId, setRecentUserId] = useState<string | null>(null);
-  const [recentTeamId, setRecentTeamId] = useState<string | null>(null);
+  const [recentUserIds, setRecentUserIds] = useState<string[]>([]);
+
+  const pushRecentUser = (id: string) => {
+    setRecentUserIds(prev => [id, ...prev.filter(x => x !== id)]);
+  };
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -127,7 +130,7 @@ export default function Team() {
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<User> }) => api.users.update(id, data),
     onSuccess: (_data, variables) => {
-      setRecentUserId(variables.id);
+      pushRecentUser(variables.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "사용자 수정됨",
@@ -173,11 +176,14 @@ export default function Team() {
     );
   }
 
-  const sortRecent = (list: User[], recentId: string | null) => {
-    if (!recentId) return list;
+  const sortRecent = (list: User[]) => {
+    if (recentUserIds.length === 0) return list;
     return [...list].sort((a, b) => {
-      if (a.id === recentId) return -1;
-      if (b.id === recentId) return 1;
+      const aIdx = recentUserIds.indexOf(a.id);
+      const bIdx = recentUserIds.indexOf(b.id);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
       return 0;
     });
   };
@@ -187,7 +193,7 @@ export default function Team() {
       (user.role === 'manager' || user.role === 'admin') &&
       (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  ), recentUserId);
+  ));
 
   const filteredStaffUsers = sortRecent(users.filter(
     (user) => {
@@ -202,7 +208,7 @@ export default function Team() {
         teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(search)
       );
     }
-  ), recentUserId);
+  ));
 
   const handleDeleteUser = (id: string) => {
     deleteUserMutation.mutate(id);
@@ -278,7 +284,7 @@ export default function Team() {
               importUrl="/api/users/import"
               onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
             />
-            <AddEquipTypeDialog teams={teams} onCreated={setRecentUserId} />
+            <AddEquipTypeDialog teams={teams} onCreated={pushRecentUser} />
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table className="min-w-[700px]">
@@ -379,7 +385,7 @@ export default function Team() {
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
                   />
-                  <AddStaffUserDialog teams={teams} onCreated={setRecentUserId} />
+                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
                 </>
               )}
             </div>
