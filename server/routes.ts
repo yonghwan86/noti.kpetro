@@ -94,7 +94,8 @@ export async function registerRoutes(
     try {
       const user = insertUserSchema.parse(req.body);
       const created = await storage.createUser(user);
-      res.status(201).json(created);
+      const { passwordHash, ...safeCreated } = created;
+      res.status(201).json({ ...safeCreated, hasPassword: !!passwordHash });
     } catch (error) {
       res.status(400).json({ error: "Invalid user data" });
     }
@@ -113,7 +114,8 @@ export async function registerRoutes(
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(updated);
+      const { passwordHash, ...safeUser } = updated;
+      res.json({ ...safeUser, hasPassword: !!passwordHash });
     } catch (error) {
       res.status(400).json({ error: "Failed to update user" });
     }
