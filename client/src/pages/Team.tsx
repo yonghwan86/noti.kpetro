@@ -973,6 +973,131 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   );
 }
 
+function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: () => void }) {
+  const { currentUser } = useUser();
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  const unassignedStaff = users.filter(u => 
+    u.role === 'staff' && !u.managerId &&
+    (u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      const promises = Array.from(selectedIds).map(id =>
+        api.users.update(id, { managerId: currentUser?.id })
+      );
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      onAssigned();
+      setOpen(false);
+      setSelectedIds(new Set());
+      setSearchTerm("");
+      toast({
+        title: "배정 완료",
+        description: `${selectedIds.size}명의 담당자가 배정되었습니다.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "배정 실패",
+        description: "담당자 배정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setSelectedIds(new Set());
+      setSearchTerm("");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="gap-2" data-testid="button-assign-staff">
+          <UserPlus className="w-4 h-4" /> 사용자 배정
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>사용자 배정</DialogTitle>
+          <DialogDescription>미배정 담당자를 내 장비에 배정합니다.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="이름 또는 이메일로 검색"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+              data-testid="input-assign-search"
+            />
+          </div>
+          <div className="border rounded-md max-h-[300px] overflow-auto">
+            {unassignedStaff.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                미배정 담당자가 없습니다.
+              </div>
+            ) : (
+              unassignedStaff.map(u => (
+                <div
+                  key={u.id}
+                  className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? 'bg-accent' : ''}`}
+                  onClick={() => toggleSelect(u.id)}
+                  data-testid={`assign-user-${u.id}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(u.id)}
+                    onChange={() => toggleSelect(u.id)}
+                    className="rounded"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{u.username}</div>
+                    <div className="text-xs text-muted-foreground">{u.email || '이메일 없음'}</div>
+                  </div>
+                  {u.position && <Badge variant="outline" className="text-xs">{u.position}</Badge>}
+                </div>
+              ))
+            )}
+          </div>
+          {selectedIds.size > 0 && (
+            <p className="text-sm text-muted-foreground">{selectedIds.size}명 선택됨</p>
+          )}
+        </div>
+        <DialogFooter className="mt-2">
+          <Button
+            onClick={() => assignMutation.mutate()}
+            disabled={selectedIds.size === 0 || assignMutation.isPending}
+            data-testid="button-submit-assign"
+          >
+            {assignMutation.isPending ? "배정 중..." : `배정 (${selectedIds.size}명)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
