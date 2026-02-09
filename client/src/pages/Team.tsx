@@ -725,7 +725,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState(teams.find(t => t.id === user.teamId)?.name || "");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
-  const { register, handleSubmit, setValue, watch } = useForm({
+  const { register, handleSubmit, setValue, watch, reset } = useForm({
     defaultValues: {
       username: user.username,
       fullName: user.fullName || "",
@@ -758,6 +758,14 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
     setOpen(isOpen);
     if (isOpen) {
       setTeamInput(teams.find(t => t.id === user.teamId)?.name || "");
+      reset({
+        username: user.username,
+        fullName: user.fullName || "",
+        position: user.position || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        teamId: user.teamId,
+      });
     }
   };
 
