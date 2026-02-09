@@ -210,7 +210,6 @@ export default function Team() {
   };
 
   const managerUsers = users.filter(u => u.role === 'manager');
-  const adminUsers = users.filter(u => u.role === 'admin');
   const filteredCategories = categories.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (users.find(u => u.id === c.managerId)?.username || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -224,13 +223,9 @@ export default function Team() {
 
   const filteredStaffUsers = sortRecent(users.filter(
     (user) => {
+      if (user.role !== 'staff') return false;
       if (isManager && currentUser) {
-        if (user.role !== 'staff') return false;
         if (user.managerId !== currentUser.id) return false;
-      } else if (isAdmin) {
-        if (user.role !== 'staff' && user.role !== 'admin') return false;
-      } else {
-        if (user.role !== 'staff') return false;
       }
       const search = searchTerm.toLowerCase();
       return (
@@ -255,19 +250,6 @@ export default function Team() {
 
   const handleEditUser = (id: string, data: Partial<User>) => {
     updateUserMutation.mutate({ id, data });
-  };
-
-  const getRoleBadge = (role: Role) => {
-    switch (role) {
-      case "admin":
-        return <Badge className="bg-purple-500 hover:bg-purple-600">마스터</Badge>;
-      case "manager":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">장비 관리자</Badge>;
-      case "staff":
-        return <Badge variant="secondary">담당자</Badge>;
-      default:
-        return <Badge variant="outline">{role}</Badge>;
-    }
   };
 
   return (
@@ -506,7 +488,7 @@ export default function Team() {
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
                   />
-                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} isAdmin={isAdmin} />
+                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
                 </>
               )}
               {isManager && (
@@ -527,7 +509,6 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
-                  {isAdmin && <TableHead>역할</TableHead>}
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
@@ -539,7 +520,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
@@ -549,7 +530,6 @@ export default function Team() {
                   filteredStaffUsers.slice((staffPage - 1) * ITEMS_PER_PAGE, staffPage * ITEMS_PER_PAGE).map((user) => (
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
-                      {isAdmin && <TableCell>{getRoleBadge(user.role as Role)}</TableCell>}
                       <TableCell>{user.position || "-"}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
@@ -588,7 +568,7 @@ export default function Team() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {isAdmin && !(user.role === 'admin' && (adminUsers.length <= 1 || user.id === currentUser?.id)) && (
+                              {isAdmin && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
@@ -1156,11 +1136,10 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
   );
 }
 
-function AddStaffUserDialog({ teams, onCreated, isAdmin }: { teams: TeamType[], onCreated?: (id: string) => void, isAdmin?: boolean }) {
+function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string>("staff");
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1176,7 +1155,7 @@ function AddStaffUserDialog({ teams, onCreated, isAdmin }: { teams: TeamType[], 
       position: data.position || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
-      role: selectedRole,
+      role: 'staff',
       teamId: data.teamId,
     }),
     onSuccess: (created: any) => {
@@ -1213,7 +1192,6 @@ function AddStaffUserDialog({ teams, onCreated, isAdmin }: { teams: TeamType[], 
     setOpen(isOpen);
     if (!isOpen) {
       setTeamInput("");
-      setSelectedRole("staff");
       reset();
     }
   };
@@ -1231,20 +1209,6 @@ function AddStaffUserDialog({ teams, onCreated, isAdmin }: { teams: TeamType[], 
           <DialogDescription>사용자 계정을 추가합니다. 이메일을 입력하면 해당 이메일로 로그인할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {isAdmin && (
-            <div className="space-y-2">
-              <Label htmlFor="staff-role">역할</Label>
-              <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger data-testid="select-staff-role">
-                  <SelectValue placeholder="역할 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="staff">담당자</SelectItem>
-                  <SelectItem value="admin">마스터</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="staff-username">이름</Label>
