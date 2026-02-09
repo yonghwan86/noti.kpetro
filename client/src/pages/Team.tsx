@@ -1169,6 +1169,13 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
         description: "새로운 사용자 계정이 생성되었습니다. 이메일이 등록되어 있으면 로그인할 수 있습니다.",
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "사용자 추가 실패",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const onSubmit = (data: any) => {

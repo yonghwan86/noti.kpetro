@@ -208,8 +208,10 @@ export async function registerRoutes(
       const created = await storage.createUser(userData);
       const { passwordHash, ...safeCreated } = created;
       res.status(201).json({ ...safeCreated, hasPassword: !!passwordHash });
-    } catch (error) {
-      res.status(400).json({ error: "Invalid user data" });
+    } catch (error: any) {
+      console.error("[POST /api/users] Error:", error?.message || error);
+      if (error?.errors) console.error("[POST /api/users] Zod errors:", JSON.stringify(error.errors));
+      res.status(400).json({ error: "Invalid user data", details: error?.errors || error?.message });
     }
   });
 
