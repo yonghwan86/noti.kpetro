@@ -400,11 +400,9 @@ export function getUserTemplate(): Buffer {
 export async function exportStaffUsersToExcel(): Promise<Buffer> {
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
-  const managers = users.filter(u => u.role === 'manager');
   const staffUsers = users.filter(u => u.role === 'staff');
 
   const data = staffUsers.map(u => ({
-    "장비 구분": managers.find(m => m.id === u.managerId)?.username || "",
     "이름": u.username,
     "직책": u.position || "",
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
@@ -426,8 +424,6 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
   const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
 
   const teams = await storage.getTeams();
-  const users = await storage.getUsers();
-  const managers = users.filter(u => u.role === 'manager');
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
 
@@ -435,7 +431,6 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     const row = rows[i];
     const rowNum = i + 2;
 
-    const managerName = (row["장비 구분"] || row["장비관리자"])?.toString().trim();
     const username = row["이름"]?.toString().trim();
     const position = row["직책"]?.toString().trim() || null;
     const teamName = row["소속팀"]?.toString().trim();
@@ -457,18 +452,8 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
       continue;
     }
 
-    let managerId: string | null = null;
-    if (managerName) {
-      const manager = managers.find(m => m.username === managerName);
-      if (!manager) {
-        errors.push({ row: rowNum, field: "장비 구분", message: `'${managerName}' 장비 구분을 찾을 수 없습니다` });
-        continue;
-      }
-      managerId = manager.id;
-    }
-
     try {
-      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId, position });
+      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
@@ -484,7 +469,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "장비 구분": "계량기", "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
+  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
