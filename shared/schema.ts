@@ -17,7 +17,7 @@ export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   type: text("type").notNull().default("management"),
-  contactEmail: text("contact_email").notNull(),
+  contactEmail: text("contact_email"),
   phone: text("phone"),
   staffEmail: text("staff_email"),
   staffPhone: text("staff_phone"),
@@ -25,6 +25,7 @@ export const teams = pgTable("teams", {
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
   type: z.enum(["management", "usage"]).default("management"),
+  contactEmail: z.string().nullable().optional(),
 });
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
