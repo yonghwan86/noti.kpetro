@@ -1185,15 +1185,9 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
 
 function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [teamInput, setTeamInput] = useState("");
-  const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const filteredTeams = teams.filter(t => 
-    t.name.toLowerCase().includes(teamInput.toLowerCase())
-  );
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.users.create({
@@ -1210,7 +1204,6 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
-      setTeamInput("");
       toast({
         title: "사용자 추가 완료",
         description: "새로운 사용자 계정이 생성되었습니다. 이메일이 등록되어 있으면 로그인할 수 있습니다.",
@@ -1226,26 +1219,20 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   });
 
   const onSubmit = (data: any) => {
-    const matchedTeam = teams.find(t => t.name === teamInput);
-    if (!matchedTeam && !data.teamId) {
+    if (!data.teamId) {
       toast({
         title: "팀 선택 필요",
-        description: "목록에서 소속팀을 선택해주세요.",
+        description: "소속팀을 선택해주세요.",
         variant: "destructive",
       });
       return;
     }
-    const submitData = {
-      ...data,
-      teamId: matchedTeam?.id || data.teamId,
-    };
-    createMutation.mutate(submitData);
+    createMutation.mutate(data);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-      setTeamInput("");
       reset();
     }
   };
@@ -1283,37 +1270,16 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
           </div>
-          <div className="space-y-2 relative">
-            <Label htmlFor="staff-team">소속 팀</Label>
-            <Input
-              id="staff-team"
-              value={teamInput}
-              onChange={(e) => {
-                setTeamInput(e.target.value);
-                setShowTeamSuggestions(true);
-              }}
-              onFocus={() => setShowTeamSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
-              placeholder="팀 이름 입력 또는 선택"
-              data-testid="input-staff-team"
-            />
-            {showTeamSuggestions && filteredTeams.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
-                {filteredTeams.map((t) => (
-                  <div
-                    key={t.id}
-                    className="px-3 py-2 cursor-pointer hover:bg-accent"
-                    onMouseDown={() => {
-                      setTeamInput(t.name);
-                      setValue("teamId", t.id);
-                      setShowTeamSuggestions(false);
-                    }}
-                  >
-                    {t.name}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label>소속 팀</Label>
+            <Select onValueChange={(v) => setValue("teamId", v)}>
+              <SelectTrigger data-testid="input-staff-team">
+                <SelectValue placeholder="소속팀 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
