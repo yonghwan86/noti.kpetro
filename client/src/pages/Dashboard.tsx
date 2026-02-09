@@ -123,7 +123,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setLocation('/assets')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               {currentUser?.role === 'admin' ? '전체 장비' : '내 장비'}
@@ -139,7 +142,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setLocation('/assets?status=ok')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">점검 준수율</CardTitle>
             <CheckCircle className="h-4 w-4 text-status-ok" />
