@@ -372,24 +372,20 @@ export default function Team() {
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {(isAdmin || isManager) && (
                 <>
-                  {isAdmin && (
-                    <>
-                      <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
-                        <a href="/api/staff/export" download>
-                          <Download className="h-4 w-4" />
-                          다운로드
-                        </a>
-                      </Button>
-                      <ExcelImportDialog
-                        title="사용자 엑셀 업로드"
-                        description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
-                        templateUrl="/api/staff/template"
-                        importUrl="/api/staff/import"
-                        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
-                      />
-                    </>
-                  )}
-                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
+                  <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
+                    <a href="/api/staff/export" download>
+                      <Download className="h-4 w-4" />
+                      다운로드
+                    </a>
+                  </Button>
+                  <ExcelImportDialog
+                    title="사용자 엑셀 업로드"
+                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
+                    templateUrl="/api/staff/template"
+                    importUrl="/api/staff/import"
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                  />
+                  <AddStaffUserDialog teams={teams} managers={users.filter(u => u.role === 'manager')} onCreated={pushRecentUser} />
                 </>
               )}
             </div>
@@ -398,7 +394,7 @@ export default function Team() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  {!isAdmin && <TableHead>장비 구분</TableHead>}
+                  <TableHead>장비 구분</TableHead>
                   <TableHead>이름</TableHead>
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
@@ -411,20 +407,18 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 7 : 8} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
-                        : '배정된 담당자가 없습니다.'}
+                        : '배정된 담당자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStaffUsers.map((user) => (
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
-                      {!isAdmin && (
-                        <TableCell>
-                          {user.managerId ? (users.find(u => u.id === user.managerId)?.username || "-") : "-"}
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        {user.managerId ? (users.find(u => u.id === user.managerId)?.username || "-") : "-"}
+                      </TableCell>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>{user.position || "-"}</TableCell>
                       <TableCell>
@@ -493,9 +487,13 @@ export default function Team() {
 }
 
 function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: TeamType[], managers?: User[], onEdit: (id: string, data: Partial<User>) => void }) {
+  const { currentUser } = useUser();
+  const isCurrentAdmin = currentUser?.role === 'admin';
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState(teams.find(t => t.id === user.teamId)?.name || "");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const [managerInput, setManagerInput] = useState(managers?.find(m => m.id === user.managerId)?.username || "");
+  const [showManagerSuggestions, setShowManagerSuggestions] = useState(false);
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       username: user.username,
@@ -503,13 +501,19 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
       position: user.position || "",
       email: user.email || "",
       phone: user.phone || "",
-      teamId: user.teamId
+      teamId: user.teamId,
+      managerId: user.managerId || "",
     }
   });
   const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+  const isStaffUser = user.role === 'staff';
 
   const filteredTeams = teams.filter(t => 
     t.name.toLowerCase().includes(teamInput.toLowerCase())
+  );
+
+  const filteredManagers = (managers || []).filter(m =>
+    m.username.toLowerCase().includes(managerInput.toLowerCase())
   );
 
   const onSubmit = (data: any) => {
@@ -521,6 +525,10 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
       ...data,
       teamId: matchedTeam?.id || data.teamId,
     };
+    if (isStaffUser && isCurrentAdmin) {
+      const matchedManager = (managers || []).find(m => m.username === managerInput);
+      submitData.managerId = matchedManager?.id || null;
+    }
     onEdit(user.id, submitData);
     setOpen(false);
   };
@@ -529,6 +537,7 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
     setOpen(isOpen);
     if (isOpen) {
       setTeamInput(teams.find(t => t.id === user.teamId)?.name || "");
+      setManagerInput(managers?.find(m => m.id === user.managerId)?.username || "");
     }
   };
 
@@ -566,7 +575,7 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
             </div>
           ) : (
             <>
-                  <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-username">이름</Label>
                   <Input
@@ -584,6 +593,39 @@ function EditUserDialog({ user, teams, managers, onEdit }: { user: User, teams: 
                 </div>
               </div>
             </>
+          )}
+          {isStaffUser && isCurrentAdmin && managers && managers.length > 0 && (
+            <div className="space-y-2 relative">
+              <Label htmlFor="edit-manager">장비 구분</Label>
+              <Input
+                id="edit-manager"
+                value={managerInput}
+                onChange={(e) => {
+                  setManagerInput(e.target.value);
+                  setShowManagerSuggestions(true);
+                }}
+                onFocus={() => setShowManagerSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowManagerSuggestions(false), 200)}
+                placeholder="장비 구분 선택 (비우면 미배정)"
+              />
+              {showManagerSuggestions && filteredManagers.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                  {filteredManagers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="px-3 py-2 cursor-pointer hover:bg-accent"
+                      onMouseDown={() => {
+                        setManagerInput(m.username);
+                        setValue("managerId", m.id);
+                        setShowManagerSuggestions(false);
+                      }}
+                    >
+                      {m.username}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
@@ -953,16 +995,24 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   );
 }
 
-function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddStaffUserDialog({ teams, managers, onCreated }: { teams: TeamType[], managers?: User[], onCreated?: (id: string) => void }) {
+  const { currentUser } = useUser();
+  const isAdmin = currentUser?.role === 'admin';
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const [managerInput, setManagerInput] = useState("");
+  const [showManagerSuggestions, setShowManagerSuggestions] = useState(false);
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const filteredTeams = teams.filter(t => 
     t.name.toLowerCase().includes(teamInput.toLowerCase())
+  );
+
+  const filteredManagers = (managers || []).filter(m =>
+    m.username.toLowerCase().includes(managerInput.toLowerCase())
   );
 
   const createMutation = useMutation({
@@ -974,6 +1024,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       phone: data.phone || undefined,
       role: 'staff',
       teamId: data.teamId,
+      managerId: data.managerId || undefined,
     }),
     onSuccess: (created: any) => {
       if (created?.id && onCreated) onCreated(created.id);
@@ -981,6 +1032,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       setOpen(false);
       reset();
       setTeamInput("");
+      setManagerInput("");
       toast({
         title: "사용자 추가 완료",
         description: "새로운 사용자 계정이 생성되었습니다. 이메일이 등록되어 있으면 로그인할 수 있습니다.",
@@ -1009,6 +1061,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
     setOpen(isOpen);
     if (!isOpen) {
       setTeamInput("");
+      setManagerInput("");
       reset();
     }
   };
@@ -1046,6 +1099,40 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
           </div>
+          {isAdmin && managers && managers.length > 0 && (
+            <div className="space-y-2 relative">
+              <Label htmlFor="staff-manager">장비 구분</Label>
+              <Input
+                id="staff-manager"
+                value={managerInput}
+                onChange={(e) => {
+                  setManagerInput(e.target.value);
+                  setShowManagerSuggestions(true);
+                }}
+                onFocus={() => setShowManagerSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowManagerSuggestions(false), 200)}
+                placeholder="장비 구분 선택"
+                data-testid="input-staff-manager"
+              />
+              {showManagerSuggestions && filteredManagers.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                  {filteredManagers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="px-3 py-2 cursor-pointer hover:bg-accent"
+                      onMouseDown={() => {
+                        setManagerInput(m.username);
+                        setValue("managerId", m.id);
+                        setShowManagerSuggestions(false);
+                      }}
+                    >
+                      {m.username}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-2 relative">
             <Label htmlFor="staff-team">소속 팀</Label>
             <Input

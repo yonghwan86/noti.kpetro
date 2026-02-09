@@ -116,6 +116,11 @@ export async function registerRoutes(
         if (targetUser && targetUser.role !== 'staff') {
           return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 수정할 수 있습니다." });
         }
+        if (targetUser && targetUser.managerId !== currentUser.id) {
+          return res.status(403).json({ error: "자신에게 배정된 담당자만 수정할 수 있습니다." });
+        }
+        delete req.body.managerId;
+        delete req.body.role;
       }
       const updated = await storage.updateUser(req.params.id, req.body);
       if (!updated) {
@@ -135,6 +140,9 @@ export async function registerRoutes(
         const targetUser = await storage.getUser(req.params.id);
         if (targetUser && targetUser.role !== 'staff') {
           return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 삭제할 수 있습니다." });
+        }
+        if (targetUser && targetUser.managerId !== currentUser.id) {
+          return res.status(403).json({ error: "자신에게 배정된 담당자만 삭제할 수 있습니다." });
         }
       }
       await storage.deleteUser(req.params.id);
@@ -370,9 +378,11 @@ export async function registerRoutes(
   });
 
   // Staff User Excel endpoints
-  app.get("/api/staff/export", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.get("/api/staff/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
-      const buffer = await excel.exportStaffUsersToExcel();
+      const currentUser = (req as any).currentUser;
+      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
+      const buffer = await excel.exportStaffUsersToExcel(managerId);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=staff_users.xlsx");
       res.send(buffer);
@@ -381,7 +391,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/staff/template", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.get("/api/staff/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const buffer = excel.getStaffUserTemplate();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -392,12 +402,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/staff/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/staff/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "파일을 업로드해주세요" });
       }
-      const result = await excel.importStaffUsersFromExcel(req.file.buffer);
+      const currentUser = (req as any).currentUser;
+      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
+      const result = await excel.importStaffUsersFromExcel(req.file.buffer, managerId);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import staff users" });

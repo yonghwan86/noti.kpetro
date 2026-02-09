@@ -397,19 +397,28 @@ export function getUserTemplate(): Buffer {
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
-export async function exportStaffUsersToExcel(): Promise<Buffer> {
+export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffer> {
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
-  const staffUsers = users.filter(u => u.role === 'staff');
+  const managers = users.filter(u => u.role === 'manager');
+  let staffUsers = users.filter(u => u.role === 'staff');
+  if (managerId) {
+    staffUsers = staffUsers.filter(u => u.managerId === managerId);
+  }
 
-  const data = staffUsers.map(u => ({
-    "이름": u.username,
-    "직책": u.position || "",
-    "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
-    "이메일": u.email || "",
-    "휴대폰": u.phone || "",
-    "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
-  }));
+  const data = staffUsers.map(u => {
+    const base: Record<string, string> = {};
+    if (!managerId) {
+      base["장비 구분"] = managers.find(m => m.id === u.managerId)?.username || "";
+    }
+    base["이름"] = u.username;
+    base["직책"] = u.position || "";
+    base["소속팀"] = teams.find(t => t.id === u.teamId)?.name || "";
+    base["이메일"] = u.email || "";
+    base["휴대폰"] = u.phone || "";
+    base["로그인 상태"] = u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음");
+    return base;
+  });
 
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -418,12 +427,14 @@ export async function exportStaffUsersToExcel(): Promise<Buffer> {
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
-export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportResult> {
+export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: string): Promise<ImportResult> {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
 
   const teams = await storage.getTeams();
+  const users = await storage.getUsers();
+  const managers = users.filter(u => u.role === 'manager');
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
 
@@ -436,6 +447,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
+    const managerName = (row["장비 구분"] || row["장비관리자"])?.toString().trim();
 
     if (!username) {
       errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
@@ -452,8 +464,18 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
       continue;
     }
 
+    let resolvedManagerId = managerId || null;
+    if (!managerId && managerName) {
+      const manager = managers.find(m => m.username === managerName);
+      if (!manager) {
+        errors.push({ row: rowNum, field: "장비 구분", message: `'${managerName}' 장비 구분을 찾을 수 없습니다` });
+        continue;
+      }
+      resolvedManagerId = manager.id;
+    }
+
     try {
-      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
+      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: resolvedManagerId, position });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
