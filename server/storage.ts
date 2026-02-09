@@ -220,6 +220,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async deleteAsset(id: string): Promise<void> {
+    await db.delete(inspectionLogs).where(eq(inspectionLogs.assetId, id));
     await db.delete(assets).where(eq(assets.id, id));
   }
 
