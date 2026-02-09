@@ -7,7 +7,8 @@ import {
   insertTeamSchema, 
   insertUserSchema, 
   insertAssetSchema,
-  insertInspectionLogSchema 
+  insertInspectionLogSchema,
+  insertCategorySchema
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
@@ -73,6 +74,49 @@ export async function registerRoutes(
         }
       } else {
         res.status(500).json({ error: "팀 삭제에 실패했습니다." });
+      }
+    }
+  });
+
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/categories", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const category = insertCategorySchema.parse(req.body);
+      const created = await storage.createCategory(category);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid category data" });
+    }
+  });
+
+  app.patch("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const updated = await storage.updateCategory(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Category not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      await storage.deleteCategory(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      if (error.message?.startsWith("REFERENCED:")) {
+        const count = error.message.split(":")[1];
+        res.status(409).json({ error: `이 장비 구분에 연결된 장비가 ${count}건 있어 삭제할 수 없습니다.` });
+      } else {
+        res.status(500).json({ error: "장비 구분 삭제에 실패했습니다." });
       }
     }
   });

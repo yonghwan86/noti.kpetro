@@ -12,7 +12,7 @@ import {
   Cell
 } from "recharts";
 import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck } from "lucide-react";
-import { Asset, InspectionLog, User } from "@/lib/types";
+import { Asset, InspectionLog, User, Category } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -40,6 +40,11 @@ export default function Dashboard() {
     queryFn: () => api.users.getAll(),
   });
 
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => api.categories.getAll(),
+  });
+
   const assets = auth.filterAssetsForUser(allAssets, currentUser);
   
   const totalAssets = assets.length;
@@ -63,13 +68,12 @@ export default function Dashboard() {
     return Package;
   };
 
-  const managerData = users
-    .filter(u => u.role === 'manager')
-    .map(manager => ({
-      id: manager.id,
-      name: manager.username,
-      value: assets.filter(a => a.managerId === manager.id).length,
-      icon: getManagerIcon(manager.username),
+  const categoryData = categories
+    .map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      value: assets.filter(a => a.categoryId === cat.id).length,
+      icon: getManagerIcon(cat.name),
     }))
     .filter(m => m.value > 0);
 
@@ -273,16 +277,16 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {managerData.length > 0 ? (
-                  managerData.map((item) => {
+                {categoryData.length > 0 ? (
+                  categoryData.map((item) => {
                     const IconComponent = item.icon;
-                    const maxValue = Math.max(...managerData.map(m => m.value));
+                    const maxValue = Math.max(...categoryData.map(m => m.value));
                     const percentage = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
                     return (
                       <div 
                         key={item.id} 
                         className="space-y-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg transition-colors -mx-2"
-                        onClick={() => setLocation(`/assets?manager=${item.id}`)}
+                        onClick={() => setLocation(`/assets?category=${item.id}`)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">

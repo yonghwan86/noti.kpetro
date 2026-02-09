@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Role, Team as TeamType } from "@/lib/types";
+import { User, Role, Team as TeamType, Category } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -76,6 +76,22 @@ export default function Team() {
   const { data: teams = [] } = useQuery<TeamType[]>({
     queryKey: ["/api/teams"],
     queryFn: () => api.teams.getAll(),
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => api.categories.getAll(),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => api.categories.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({ title: "장비 구분 삭제됨", description: "장비 구분이 시스템에서 제거되었습니다.", variant: "destructive" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+    },
   });
 
   const deleteUserMutation = useMutation({
@@ -188,11 +204,16 @@ export default function Team() {
     });
   };
 
-  const filteredManagers = sortRecent(users.filter(
+  const managerUsers = users.filter(u => u.role === 'manager');
+  const filteredCategories = categories.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (users.find(u => u.id === c.managerId)?.username || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredManagerUsers = sortRecent(managerUsers.filter(
     (user) =>
-      (user.role === 'manager' || user.role === 'admin') &&
-      (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
   ));
 
   const filteredStaffUsers = sortRecent(users.filter(
@@ -269,72 +290,134 @@ export default function Team() {
           </div>
         </div>
 
-        {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" size="sm" className="gap-2" asChild>
-              <a href="/api/users/export" download>
-                <Download className="h-4 w-4" />
-                다운로드
-              </a>
-            </Button>
-            <ExcelImportDialog
-              title="장비 구분 엑셀 업로드"
-              description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
-              templateUrl="/api/users/template"
-              importUrl="/api/users/import"
-              onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
-            />
-            <AddEquipTypeDialog teams={teams} onCreated={pushRecentUser} />
-          </div>
-          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[700px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>역할</TableHead>
-                  <TableHead>구분</TableHead>
-                  <TableHead>소속팀</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>전화번호</TableHead>
-                  <TableHead>로그인</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredManagers.length === 0 ? (
+        {isAdmin && <TabsContent value="equipTypes" className="space-y-6">
+          <div>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+              <h3 className="text-lg font-semibold">장비 구분 목록</h3>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-2" asChild>
+                  <a href="/api/users/export" download>
+                    <Download className="h-4 w-4" />
+                    다운로드
+                  </a>
+                </Button>
+                <ExcelImportDialog
+                  title="장비 구분 엑셀 업로드"
+                  description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
+                  templateUrl="/api/users/template"
+                  importUrl="/api/users/import"
+                  onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                />
+                <AddEquipTypeCategoryDialog managerUsers={managerUsers} />
+              </div>
+            </div>
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table className="min-w-[600px]">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
-                    </TableCell>
+                    <TableHead>장비 구분명</TableHead>
+                    <TableHead>담당 관리자</TableHead>
+                    <TableHead>소속팀</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
                   </TableRow>
-                ) : (
-                  filteredManagers.map((user) => (
-                    <TableRow key={user.id} data-testid={`row-equiptype-${user.id}`}>
-                      <TableCell>{getRoleBadge(user.role as Role)}</TableCell>
-                      <TableCell className="font-medium">
-                        {user.username}
-                        {user.fullName && <span className="text-muted-foreground text-xs ml-1">({user.fullName})</span>}
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
                       </TableCell>
-                      <TableCell>
-                        {teams.find((t) => t.id === user.teamId)?.name || "-"}
+                    </TableRow>
+                  ) : (
+                    filteredCategories.map((category) => {
+                      const manager = users.find(u => u.id === category.managerId);
+                      const managerTeam = manager ? teams.find(t => t.id === manager.teamId) : null;
+                      return (
+                        <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
+                          <TableCell className="font-medium">{category.name}</TableCell>
+                          <TableCell>{manager?.username || "-"}</TableCell>
+                          <TableCell>{managerTeam?.name || "-"}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-category-menu-${category.id}`}>
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                <EditCategoryDialog category={category} managerUsers={managerUsers} />
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => deleteCategoryMutation.mutate(category.id)}
+                                  data-testid={`button-delete-category-${category.id}`}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+              <div>
+                <h3 className="text-lg font-semibold">관리자 목록</h3>
+                <p className="text-sm text-muted-foreground">등록된 관리자</p>
+              </div>
+              <AddManagerDialog teams={teams} onCreated={pushRecentUser} />
+            </div>
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table className="min-w-[700px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이름</TableHead>
+                    <TableHead>소속팀</TableHead>
+                    <TableHead>이메일</TableHead>
+                    <TableHead>전화번호</TableHead>
+                    <TableHead>로그인</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredManagerUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                        등록된 관리자가 없습니다. "관리자 등록" 버튼을 눌러 추가하세요.
                       </TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>
-                        {user.email ? (
-                          user.hasPassword ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                    </TableRow>
+                  ) : (
+                    filteredManagerUsers.map((user) => (
+                      <TableRow key={user.id} data-testid={`row-manager-${user.id}`}>
+                        <TableCell className="font-medium">{user.username}</TableCell>
+                        <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
+                        <TableCell>{user.email || "-"}</TableCell>
+                        <TableCell>{user.phone || "-"}</TableCell>
+                        <TableCell>
+                          {user.email ? (
+                            user.hasPassword ? (
+                              <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                            ) : (
+                              <Badge variant="outline">미설정</Badge>
+                            )
                           ) : (
-                            <Badge variant="outline">미설정</Badge>
-                          )
-                        ) : (
-                          <Badge variant="secondary">이메일 없음</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                            <Badge variant="secondary">이메일 없음</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-manager-menu-${user.id}`}>
                                 <span className="sr-only">Open menu</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -346,19 +429,20 @@ export default function Team() {
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => handleDeleteUser(user.id)}
+                                data-testid={`button-delete-manager-${user.id}`}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 삭제
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </TabsContent>}
 
@@ -519,7 +603,6 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
       teamId: user.teamId,
     }
   });
-  const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
   const isStaffUser = user.role === 'staff';
 
   const filteredTeams = teams.filter(t => 
@@ -560,45 +643,27 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
           <DialogDescription>사용자 정보를 업데이트합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {isAdminOrManager ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-username">장비 구분</Label>
-                <Input
-                  id="edit-username"
-                  {...register("username", { required: true })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-fullName">이름</Label>
-                <Input
-                  id="edit-fullName"
-                  {...register("fullName")}
-                  placeholder="실제 이름"
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">이름</Label>
+              <Input
+                id="edit-username"
+                {...register("username", { required: true })}
+                data-testid="input-edit-username"
+              />
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-username">이름</Label>
-                  <Input
-                    id="edit-username"
-                    {...register("username", { required: true })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-position">직책</Label>
-                  <Input
-                    id="edit-position"
-                    {...register("position")}
-                    placeholder="팀장, 대리 등"
-                  />
-                </div>
+            {isStaffUser && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-position">직책</Label>
+                <Input
+                  id="edit-position"
+                  {...register("position")}
+                  placeholder="팀장, 대리 등"
+                  data-testid="input-edit-position"
+                />
               </div>
-            </>
-          )}
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
               <Label htmlFor="edit-team">소속 팀</Label>
@@ -660,7 +725,167 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   );
 }
 
-function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [managerId, setManagerId] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: () => api.categories.create({ name, managerId: managerId || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setOpen(false);
+      setName("");
+      setManagerId("");
+      toast({ title: "장비 구분 등록 완료", description: "새로운 장비 구분이 등록되었습니다." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    createMutation.mutate();
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setName("");
+      setManagerId("");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="gap-2" data-testid="button-add-category">
+          <Plus className="w-4 h-4" /> 장비 구분 등록
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>장비 구분 등록</DialogTitle>
+          <DialogDescription>장비 구분을 등록한 뒤, 장비 관리 페이지에서 해당 구분에 장비를 등록할 수 있습니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="category-name">장비 구분명</Label>
+            <Input
+              id="category-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="검사장비, 차량 등"
+              required
+              data-testid="input-category-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="category-manager">담당 관리자</Label>
+            <Select value={managerId} onValueChange={setManagerId}>
+              <SelectTrigger data-testid="select-category-manager">
+                <SelectValue placeholder="관리자 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {managerUsers.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-category">등록</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditCategoryDialog({ category, managerUsers }: { category: Category, managerUsers: User[] }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(category.name);
+  const [managerId, setManagerId] = useState(category.managerId || "");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const updateMutation = useMutation({
+    mutationFn: () => api.categories.update(category.id, { name, managerId: managerId || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      setOpen(false);
+      toast({ title: "장비 구분 수정됨", description: "장비 구분 정보가 업데이트되었습니다." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "수정 실패", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    updateMutation.mutate();
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setName(category.name);
+      setManagerId(category.managerId || "");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} data-testid={`button-edit-category-${category.id}`}>
+          <Pencil className="mr-2 h-4 w-4" />
+          수정
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>장비 구분 수정</DialogTitle>
+          <DialogDescription>장비 구분 정보를 업데이트합니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-category-name">장비 구분명</Label>
+            <Input
+              id="edit-category-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              data-testid="input-edit-category-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-category-manager">담당 관리자</Label>
+            <Select value={managerId} onValueChange={setManagerId}>
+              <SelectTrigger data-testid="select-edit-category-manager">
+                <SelectValue placeholder="관리자 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {managerUsers.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-category">저장</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddManagerDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
@@ -675,7 +900,6 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   const createMutation = useMutation({
     mutationFn: (data: any) => api.users.create({
       username: data.username,
-      fullName: data.fullName || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
       role: 'manager',
@@ -687,27 +911,20 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       setOpen(false);
       reset();
       setTeamInput("");
-      toast({
-        title: "장비 구분 등록 완료",
-        description: "새로운 장비 구분이 등록되었습니다.",
-      });
+      toast({ title: "관리자 등록 완료", description: "새로운 관리자가 등록되었습니다." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
     },
   });
 
   const onSubmit = (data: any) => {
     const matchedTeam = teams.find(t => t.name === teamInput);
     if (!matchedTeam && !data.teamId) {
-      toast({
-        title: "팀 선택 필요",
-        description: "목록에서 소속팀을 선택해주세요.",
-        variant: "destructive",
-      });
+      toast({ title: "팀 선택 필요", description: "목록에서 소속팀을 선택해주세요.", variant: "destructive" });
       return;
     }
-    const submitData = {
-      ...data,
-      teamId: matchedTeam?.id || data.teamId
-    };
+    const submitData = { ...data, teamId: matchedTeam?.id || data.teamId };
     createMutation.mutate(submitData);
   };
 
@@ -722,40 +939,29 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2" data-testid="button-add-equiptype">
-          <Plus className="w-4 h-4" /> 장비 구분 등록
+        <Button className="gap-2" data-testid="button-add-manager">
+          <Plus className="w-4 h-4" /> 관리자 등록
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>장비 구분 등록</DialogTitle>
-          <DialogDescription>장비 구분을 먼저 등록한 뒤, 장비 관리 페이지에서 해당 구분에 장비를 등록할 수 있습니다.</DialogDescription>
+          <DialogTitle>관리자 등록</DialogTitle>
+          <DialogDescription>장비를 관리하는 관리자 계정을 추가합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="equip-type-name">장비 구분명</Label>
-              <Input
-                id="equip-type-name"
-                {...register("username", { required: true })}
-                placeholder="검사장비, 차량 등"
-                data-testid="input-equiptype-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="equip-manager-name">관리자명</Label>
-              <Input
-                id="equip-manager-name"
-                {...register("fullName")}
-                placeholder="홍길동"
-                data-testid="input-equiptype-manager"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="manager-username">이름</Label>
+            <Input
+              id="manager-username"
+              {...register("username", { required: true })}
+              placeholder="홍길동"
+              data-testid="input-manager-username"
+            />
           </div>
           <div className="space-y-2 relative">
-            <Label htmlFor="equip-team">소속 팀</Label>
+            <Label htmlFor="manager-team">소속 팀</Label>
             <Input
-              id="equip-team"
+              id="manager-team"
               value={teamInput}
               onChange={(e) => {
                 setTeamInput(e.target.value);
@@ -764,7 +970,7 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               onFocus={() => setShowTeamSuggestions(true)}
               onBlur={() => setTimeout(() => setShowTeamSuggestions(false), 200)}
               placeholder="팀 이름 입력 또는 선택"
-              data-testid="input-equiptype-team"
+              data-testid="input-manager-team"
             />
             {showTeamSuggestions && filteredTeams.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
@@ -786,25 +992,27 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="equip-email">이메일</Label>
+              <Label htmlFor="manager-email">이메일</Label>
               <Input
-                id="equip-email"
+                id="manager-email"
                 type="email"
                 {...register("email")}
                 placeholder="user@example.com"
+                data-testid="input-manager-email"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="equip-phone">전화번호</Label>
+              <Label htmlFor="manager-phone">전화번호</Label>
               <Input
-                id="equip-phone"
+                id="manager-phone"
                 {...register("phone")}
                 placeholder="010-0000-0000"
+                data-testid="input-manager-phone"
               />
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button type="submit" data-testid="button-submit-equiptype">등록</Button>
+            <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-manager">등록</Button>
           </DialogFooter>
         </form>
       </DialogContent>

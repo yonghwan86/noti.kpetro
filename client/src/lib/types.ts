@@ -26,6 +26,12 @@ export interface User {
   hasPassword?: boolean;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  managerId?: string | null;
+}
+
 export type AssetStatus = 'ok' | 'upcoming' | 'overdue';
 
 export interface Asset {

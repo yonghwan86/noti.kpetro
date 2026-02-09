@@ -74,7 +74,6 @@ export const assets = pgTable("assets", {
 
 export const insertAssetSchema = createInsertSchema(assets).omit({ 
   id: true,
-  categoryId: true,
   nextDueDate: true,
   status: true
 });

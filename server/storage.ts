@@ -115,6 +115,11 @@ export class PostgresStorage implements IStorage {
   }
 
   async deleteCategory(id: string): Promise<void> {
+    const referencedAssets = await db.select({ id: assets.id }).from(assets)
+      .where(eq(assets.categoryId, id));
+    if (referencedAssets.length > 0) {
+      throw new Error(`REFERENCED:${referencedAssets.length}`);
+    }
     await db.delete(categories).where(eq(categories.id, id));
   }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Asset, AssetStatus, Team, User } from "@/lib/types";
+import { Asset, AssetStatus, Team, User, Category } from "@/lib/types";
 import { useLocation, useSearch } from "wouter";
 import { 
   Table, 
@@ -68,7 +68,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default function Assets() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
-  const [managerFilter, setManagerFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
@@ -77,13 +77,13 @@ export default function Assets() {
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     const status = params.get('status');
-    const manager = params.get('manager');
+    const category = params.get('category');
     
     if (status && ['ok', 'upcoming', 'overdue'].includes(status)) {
       setStatusFilter(status as AssetStatus);
     }
-    if (manager) {
-      setManagerFilter(manager);
+    if (category) {
+      setCategoryFilter(category);
     }
   }, [searchString]);
 
@@ -100,6 +100,11 @@ export default function Assets() {
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: () => api.users.getAll(),
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => api.categories.getAll(),
   });
 
   const assets = auth.filterAssetsForUser(allAssets, currentUser);
@@ -144,8 +149,8 @@ export default function Assets() {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
-    const matchesManager = managerFilter === "all" || asset.managerId === managerFilter;
-    return matchesSearch && matchesStatus && matchesManager;
+    const matchesCategory = categoryFilter === "all" || asset.categoryId === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const getTeamName = (id: string) => teams.find(t => t.id === id)?.name || id;
@@ -213,6 +218,7 @@ export default function Assets() {
             <AddAssetDialog 
               teams={teams} 
               users={users}
+              categories={categories}
               currentUser={currentUser}
             />
           )}
@@ -263,24 +269,24 @@ export default function Assets() {
 
           <div className="flex flex-wrap gap-2">
             <Button
-              variant={managerFilter === "all" ? "default" : "outline"}
+              variant={categoryFilter === "all" ? "default" : "outline"}
               size="sm"
-              onClick={() => setManagerFilter("all")}
+              onClick={() => setCategoryFilter("all")}
             >
               <Tags className="w-4 h-4 mr-1" />
               전체 ({assets.length})
             </Button>
-            {users.filter(u => u.role === 'manager').map((manager) => {
-              const count = assets.filter(a => a.managerId === manager.id).length;
+            {categories.map((cat) => {
+              const count = assets.filter(a => a.categoryId === cat.id).length;
               if (count === 0) return null;
               return (
                 <Button
-                  key={manager.id}
-                  variant={managerFilter === manager.id ? "default" : "outline"}
+                  key={cat.id}
+                  variant={categoryFilter === cat.id ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setManagerFilter(manager.id)}
+                  onClick={() => setCategoryFilter(cat.id)}
                 >
-                  {manager.username} ({count})
+                  {cat.name} ({count})
                 </Button>
               );
             })}
@@ -304,7 +310,7 @@ export default function Assets() {
                 {filteredAssets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center">
-                      {searchTerm || statusFilter !== 'all' || managerFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
+                      {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -315,7 +321,7 @@ export default function Assets() {
                         <div className="text-xs text-muted-foreground font-mono">{asset.serialNumber}</div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">{getUserName(asset.managerId)}</span>
+                        <span className="text-sm">{categories.find(c => c.id === asset.categoryId)?.name || "-"}</span>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">{getUserName(asset.staffId)}</span>
@@ -346,6 +352,7 @@ export default function Assets() {
                                   onEdit={handleEdit} 
                                   teams={teams}
                                   users={users}
+                                  categories={categories}
                                 />
                                 {auth.canDeleteAsset(currentUser) && (
                                   <>
@@ -426,12 +433,13 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, teams, users }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[] }) {
+function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[] }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: asset.name,
       serialNumber: asset.serialNumber,
+      categoryId: asset.categoryId || "",
       teamId: asset.teamId,
       managerId: asset.managerId,
       staffId: asset.staffId,
@@ -439,7 +447,6 @@ function EditAssetDialog({ asset, onEdit, teams, users }: { asset: Asset, onEdit
     }
   });
 
-  const managers = users.filter(u => u.role === 'manager');
   const staffMembers = users.filter(u => u.role === 'staff');
 
   const onSubmit = (data: any) => {
@@ -479,12 +486,18 @@ function EditAssetDialog({ asset, onEdit, teams, users }: { asset: Asset, onEdit
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>장비 구분</Label>
-              <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
+              <Select defaultValue={asset.categoryId || ""} onValueChange={(v) => {
+                setValue("categoryId", v);
+                const selectedCategory = categories.find(c => c.id === v);
+                if (selectedCategory?.managerId) {
+                  setValue("managerId", selectedCategory.managerId);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -556,7 +569,7 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ teams, users, currentUser }: { teams: Team[], users: User[], currentUser: User | null }) {
+function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
@@ -566,17 +579,21 @@ function AddAssetDialog({ teams, users, currentUser }: { teams: Team[], users: U
   const staffMembers = users.filter(u => u.role === 'staff');
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.assets.create({
-      name: data.name,
-      serialNumber: data.serialNumber,
-      teamId: data.teamId,
-      managerId: data.managerId || currentUser?.id || managers[0]?.id,
-      usageTeamId: data.teamId,
-      staffId: data.staffId || staffMembers[0]?.id,
-      inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
-      lastInspectedDate: data.lastInspectedDate,
-      inspectorId: currentUser?.id,
-    }),
+    mutationFn: (data: any) => {
+      const selectedCategory = categories.find(c => c.id === data.categoryId);
+      return api.assets.create({
+        name: data.name,
+        serialNumber: data.serialNumber,
+        categoryId: data.categoryId,
+        teamId: data.teamId,
+        managerId: selectedCategory?.managerId || currentUser?.id || managers[0]?.id,
+        usageTeamId: data.teamId,
+        staffId: data.staffId || staffMembers[0]?.id,
+        inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
+        lastInspectedDate: data.lastInspectedDate,
+        inspectorId: currentUser?.id,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/logs"] });
@@ -624,12 +641,18 @@ function AddAssetDialog({ teams, users, currentUser }: { teams: Team[], users: U
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>장비 구분</Label>
-              <Select onValueChange={(v) => setValue("managerId", v)}>
+              <Select onValueChange={(v) => {
+                setValue("categoryId", v);
+                const selectedCategory = categories.find(c => c.id === v);
+                if (selectedCategory?.managerId) {
+                  setValue("managerId", selectedCategory.managerId);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="장비 구분 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {managers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

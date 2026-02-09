@@ -165,13 +165,21 @@ Preferred communication style: Simple, everyday language.
 - Admin retains full access to all user operations
 - Staff Excel export/import/template includes 직책 column
 
-### February 2026 - Manager-based Classification & Category Removal
-- Removed two-level category system (카테고리 → 관리 장비명), replaced with single-level manager-based classification (장비 구분)
-- Made assets.categoryId nullable in database schema
-- Removed all category CRUD API routes, Excel export/import/template routes
-- Updated Assets page: removed category filter/column/management, replaced with manager-based filtering
-- Updated Dashboard: replaced category distribution chart with manager-based equipment distribution
-- Excel import supports backward compatibility - accepts "장비 구분", "장비관리자", or legacy "카테고리" column names
+### February 2026 - Separated Equipment Types from Manager Users
+- Major architectural change: manager users are now just people, equipment types stored separately in categories table
+- Categories table (id, name, managerId) stores equipment types with assigned manager
+- One manager can oversee multiple equipment types
+- Assets reference both categoryId (equipment type) and managerId (person, auto-set from category)
+- Team.tsx 장비 구분 tab: two-section layout with equipment types table and manager users table
+- New dialogs: AddEquipTypeCategoryDialog (creates category with manager selection), EditCategoryDialog, AddManagerDialog
+- Assets.tsx: equipment type filtering/display uses categoryId, auto-sets managerId from selected category
+- Dashboard.tsx: equipment distribution chart groups by categories, clickable cards navigate to filtered asset views
+- Excel export/import fully aligned with category-based model:
+  - Asset export: "장비 구분" shows category name, separate "관리자" column shows manager name
+  - Asset import: looks up categories by name, derives managerId from category
+  - Manager export: only manager role users with simplified columns (이름, 소속팀, 이메일, 전화번호)
+  - Category export/import: uses "장비 구분명" column name
+  - Backward compatibility: accepts "장비 구분" or "카테고리" column names for asset import
 
 ### February 2026 - Automated Email Notifications
 - Added Gmail integration using Replit Google Mail connector
