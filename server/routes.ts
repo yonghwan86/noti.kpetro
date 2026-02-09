@@ -231,6 +231,17 @@ export async function registerRoutes(
         }
         delete req.body.role;
       }
+      if (currentUser.role === 'admin' && req.body.role === 'staff') {
+        const targetUser = await storage.getUser(req.params.id);
+        if (targetUser?.role === 'manager') {
+          const demoted = await storage.demoteManager(req.params.id);
+          if (!demoted) {
+            return res.status(404).json({ error: "User not found" });
+          }
+          const { passwordHash, ...safeUser } = demoted;
+          return res.json({ ...safeUser, hasPassword: !!passwordHash });
+        }
+      }
       const updated = await storage.updateUser(req.params.id, req.body);
       if (!updated) {
         return res.status(404).json({ error: "User not found" });

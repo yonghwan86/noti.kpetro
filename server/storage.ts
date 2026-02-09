@@ -48,6 +48,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
+  demoteManager(id: string): Promise<User | undefined>;
 
   getAssets(): Promise<Asset[]>;
   getAsset(id: string): Promise<Asset | undefined>;
@@ -145,6 +146,17 @@ export class PostgresStorage implements IStorage {
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
     const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return result[0];
+  }
+
+  async demoteManager(id: string): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user || user.role !== 'manager') return undefined;
+    
+    return await db.transaction(async (tx) => {
+      await tx.update(categories).set({ managerId: null }).where(eq(categories.managerId, id));
+      const result = await tx.update(users).set({ role: 'staff' }).where(eq(users.id, id)).returning();
+      return result[0];
+    });
   }
 
   async deleteUser(id: string): Promise<void> {
