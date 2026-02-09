@@ -229,8 +229,14 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
     }
     
     try {
-      await storage.createUser({ username, fullName: username, role: 'manager', teamId: team.id, email, phone });
-      successCount++;
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        await storage.updateUser(existingUser.id, { teamId: team.id, email, phone });
+        successCount++;
+      } else {
+        await storage.createUser({ username, fullName: username, role: 'manager', teamId: team.id, email, phone });
+        successCount++;
+      }
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
     }
@@ -441,8 +447,14 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     }
 
     try {
-      await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
-      successCount++;
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        await storage.updateUser(existingUser.id, { teamId: team.id, email, phone, position });
+        successCount++;
+      } else {
+        await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
+        successCount++;
+      }
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
     }
