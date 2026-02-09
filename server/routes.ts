@@ -87,6 +87,40 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/categories/export", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = await excel.exportCategoriesToExcel();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=categories.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "장비 구분 내보내기에 실패했습니다." });
+    }
+  });
+
+  app.get("/api/categories/template", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = excel.getCategoryTemplate();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=category_template.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "템플릿 생성에 실패했습니다." });
+    }
+  });
+
+  app.post("/api/categories/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "파일이 없습니다." });
+      }
+      const result = await excel.importCategoriesFromExcel(req.file.buffer);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "장비 구분 가져오기에 실패했습니다." });
+    }
+  });
+
   app.post("/api/categories", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const category = insertCategorySchema.parse(req.body);
@@ -131,6 +165,40 @@ export async function registerRoutes(
       res.json(safeUsers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/users/export", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = await excel.exportUsersToExcel();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export users" });
+    }
+  });
+
+  app.get("/api/users/template", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const buffer = excel.getUserTemplate();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=users_template.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  app.post("/api/users/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "파일을 업로드해주세요" });
+      }
+      const result = await excel.importUsersFromExcel(req.file.buffer);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to import users" });
     }
   });
 
@@ -236,6 +304,40 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/assets/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+    try {
+      const buffer = await excel.exportAssetsToExcel();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=assets.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export assets" });
+    }
+  });
+
+  app.get("/api/assets/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+    try {
+      const buffer = excel.getAssetTemplate();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=assets_template.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  app.post("/api/assets/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "파일을 업로드해주세요" });
+      }
+      const result = await excel.importAssetsFromExcel(req.file.buffer);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to import assets" });
+    }
+  });
+
   app.patch("/api/assets/:id", async (req: Request, res: Response) => {
     try {
       const currentUser = await getCurrentUser(req);
@@ -323,56 +425,12 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/users/export", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const buffer = await excel.exportUsersToExcel();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to export users" });
-    }
-  });
-
-  app.get("/api/assets/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
-    try {
-      const buffer = await excel.exportAssetsToExcel();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=assets.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to export assets" });
-    }
-  });
-
   // Excel Template endpoints
   app.get("/api/teams/template", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const buffer = excel.getTeamTemplate();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=teams_template.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to generate template" });
-    }
-  });
-
-  app.get("/api/users/template", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const buffer = excel.getUserTemplate();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=users_template.xlsx");
-      res.send(buffer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to generate template" });
-    }
-  });
-
-  app.get("/api/assets/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
-    try {
-      const buffer = excel.getAssetTemplate();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=assets_template.xlsx");
       res.send(buffer);
     } catch (error) {
       res.status(500).json({ error: "Failed to generate template" });
@@ -389,30 +447,6 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import teams" });
-    }
-  });
-
-  app.post("/api/users/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "파일을 업로드해주세요" });
-      }
-      const result = await excel.importUsersFromExcel(req.file.buffer);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to import users" });
-    }
-  });
-
-  app.post("/api/assets/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "파일을 업로드해주세요" });
-      }
-      const result = await excel.importAssetsFromExcel(req.file.buffer);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to import assets" });
     }
   });
 

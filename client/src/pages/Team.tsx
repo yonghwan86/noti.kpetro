@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -204,12 +204,26 @@ export default function Team() {
     });
   };
 
+  const ITEMS_PER_PAGE = 10;
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [managerPage, setManagerPage] = useState(1);
+  const [staffPage, setStaffPage] = useState(1);
+  const [adminPage, setAdminPage] = useState(1);
+
   const managerUsers = users.filter(u => u.role === 'manager');
+  const adminUsers = users.filter(u => u.role === 'admin');
   const filteredCategories = categories.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (users.find(u => u.id === c.managerId)?.username || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
   const filteredManagerUsers = sortRecent(managerUsers.filter(
+    (user) =>
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ));
+
+  const filteredAdminUsers = sortRecent(adminUsers.filter(
     (user) =>
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -275,8 +289,13 @@ export default function Team() {
             {isAdmin && (
               <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
             )}
+            {isAdmin && (
+              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 관리자</TabsTrigger>
+            )}
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
-            {isAdmin && <AddMasterAccountDialog teams={teams} />}
+            {isAdmin && (
+              <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
+            )}
           </TabsList>
           
           <div className="relative w-full sm:w-64">
@@ -285,151 +304,75 @@ export default function Team() {
               placeholder="검색..."
               className="pl-8 h-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCategoryPage(1); setManagerPage(1); setStaffPage(1); setAdminPage(1); }}
             />
           </div>
         </div>
 
-        {isAdmin && <TabsContent value="equipTypes" className="space-y-6">
-          <div>
-            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-              <h3 className="text-lg font-semibold">장비 구분 목록</h3>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-2" asChild>
-                  <a href="/api/users/export" download>
-                    <Download className="h-4 w-4" />
-                    다운로드
-                  </a>
-                </Button>
-                <ExcelImportDialog
-                  title="장비 구분 엑셀 업로드"
-                  description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
-                  templateUrl="/api/users/template"
-                  importUrl="/api/users/import"
-                  onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
-                />
-                <AddEquipTypeCategoryDialog managerUsers={managerUsers} />
-              </div>
-            </div>
-            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-              <Table className="min-w-[600px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>장비 구분명</TableHead>
-                    <TableHead>담당 관리자</TableHead>
-                    <TableHead>소속팀</TableHead>
-                    <TableHead className="text-right">관리</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCategories.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCategories.map((category) => {
-                      const manager = users.find(u => u.id === category.managerId);
-                      const managerTeam = manager ? teams.find(t => t.id === manager.teamId) : null;
-                      return (
-                        <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
-                          <TableCell className="font-medium">{category.name}</TableCell>
-                          <TableCell>{manager?.username || "-"}</TableCell>
-                          <TableCell>{managerTeam?.name || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-category-menu-${category.id}`}>
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>작업</DropdownMenuLabel>
-                                <EditCategoryDialog category={category} managerUsers={managerUsers} />
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => deleteCategoryMutation.mutate(category.id)}
-                                  data-testid={`button-delete-category-${category.id}`}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+        {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              장비 구분을 등록하고 관리합니다.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="gap-2" asChild>
+                <a href="/api/categories/export" download>
+                  <Download className="h-4 w-4" />
+                  다운로드
+                </a>
+              </Button>
+              <ExcelImportDialog
+                title="장비 구분 엑셀 업로드"
+                description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
+                templateUrl="/api/categories/template"
+                importUrl="/api/categories/import"
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
+              />
+              <AddEquipTypeCategoryDialog managerUsers={managerUsers} />
             </div>
           </div>
-
-          <div>
-            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-              <div>
-                <h3 className="text-lg font-semibold">관리자 목록</h3>
-                <p className="text-sm text-muted-foreground">등록된 관리자</p>
-              </div>
-              <AddManagerDialog teams={teams} onCreated={pushRecentUser} />
-            </div>
-            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-              <Table className="min-w-[700px]">
-                <TableHeader>
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+            <Table className="min-w-[600px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>장비 구분명</TableHead>
+                  <TableHead>담당 관리자</TableHead>
+                  <TableHead>소속팀</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCategories.length === 0 ? (
                   <TableRow>
-                    <TableHead>이름</TableHead>
-                    <TableHead>소속팀</TableHead>
-                    <TableHead>이메일</TableHead>
-                    <TableHead>전화번호</TableHead>
-                    <TableHead>로그인</TableHead>
-                    <TableHead className="text-right">관리</TableHead>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredManagerUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        등록된 관리자가 없습니다. "관리자 등록" 버튼을 눌러 추가하세요.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredManagerUsers.map((user) => (
-                      <TableRow key={user.id} data-testid={`row-manager-${user.id}`}>
-                        <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
-                        <TableCell>{user.email || "-"}</TableCell>
-                        <TableCell>{user.phone || "-"}</TableCell>
-                        <TableCell>
-                          {user.email ? (
-                            user.hasPassword ? (
-                              <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
-                            ) : (
-                              <Badge variant="outline">미설정</Badge>
-                            )
-                          ) : (
-                            <Badge variant="secondary">이메일 없음</Badge>
-                          )}
-                        </TableCell>
+                ) : (
+                  filteredCategories.slice((categoryPage - 1) * ITEMS_PER_PAGE, categoryPage * ITEMS_PER_PAGE).map((category) => {
+                    const manager = users.find(u => u.id === category.managerId);
+                    const managerTeam = manager ? teams.find(t => t.id === manager.teamId) : null;
+                    return (
+                      <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{manager?.username || "-"}</TableCell>
+                        <TableCell>{managerTeam?.name || "-"}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-manager-menu-${user.id}`}>
+                              <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-category-menu-${category.id}`}>
                                 <span className="sr-only">Open menu</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <EditCategoryDialog category={category} managerUsers={managerUsers} />
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
-                                onClick={() => handleDeleteUser(user.id)}
-                                data-testid={`button-delete-manager-${user.id}`}
+                                onClick={() => deleteCategoryMutation.mutate(category.id)}
+                                data-testid={`button-delete-category-${category.id}`}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 삭제
@@ -438,12 +381,113 @@ export default function Team() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination currentPage={categoryPage} totalItems={filteredCategories.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setCategoryPage} />
+        </TabsContent>}
+
+        {isAdmin && <TabsContent value="managers" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              장비를 관리하는 관리자 계정을 등록하고 관리합니다.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="gap-2" asChild>
+                <a href="/api/users/export" download>
+                  <Download className="h-4 w-4" />
+                  다운로드
+                </a>
+              </Button>
+              <ExcelImportDialog
+                title="관리자 엑셀 업로드"
+                description="엑셀 파일에서 관리자 목록을 일괄 등록합니다."
+                templateUrl="/api/users/template"
+                importUrl="/api/users/import"
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+              />
+              <AddManagerDialog teams={teams} onCreated={pushRecentUser} />
             </div>
           </div>
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+            <Table className="min-w-[700px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>이름</TableHead>
+                  <TableHead>소속팀</TableHead>
+                  <TableHead>이메일</TableHead>
+                  <TableHead>전화번호</TableHead>
+                  <TableHead>로그인</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredManagerUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      등록된 관리자가 없습니다. "관리자 등록" 버튼을 눌러 추가하세요.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredManagerUsers.slice((managerPage - 1) * ITEMS_PER_PAGE, managerPage * ITEMS_PER_PAGE).map((user) => (
+                    <TableRow key={user.id} data-testid={`row-manager-${user.id}`}>
+                      <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
+                      <TableCell>{user.email || "-"}</TableCell>
+                      <TableCell>{user.phone || "-"}</TableCell>
+                      <TableCell>
+                        {user.email ? (
+                          user.hasPassword ? (
+                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                          ) : (
+                            <Badge variant="outline">미설정</Badge>
+                          )
+                        ) : (
+                          <Badge variant="secondary">이메일 없음</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-manager-menu-${user.id}`}>
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>작업</DropdownMenuLabel>
+                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                            {user.hasPassword && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  비밀번호 초기화
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDeleteUser(user.id)}
+                              data-testid={`button-delete-manager-${user.id}`}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination currentPage={managerPage} totalItems={filteredManagerUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setManagerPage} />
         </TabsContent>}
 
         <TabsContent value="staff" className="space-y-4">
@@ -508,7 +552,7 @@ export default function Team() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredStaffUsers.map((user) => (
+                  filteredStaffUsers.slice((staffPage - 1) * ITEMS_PER_PAGE, staffPage * ITEMS_PER_PAGE).map((user) => (
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>{user.position || "-"}</TableCell>
@@ -583,7 +627,99 @@ export default function Team() {
               </TableBody>
             </Table>
           </div>
+          <Pagination currentPage={staffPage} totalItems={filteredStaffUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setStaffPage} />
         </TabsContent>
+
+        {isAdmin && <TabsContent value="admins" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              시스템 전체를 관리할 수 있는 마스터 계정입니다.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <AddMasterAccountDialog teams={teams} />
+            </div>
+          </div>
+          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+            <Table className="min-w-[700px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>이름</TableHead>
+                  <TableHead>소속팀</TableHead>
+                  <TableHead>이메일</TableHead>
+                  <TableHead>전화번호</TableHead>
+                  <TableHead>로그인</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAdminUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      등록된 마스터 계정이 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAdminUsers.slice((adminPage - 1) * ITEMS_PER_PAGE, adminPage * ITEMS_PER_PAGE).map((user) => (
+                    <TableRow key={user.id} data-testid={`row-admin-${user.id}`}>
+                      <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
+                      <TableCell>{user.email || "-"}</TableCell>
+                      <TableCell>{user.phone || "-"}</TableCell>
+                      <TableCell>
+                        {user.email ? (
+                          user.hasPassword ? (
+                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                          ) : (
+                            <Badge variant="outline">미설정</Badge>
+                          )
+                        ) : (
+                          <Badge variant="secondary">이메일 없음</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-admin-menu-${user.id}`}>
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>작업</DropdownMenuLabel>
+                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                            {user.hasPassword && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  비밀번호 초기화
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {adminUsers.length > 1 && user.id !== currentUser?.id && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  data-testid={`button-delete-admin-${user.id}`}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination currentPage={adminPage} totalItems={filteredAdminUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setAdminPage} />
+        </TabsContent>}
       </Tabs>
     </div>
   );
@@ -1081,13 +1217,9 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 gap-2 hover:bg-accent hover:text-accent-foreground"
-          data-testid="button-add-master"
-        >
-          <Shield className="w-4 h-4" /> 마스터 계정 추가
-        </button>
+        <Button className="gap-2" data-testid="button-add-master">
+          <Plus className="w-4 h-4" /> 마스터 계정 추가
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -1564,5 +1696,72 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { currentPage: number, totalItems: number, itemsPerPage: number, onPageChange: (page: number) => void }) {
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  if (totalPages <= 1) return null;
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex items-center justify-between" data-testid="pagination">
+      <p className="text-sm text-muted-foreground">
+        총 {totalItems}건 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}건
+      </p>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-8 w-8 p-0"
+          data-testid="button-prev-page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        {getPageNumbers().map((page, idx) => (
+          typeof page === 'number' ? (
+            <Button
+              key={idx}
+              variant={page === currentPage ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPageChange(page)}
+              className="h-8 w-8 p-0"
+              data-testid={`button-page-${page}`}
+            >
+              {page}
+            </Button>
+          ) : (
+            <span key={idx} className="px-1 text-muted-foreground">...</span>
+          )
+        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-8 w-8 p-0"
+          data-testid="button-next-page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
