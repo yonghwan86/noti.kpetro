@@ -268,7 +268,7 @@ export default function Team() {
               <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 관리자</TabsTrigger>
+              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 장비 관리자</TabsTrigger>
             )}
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 사용자</TabsTrigger>
           </TabsList>
@@ -311,7 +311,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>장비 구분명</TableHead>
-                  <TableHead>담당 관리자</TableHead>
+                  <TableHead>담당 장비 관리자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -368,7 +368,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="managers" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              장비를 관리하는 관리자 계정을 등록하고 관리합니다.
+              장비를 관리하는 장비 관리자 계정을 등록하고 관리합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -378,8 +378,8 @@ export default function Team() {
                 </a>
               </Button>
               <ExcelImportDialog
-                title="관리자 엑셀 업로드"
-                description="엑셀 파일에서 관리자 목록을 일괄 등록합니다."
+                title="장비 관리자 엑셀 업로드"
+                description="엑셀 파일에서 장비 관리자 목록을 일괄 등록합니다."
                 templateUrl="/api/users/template"
                 importUrl="/api/users/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
@@ -403,7 +403,7 @@ export default function Team() {
                 {filteredManagerUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
-                      등록된 관리자가 없습니다. "관리자 배정" 버튼을 눌러 사용자를 관리자로 배정하세요.
+                      등록된 장비 관리자가 없습니다. "장비 관리자 배정" 버튼을 눌러 사용자를 장비 관리자로 배정하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -806,10 +806,10 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category-manager">담당 관리자</Label>
+            <Label htmlFor="category-manager">담당 장비 관리자</Label>
             <Select value={managerId} onValueChange={setManagerId}>
               <SelectTrigger data-testid="select-category-manager">
-                <SelectValue placeholder="관리자 선택" />
+                <SelectValue placeholder="장비 관리자 선택" />
               </SelectTrigger>
               <SelectContent>
                 {managerUsers.map((u) => (
@@ -885,10 +885,10 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-category-manager">담당 관리자</Label>
+            <Label htmlFor="edit-category-manager">담당 장비 관리자</Label>
             <Select value={managerId} onValueChange={setManagerId}>
               <SelectTrigger data-testid="select-edit-category-manager">
-                <SelectValue placeholder="관리자 선택" />
+                <SelectValue placeholder="장비 관리자 선택" />
               </SelectTrigger>
               <SelectContent>
                 {managerUsers.map((u) => (
@@ -931,7 +931,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
       setOpen(false);
       setSearchTerm("");
       setSelectedId(null);
-      toast({ title: "관리자 배정 완료", description: "선택한 사용자가 관리자로 배정되었습니다." });
+      toast({ title: "장비 관리자 배정 완료", description: "선택한 사용자가 장비 관리자로 배정되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "배정 실패", description: error.message, variant: "destructive" });
@@ -950,13 +950,13 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-promote-manager">
-          <UserPlus className="w-4 h-4" /> 관리자 배정
+          <UserPlus className="w-4 h-4" /> 장비 관리자 배정
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>관리자 배정</DialogTitle>
-          <DialogDescription>사용자 목록에서 관리자로 배정할 사용자를 선택하세요.</DialogDescription>
+          <DialogTitle>장비 관리자 배정</DialogTitle>
+          <DialogDescription>사용자 목록에서 장비 관리자로 배정할 사용자를 선택하세요.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
@@ -1002,7 +1002,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
               disabled={!selectedId || promoteMutation.isPending}
               data-testid="button-submit-promote"
             >
-              관리자로 배정
+              장비 관리자로 배정
             </Button>
           </DialogFooter>
         </div>
