@@ -1205,7 +1205,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
         if (existingTeam) {
           teamId = existingTeam.id;
         } else {
-          const newTeam = await api.teams.create({ name: trimmedTeamInput, type: 'management' } as any);
+          const newTeam = await api.teams.create({ name: trimmedTeamInput, type: 'management', contactEmail: '' } as any);
           teamId = newTeam.id;
           queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
         }
