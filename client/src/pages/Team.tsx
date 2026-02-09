@@ -723,48 +723,71 @@ export default function Team() {
 
 function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
   const [open, setOpen] = useState(false);
-  const [teamInput, setTeamInput] = useState(teams.find(t => t.id === user.teamId)?.name || "");
+  const [teamInput, setTeamInput] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
-  const { register, handleSubmit, setValue, watch, reset } = useForm({
+  const { register, handleSubmit, reset } = useForm({
     defaultValues: {
       username: user.username,
       fullName: user.fullName || "",
       position: user.position || "",
       email: user.email || "",
       phone: user.phone || "",
-      teamId: user.teamId,
     }
   });
   const isStaffUser = user.role === 'staff';
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const filteredTeams = teams.filter(t => 
     t.name.toLowerCase().includes(teamInput.toLowerCase())
   );
 
-  const onSubmit = (data: any) => {
-    const matchedTeam = teams.find(t => t.name === teamInput);
-    if (!matchedTeam && !data.teamId) {
+  const onSubmit = async (data: any) => {
+    let teamId = selectedTeamId;
+    const trimmedTeamInput = teamInput.trim();
+    if (!teamId && trimmedTeamInput) {
+      const existingTeam = teams.find(t => t.name === trimmedTeamInput);
+      if (existingTeam) {
+        teamId = existingTeam.id;
+      } else {
+        try {
+          const newTeam = await api.teams.create({ name: trimmedTeamInput, type: 'management', contactEmail: '' } as any);
+          teamId = newTeam.id;
+          queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+        } catch {
+          toast({ title: "팀 생성 실패", variant: "destructive" });
+          return;
+        }
+      }
+    }
+    if (!teamId) {
+      toast({ title: "소속팀을 입력해주세요.", variant: "destructive" });
       return;
     }
-    const submitData = {
-      ...data,
-      teamId: matchedTeam?.id || data.teamId,
-    };
-    onEdit(user.id, submitData);
+    onEdit(user.id, {
+      username: data.username,
+      fullName: data.fullName || undefined,
+      position: data.position || undefined,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      teamId,
+    });
     setOpen(false);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      setTeamInput(teams.find(t => t.id === user.teamId)?.name || "");
+      const currentTeam = teams.find(t => t.id === user.teamId);
+      setTeamInput(currentTeam?.name || "");
+      setSelectedTeamId(user.teamId);
       reset({
         username: user.username,
         fullName: user.fullName || "",
         position: user.position || "",
         email: user.email || "",
         phone: user.phone || "",
-        teamId: user.teamId,
       });
     }
   };
@@ -812,6 +835,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 value={teamInput}
                 onChange={(e) => {
                   setTeamInput(e.target.value);
+                  setSelectedTeamId(null);
                   setShowTeamSuggestions(true);
                 }}
                 onFocus={() => setShowTeamSuggestions(true)}
@@ -819,14 +843,14 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                 placeholder="팀 이름 입력 또는 선택"
               />
               {showTeamSuggestions && filteredTeams.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-40 overflow-auto">
                   {filteredTeams.map((t) => (
                     <div
                       key={t.id}
-                      className="px-3 py-2 cursor-pointer hover:bg-accent"
+                      className={`px-3 py-2 cursor-pointer hover:bg-accent text-sm ${selectedTeamId === t.id ? 'bg-accent' : ''}`}
                       onMouseDown={() => {
                         setTeamInput(t.name);
-                        setValue("teamId", t.id);
+                        setSelectedTeamId(t.id);
                         setShowTeamSuggestions(false);
                       }}
                     >
@@ -834,6 +858,9 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                     </div>
                   ))}
                 </div>
+              )}
+              {teamInput.trim() && !selectedTeamId && !teams.find(t => t.name === teamInput.trim()) && (
+                <p className="text-xs text-muted-foreground mt-1">"{teamInput.trim()}" 팀이 새로 등록됩니다.</p>
               )}
             </div>
           </div>
