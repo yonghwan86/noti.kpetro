@@ -175,6 +175,12 @@ export default function Team() {
   const isAdmin = currentUser?.role === 'admin';
   const isManager = currentUser?.role === 'manager';
 
+  const ITEMS_PER_PAGE = 10;
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [managerPage, setManagerPage] = useState(1);
+  const [staffPage, setStaffPage] = useState(1);
+  const [adminPage, setAdminPage] = useState(1);
+
   if (!auth.canAccessTeamPage(currentUser)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -203,12 +209,6 @@ export default function Team() {
       return 0;
     });
   };
-
-  const ITEMS_PER_PAGE = 10;
-  const [categoryPage, setCategoryPage] = useState(1);
-  const [managerPage, setManagerPage] = useState(1);
-  const [staffPage, setStaffPage] = useState(1);
-  const [adminPage, setAdminPage] = useState(1);
 
   const managerUsers = users.filter(u => u.role === 'manager');
   const adminUsers = users.filter(u => u.role === 'admin');
