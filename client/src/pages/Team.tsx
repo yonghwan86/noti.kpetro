@@ -370,21 +370,25 @@ export default function Team() {
                 : "내 장비 구분에 배정된 담당자 목록입니다. 담당자가 변경되면 수정할 수 있습니다."}
             </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              {isAdmin && (
+              {(isAdmin || isManager) && (
                 <>
-                  <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
-                    <a href="/api/staff/export" download>
-                      <Download className="h-4 w-4" />
-                      다운로드
-                    </a>
-                  </Button>
-                  <ExcelImportDialog
-                    title="사용자 엑셀 업로드"
-                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
-                    templateUrl="/api/staff/template"
-                    importUrl="/api/staff/import"
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
-                  />
+                  {isAdmin && (
+                    <>
+                      <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
+                        <a href="/api/staff/export" download>
+                          <Download className="h-4 w-4" />
+                          다운로드
+                        </a>
+                      </Button>
+                      <ExcelImportDialog
+                        title="사용자 엑셀 업로드"
+                        description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
+                        templateUrl="/api/staff/template"
+                        importUrl="/api/staff/import"
+                        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                      />
+                    </>
+                  )}
                   <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
                 </>
               )}
@@ -460,7 +464,7 @@ export default function Team() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              {isAdmin && (
+                              {(isAdmin || isManager) && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 

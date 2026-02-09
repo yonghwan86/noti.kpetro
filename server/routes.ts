@@ -90,10 +90,17 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.post("/api/users", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
-      const user = insertUserSchema.parse(req.body);
-      const created = await storage.createUser(user);
+      const currentUser = (req as any).currentUser;
+      const userData = insertUserSchema.parse(req.body);
+      if (currentUser.role === 'manager') {
+        if (userData.role !== 'staff') {
+          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 추가할 수 있습니다." });
+        }
+        userData.managerId = currentUser.id;
+      }
+      const created = await storage.createUser(userData);
       const { passwordHash, ...safeCreated } = created;
       res.status(201).json({ ...safeCreated, hasPassword: !!passwordHash });
     } catch (error) {
