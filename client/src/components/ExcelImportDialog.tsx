@@ -18,6 +18,7 @@ interface ImportResult {
   successCount: number;
   errorCount: number;
   errors: { row: number; field: string; message: string }[];
+  managerUpdateCount?: number;
 }
 
 interface ExcelImportDialogProps {
@@ -79,6 +80,7 @@ export default function ExcelImportDialog({
         successCount: data.successCount ?? 0,
         errorCount: data.errorCount ?? (data.errors?.length ?? 0),
         errors: Array.isArray(data.errors) ? data.errors : [],
+        managerUpdateCount: data.managerUpdateCount ?? 0,
       };
       
       setResult(normalizedResult);
@@ -159,6 +161,11 @@ export default function ExcelImportDialog({
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription>
                     {result.successCount}건이 성공적으로 등록되었습니다.
+                    {(result.managerUpdateCount ?? 0) > 0 && (
+                      <div className="text-xs mt-1 text-muted-foreground">
+                        (이 중 장비 관리자 {result.managerUpdateCount}명의 정보가 업데이트되었습니다. 역할은 유지됩니다.)
+                      </div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}

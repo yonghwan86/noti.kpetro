@@ -96,6 +96,7 @@ interface ImportResult {
   successCount: number;
   errorCount: number;
   errors: { row: number; field: string; message: string }[];
+  managerUpdateCount?: number;
 }
 
 export async function importTeamsFromExcel(buffer: Buffer): Promise<ImportResult> {
@@ -423,6 +424,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
   const teams = await storage.getTeams();
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
+  let managerUpdateCount = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -453,6 +455,9 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         await storage.updateUser(existingUser.id, { teamId: team.id, email, phone, position });
+        if (existingUser.role === 'manager') {
+          managerUpdateCount++;
+        }
         successCount++;
       } else {
         await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
@@ -467,7 +472,8 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     success: errors.length === 0,
     successCount,
     errorCount: errors.length,
-    errors
+    errors,
+    managerUpdateCount
   };
 }
 
