@@ -936,7 +936,8 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
 function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], teams: TeamType[], onPromoted?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isPromoting, setIsPromoting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -950,26 +951,37 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
     );
   });
 
-  const promoteMutation = useMutation({
-    mutationFn: (id: string) => api.users.update(id, { role: 'manager' } as any),
-    onSuccess: (_data: any, id: string) => {
-      if (onPromoted) onPromoted(id);
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  const handlePromoteAll = async () => {
+    if (selectedIds.length === 0) return;
+    setIsPromoting(true);
+    try {
+      for (const id of selectedIds) {
+        await api.users.update(id, { role: 'manager' } as any);
+        if (onPromoted) onPromoted(id);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       setSearchTerm("");
-      setSelectedId(null);
-      toast({ title: "장비 관리자 배정 완료", description: "선택한 사용자가 장비 관리자로 배정되었습니다." });
-    },
-    onError: (error: Error) => {
+      setSelectedIds([]);
+      toast({ title: "장비 관리자 배정 완료", description: `${selectedIds.length}명의 사용자가 장비 관리자로 배정되었습니다.` });
+    } catch (error: any) {
       toast({ title: "배정 실패", description: error.message, variant: "destructive" });
-    },
-  });
+    } finally {
+      setIsPromoting(false);
+    }
+  };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
       setSearchTerm("");
-      setSelectedId(null);
+      setSelectedIds([]);
     }
   };
 
@@ -983,7 +995,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>장비 관리자 배정</DialogTitle>
-          <DialogDescription>사용자 목록에서 장비 관리자로 배정할 사용자를 선택하세요.</DialogDescription>
+          <DialogDescription>사용자 목록에서 장비 관리자로 배정할 사용자를 선택하세요. 여러 명을 동시에 선택할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
@@ -996,40 +1008,48 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
               data-testid="input-promote-search"
             />
           </div>
+          {selectedIds.length > 0 && (
+            <div className="text-sm text-muted-foreground">
+              {selectedIds.length}명 선택됨
+            </div>
+          )}
           <div className="rounded-md border max-h-[300px] overflow-auto">
             {filteredUsers.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
                 {staffUsers.length === 0 ? "배정 가능한 사용자가 없습니다. 먼저 사용자 탭에서 사용자를 추가하세요." : "검색 결과가 없습니다."}
               </div>
             ) : (
-              filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className={`flex items-center justify-between p-3 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedId === user.id ? 'bg-accent' : ''}`}
-                  onClick={() => setSelectedId(user.id === selectedId ? null : user.id)}
-                  data-testid={`promote-user-${user.id}`}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{user.username}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {teams.find(t => t.id === user.teamId)?.name || "-"} {user.position ? `· ${user.position}` : ''}
-                    </span>
+              filteredUsers.map((user) => {
+                const isSelected = selectedIds.includes(user.id);
+                return (
+                  <div
+                    key={user.id}
+                    className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-accent border-b last:border-b-0 ${isSelected ? 'bg-accent' : ''}`}
+                    onClick={() => toggleSelection(user.id)}
+                    data-testid={`promote-user-${user.id}`}
+                  >
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelection(user.id)} className="h-4 w-4 rounded border-gray-300" />
+                    <div className="flex-1 flex flex-col">
+                      <span className="font-medium">{user.username}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {teams.find(t => t.id === user.teamId)?.name || "-"} {user.position ? `· ${user.position}` : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
-                    {selectedId === user.id && <Badge className="bg-blue-500">선택됨</Badge>}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           <DialogFooter>
             <Button
-              onClick={() => selectedId && promoteMutation.mutate(selectedId)}
-              disabled={!selectedId || promoteMutation.isPending}
+              onClick={handlePromoteAll}
+              disabled={selectedIds.length === 0 || isPromoting}
               data-testid="button-submit-promote"
             >
-              장비 관리자로 배정
+              {isPromoting ? "배정 중..." : `장비 관리자로 배정 (${selectedIds.length}명)`}
             </Button>
           </DialogFooter>
         </div>
