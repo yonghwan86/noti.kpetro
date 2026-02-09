@@ -447,11 +447,15 @@ export default function Team() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteUser(user.id)}
-                              data-testid={`button-delete-manager-${user.id}`}
+                              onClick={() => {
+                                if (confirm(`"${user.username}" 님을 장비 관리자에서 해제하시겠습니까? 사용자 계정은 유지됩니다.`)) {
+                                  handleEditUser(user.id, { role: 'staff' });
+                                }
+                              }}
+                              data-testid={`button-demote-manager-${user.id}`}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              삭제
+                              장비 관리자 해제
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
