@@ -27,7 +27,7 @@ export async function exportCategoriesToExcel(): Promise<Buffer> {
   
   const data = categories.map(c => ({
     "장비 구분명": c.name,
-    "관리자": users.find(u => u.id === c.managerId)?.username || "",
+    "관리자": (c.managerIds || []).map(mid => users.find(u => u.id === mid)?.username).filter(Boolean).join(", ") || "",
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
@@ -169,18 +169,21 @@ export async function importCategoriesFromExcel(buffer: Buffer): Promise<ImportR
       continue;
     }
     
-    let managerId: string | null = null;
+    let managerIds: string[] = [];
     if (managerName) {
-      const manager = users.find(u => u.username === managerName);
-      if (!manager) {
-        errors.push({ row: rowNum, field: "관리자", message: `'${managerName}' 사용자를 찾을 수 없습니다` });
-        continue;
+      const managerNames = managerName.split(",").map((n: string) => n.trim()).filter(Boolean);
+      for (const mName of managerNames) {
+        const manager = users.find(u => u.username === mName);
+        if (!manager) {
+          errors.push({ row: rowNum, field: "관리자", message: `'${mName}' 사용자를 찾을 수 없습니다` });
+          continue;
+        }
+        managerIds.push(manager.id);
       }
-      managerId = manager.id;
     }
     
     try {
-      await storage.createCategory({ name, managerId });
+      await storage.createCategory({ name, managerIds });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "카테고리명", message: e.message || "등록 실패" });
@@ -320,7 +323,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       continue;
     }
     
-    if (!category.managerId) {
+    if (!category.managerIds || category.managerIds.length === 0) {
       errors.push({ row: rowNum, field: "장비 구분", message: `'${categoryName}' 장비 구분에 관리자가 지정되지 않았습니다` });
       continue;
     }
@@ -343,7 +346,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
         serialNumber,
         categoryId: category.id,
         teamId: team.id,
-        managerId: category.managerId,
+        managerId: category.managerIds![0],
         usageTeamId: usageTeam.id,
         staffId: staff.id,
         inspectionCycleMonths,

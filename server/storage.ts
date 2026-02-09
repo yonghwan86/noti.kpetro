@@ -153,7 +153,13 @@ export class PostgresStorage implements IStorage {
     if (!user || user.role !== 'manager') return undefined;
     
     return await db.transaction(async (tx) => {
-      await tx.update(categories).set({ managerId: null }).where(eq(categories.managerId, id));
+      const allCategories = await tx.select().from(categories);
+      for (const cat of allCategories) {
+        if (cat.managerIds && cat.managerIds.includes(id)) {
+          const newIds = cat.managerIds.filter(mid => mid !== id);
+          await tx.update(categories).set({ managerIds: newIds }).where(eq(categories.id, cat.id));
+        }
+      }
       const result = await tx.update(users).set({ role: 'staff' }).where(eq(users.id, id)).returning();
       return result[0];
     });

@@ -76,18 +76,18 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design** (defined in `shared/schema.ts`):
 - **teams**: Organization teams with contact information
-- **categories**: Asset categories (legacy table, no longer actively used - replaced by manager-based classification)
-- **users**: System users with roles and team assignments; managers represent equipment types (장비 구분)
+- **categories**: Equipment type classifications with `managerIds` (text array) supporting multiple manager assignments per equipment type
+- **users**: System users with roles and team assignments; managers are promoted from staff users
 - **assets**: Equipment assets with detailed tracking fields including:
   - Basic info (name, serial number)
   - Team relationships (managing team and usage team)
-  - Manager assignment (doubles as equipment type classification)
+  - Category reference (categoryId) linking to equipment type
+  - Single manager assignment (managerId) - auto-set from category's managers, user-selectable when category has multiple managers
   - Staff assignment (person in charge)
   - Inspection cycle configuration
   - Date tracking (last inspected, next due)
   - Computed status field
   - Optional notes
-  - categoryId (nullable, legacy field)
 - **inspectionLogs**: Historical record of inspections performed
 
 **Key Relationships**:

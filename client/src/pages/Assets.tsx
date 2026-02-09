@@ -435,6 +435,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
 
 function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[] }) {
   const [open, setOpen] = useState(false);
+  const [editCategoryId, setEditCategoryId] = useState<string>(asset.categoryId || "");
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: asset.name,
@@ -448,6 +449,8 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
   });
 
   const staffMembers = users.filter(u => u.role === 'staff');
+  const editCategory = categories.find(c => c.id === editCategoryId);
+  const editCategoryManagers = (editCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
 
   const onSubmit = (data: any) => {
     onEdit(asset.id, {
@@ -488,9 +491,10 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
               <Label>장비 구분</Label>
               <Select defaultValue={asset.categoryId || ""} onValueChange={(v) => {
                 setValue("categoryId", v);
-                const selectedCategory = categories.find(c => c.id === v);
-                if (selectedCategory?.managerId) {
-                  setValue("managerId", selectedCategory.managerId);
+                setEditCategoryId(v);
+                const cat = categories.find(c => c.id === v);
+                if (cat?.managerIds && cat.managerIds.length > 0) {
+                  setValue("managerId", cat.managerIds[0]);
                 }
               }}>
                 <SelectTrigger>
@@ -501,6 +505,19 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                 </SelectContent>
               </Select>
             </div>
+            {editCategoryManagers.length > 1 && (
+              <div className="space-y-2">
+                <Label>장비 관리자</Label>
+                <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editCategoryManagers.map(u => u && <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
@@ -571,22 +588,24 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
 
 function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const managers = users.filter(u => u.role === 'manager');
   const staffMembers = users.filter(u => u.role === 'staff');
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+  const categoryManagers = (selectedCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => {
-      const selectedCategory = categories.find(c => c.id === data.categoryId);
       return api.assets.create({
         name: data.name,
         serialNumber: data.serialNumber,
         categoryId: data.categoryId,
         teamId: data.teamId,
-        managerId: selectedCategory?.managerId || currentUser?.id || managers[0]?.id,
+        managerId: data.managerId || (selectedCategory?.managerIds && selectedCategory.managerIds.length > 0 ? selectedCategory.managerIds[0] : null) || currentUser?.id || managers[0]?.id,
         usageTeamId: data.teamId,
         staffId: data.staffId || staffMembers[0]?.id,
         inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
@@ -611,6 +630,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
     setOpen(isOpen);
     if (!isOpen) {
       reset();
+      setSelectedCategoryId("");
     }
   };
 
@@ -643,9 +663,10 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
               <Label>장비 구분</Label>
               <Select onValueChange={(v) => {
                 setValue("categoryId", v);
-                const selectedCategory = categories.find(c => c.id === v);
-                if (selectedCategory?.managerId) {
-                  setValue("managerId", selectedCategory.managerId);
+                setSelectedCategoryId(v);
+                const cat = categories.find(c => c.id === v);
+                if (cat?.managerIds && cat.managerIds.length > 0) {
+                  setValue("managerId", cat.managerIds[0]);
                 }
               }}>
                 <SelectTrigger>
@@ -656,6 +677,19 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
                 </SelectContent>
               </Select>
             </div>
+            {categoryManagers.length > 1 && (
+              <div className="space-y-2">
+                <Label>장비 관리자</Label>
+                <Select defaultValue={categoryManagers[0]?.id} onValueChange={(v) => setValue("managerId", v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="관리자 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryManagers.map(u => u && <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select onValueChange={(v) => setValue("teamId", v)}>

@@ -212,7 +212,7 @@ export default function Team() {
   const managerUsers = users.filter(u => u.role === 'manager');
   const filteredCategories = categories.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (users.find(u => u.id === c.managerId)?.username || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (c.managerIds || []).some(mid => (users.find(u => u.id === mid)?.username || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
   const filteredManagerUsers = sortRecent(managerUsers.filter(
     (user) =>
@@ -325,13 +325,12 @@ export default function Team() {
                   </TableRow>
                 ) : (
                   filteredCategories.slice((categoryPage - 1) * ITEMS_PER_PAGE, categoryPage * ITEMS_PER_PAGE).map((category) => {
-                    const manager = users.find(u => u.id === category.managerId);
-                    const managerTeam = manager ? teams.find(t => t.id === manager.teamId) : null;
+                    const categoryManagers = (category.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
                     return (
                       <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
                         <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell>{manager?.username || "-"}</TableCell>
-                        <TableCell>{managerTeam?.name || "-"}</TableCell>
+                        <TableCell>{categoryManagers.length > 0 ? categoryManagers.map(m => m!.username).join(", ") : "-"}</TableCell>
+                        <TableCell>{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => teams.find(t => t.id === m!.teamId)?.name).filter(Boolean))).join(", ") : "-"}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -753,23 +752,27 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
 function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [managerId, setManagerId] = useState("");
+  const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: () => api.categories.create({ name, managerId: managerId || undefined }),
+    mutationFn: () => api.categories.create({ name, managerIds: selectedManagerIds }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
       setName("");
-      setManagerId("");
+      setSelectedManagerIds([]);
       toast({ title: "장비 구분 등록 완료", description: "새로운 장비 구분이 등록되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });
     },
   });
+
+  const toggleManager = (id: string) => {
+    setSelectedManagerIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -781,7 +784,7 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
     setOpen(isOpen);
     if (!isOpen) {
       setName("");
-      setManagerId("");
+      setSelectedManagerIds([]);
     }
   };
 
@@ -810,17 +813,25 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category-manager">담당 장비 관리자</Label>
-            <Select value={managerId} onValueChange={setManagerId}>
-              <SelectTrigger data-testid="select-category-manager">
-                <SelectValue placeholder="장비 관리자 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {managerUsers.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>담당 장비 관리자 (복수 선택 가능)</Label>
+            <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1" data-testid="select-category-managers">
+              {managerUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-1">등록된 장비 관리자가 없습니다.</p>
+              ) : (
+                managerUsers.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedManagerIds.includes(u.id)}
+                      onChange={() => toggleManager(u.id)}
+                      className="rounded"
+                      data-testid={`checkbox-manager-${u.id}`}
+                    />
+                    <span className="text-sm">{u.username}</span>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-category">등록</Button>
@@ -834,12 +845,12 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
 function EditCategoryDialog({ category, managerUsers }: { category: Category, managerUsers: User[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(category.name);
-  const [managerId, setManagerId] = useState(category.managerId || "");
+  const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(category.managerIds || []);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
-    mutationFn: () => api.categories.update(category.id, { name, managerId: managerId || undefined }),
+    mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
@@ -849,6 +860,10 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
       toast({ title: "수정 실패", description: error.message, variant: "destructive" });
     },
   });
+
+  const toggleManager = (id: string) => {
+    setSelectedManagerIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -860,7 +875,7 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
     setOpen(isOpen);
     if (isOpen) {
       setName(category.name);
-      setManagerId(category.managerId || "");
+      setSelectedManagerIds(category.managerIds || []);
     }
   };
 
@@ -889,17 +904,25 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-category-manager">담당 장비 관리자</Label>
-            <Select value={managerId} onValueChange={setManagerId}>
-              <SelectTrigger data-testid="select-edit-category-manager">
-                <SelectValue placeholder="장비 관리자 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {managerUsers.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>담당 장비 관리자 (복수 선택 가능)</Label>
+            <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
+              {managerUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-1">등록된 장비 관리자가 없습니다.</p>
+              ) : (
+                managerUsers.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedManagerIds.includes(u.id)}
+                      onChange={() => toggleManager(u.id)}
+                      className="rounded"
+                      data-testid={`checkbox-edit-manager-${u.id}`}
+                    />
+                    <span className="text-sm">{u.username}</span>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-category">저장</Button>
