@@ -90,16 +90,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+  app.post("/api/users", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
-      const currentUser = (req as any).currentUser;
       const userData = insertUserSchema.parse(req.body);
-      if (currentUser.role === 'manager') {
-        if (userData.role !== 'staff') {
-          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 추가할 수 있습니다." });
-        }
-        userData.managerId = currentUser.id;
-      }
       const created = await storage.createUser(userData);
       const { passwordHash, ...safeCreated } = created;
       res.status(201).json({ ...safeCreated, hasPassword: !!passwordHash });
@@ -116,10 +109,12 @@ export async function registerRoutes(
         if (targetUser && targetUser.role !== 'staff') {
           return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 수정할 수 있습니다." });
         }
-        if (targetUser && targetUser.managerId !== currentUser.id) {
-          return res.status(403).json({ error: "자신에게 배정된 담당자만 수정할 수 있습니다." });
+        if (targetUser && targetUser.managerId !== null && targetUser.managerId !== currentUser.id) {
+          return res.status(403).json({ error: "다른 장비관리자에게 배정된 담당자는 수정할 수 없습니다." });
         }
-        delete req.body.managerId;
+        if (req.body.managerId !== undefined && req.body.managerId !== currentUser.id && req.body.managerId !== null) {
+          return res.status(403).json({ error: "자신의 장비에만 배정할 수 있습니다." });
+        }
         delete req.body.role;
       }
       const updated = await storage.updateUser(req.params.id, req.body);
@@ -402,14 +397,12 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/staff/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/staff/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "파일을 업로드해주세요" });
       }
-      const currentUser = (req as any).currentUser;
-      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
-      const result = await excel.importStaffUsersFromExcel(req.file.buffer, managerId);
+      const result = await excel.importStaffUsersFromExcel(req.file.buffer);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import staff users" });
