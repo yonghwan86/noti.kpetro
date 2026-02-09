@@ -9,9 +9,9 @@ export async function exportTeamsToExcel(): Promise<Buffer> {
     "구분": t.type === 'management' ? '관리팀' : '사용자',
     "팀명": t.name,
     "팀장 이메일": t.contactEmail,
-    "팀장 휴대폰": t.phone || "",
+    "팀장 전화번호": t.phone || "",
     "담당자 이메일": t.staffEmail || "",
-    "담당자 휴대폰": t.staffPhone || "",
+    "담당자 전화번호": t.staffPhone || "",
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
@@ -52,7 +52,7 @@ export async function exportUsersToExcel(): Promise<Buffer> {
     "관리자": u.fullName || "",
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
     "이메일": u.email || "",
-    "휴대폰": u.phone || "",
+    "전화번호": u.phone || "",
     "역할": roleMap[u.role] || u.role,
   }));
   
@@ -122,9 +122,9 @@ export async function importTeamsFromExcel(buffer: Buffer): Promise<ImportResult
     const typeLabel = row["구분"]?.toString().trim();
     const name = row["팀명"]?.toString().trim();
     const contactEmail = (row["팀장 이메일"] || row["담당자 이메일"])?.toString().trim();
-    const phone = (row["팀장 휴대폰"] || row["연락처"])?.toString().trim() || null;
+    const phone = (row["팀장 전화번호"] || row["연락처"])?.toString().trim() || null;
     const staffEmail = row["담당자 이메일"]?.toString().trim() || null;
-    const staffPhone = row["담당자 휴대폰"]?.toString().trim() || null;
+    const staffPhone = row["담당자 전화번호"]?.toString().trim() || null;
     const type = (typeMap[typeLabel || ''] || 'management') as 'management' | 'usage';
     
     if (!name) {
@@ -223,7 +223,7 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
     const roleKor = row["역할"]?.toString().trim();
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
-    const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
+    const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
     
     if (!username) {
       errors.push({ row: rowNum, field: "장비 구분", message: "필수 항목입니다" });
@@ -374,7 +374,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
 }
 
 export function getTeamTemplate(): Buffer {
-  const data = [{ "구분": "관리팀", "팀명": "예시팀", "팀장 이메일": "leader@email.com", "팀장 휴대폰": "010-1234-5678", "담당자 이메일": "staff@email.com", "담당자 휴대폰": "010-5678-1234" }];
+  const data = [{ "구분": "관리팀", "팀명": "예시팀", "팀장 이메일": "leader@email.com", "팀장 전화번호": "010-1234-5678", "담당자 이메일": "staff@email.com", "담당자 전화번호": "010-5678-1234" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "팀");
@@ -390,7 +390,7 @@ export function getCategoryTemplate(): Buffer {
 }
 
 export function getUserTemplate(): Buffer {
-  const data = [{ "장비 구분": "계량기", "관리자": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678", "역할": "장비관리자" }];
+  const data = [{ "장비 구분": "계량기", "관리자": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678", "역할": "장비관리자" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
@@ -410,7 +410,7 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
     "직책": u.position || "",
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
     "이메일": u.email || "",
-    "휴대폰": u.phone || "",
+    "전화번호": u.phone || "",
     "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
   }));
 
@@ -438,7 +438,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     const position = row["직책"]?.toString().trim() || null;
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
-    const phone = (row["휴대폰"] || row["연락처"])?.toString().trim() || null;
+    const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
 
     if (!username) {
       errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
@@ -472,7 +472,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "휴대폰": "010-1234-5678" }];
+  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");

@@ -294,7 +294,7 @@ export default function Team() {
                   <TableHead>구분</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
-                  <TableHead>휴대폰</TableHead>
+                  <TableHead>전화번호</TableHead>
                   <TableHead>로그인</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -409,7 +409,7 @@ export default function Team() {
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
-                  <TableHead>휴대폰</TableHead>
+                  <TableHead>전화번호</TableHead>
                   <TableHead>로그인</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -643,7 +643,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">휴대폰</Label>
+              <Label htmlFor="edit-phone">전화번호</Label>
               <Input
                 id="edit-phone"
                 {...register("phone")}
@@ -795,7 +795,7 @@ function AddEquipTypeDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="equip-phone">휴대폰</Label>
+              <Label htmlFor="equip-phone">전화번호</Label>
               <Input
                 id="equip-phone"
                 {...register("phone")}
@@ -950,7 +950,7 @@ function AddMasterAccountDialog({ teams }: { teams: TeamType[] }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="master-phone">휴대폰</Label>
+              <Label htmlFor="master-phone">전화번호</Label>
               <Input
                 id="master-phone"
                 {...register("phone")}
@@ -1228,7 +1228,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-phone">휴대폰</Label>
+              <Label htmlFor="staff-phone">전화번호</Label>
               <Input
                 id="staff-phone"
                 {...register("phone")}
@@ -1332,7 +1332,7 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
                 <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-team-phone">휴대폰</Label>
+                <Label htmlFor="edit-team-phone">전화번호</Label>
                 <Input id="edit-team-phone" {...register("phone")} placeholder="010-0000-0000" />
               </div>
             </div>
@@ -1345,7 +1345,7 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
                 <Input id="edit-staff-email" {...register("staffEmail")} placeholder="staff@example.com" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-staff-phone">휴대폰</Label>
+                <Label htmlFor="edit-staff-phone">전화번호</Label>
                 <Input id="edit-staff-phone" {...register("staffPhone")} placeholder="010-0000-0000" />
               </div>
             </div>
