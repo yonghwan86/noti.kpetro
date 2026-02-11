@@ -134,6 +134,45 @@ export async function sendInspectionReminder(
   });
 }
 
+export async function sendOverdueAlert(
+  to: string,
+  assetName: string,
+  dueDate: string,
+  staffName: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const subject = `[장비관리시스템] ${assetName} 점검 지연 경고`;
+  const body = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #dc2626;">장비 점검 지연 경고</h2>
+    <p>${staffName}님, 안녕하세요.</p>
+    <p>다음 장비의 점검 예정일이 <strong style="color: #dc2626;">지연</strong>되었습니다. 즉시 점검을 완료해 주세요.</p>
+    <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #fca5a5;">
+      <p style="margin: 5px 0;"><strong>장비명:</strong> ${assetName}</p>
+      <p style="margin: 5px 0;"><strong>점검 예정일:</strong> ${dueDate}</p>
+      <p style="margin: 5px 0; color: #dc2626;"><strong>상태: 지연</strong></p>
+    </div>
+    <p>점검이 지연되면 장비 안전 및 규정 준수에 영향을 줄 수 있습니다. 빠른 시일 내에 점검을 완료해 주시기 바랍니다.</p>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+    <p style="font-size: 12px; color: #6b7280;">이 메일은 장비관리시스템에서 자동 발송되었습니다.</p>
+  </div>
+</body>
+</html>
+`;
+
+  return sendEmail({
+    to,
+    subject,
+    body,
+    isHtml: true
+  });
+}
+
 export async function sendTestEmail(to: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const subject = '[장비관리시스템] 테스트 이메일';
   const body = `
