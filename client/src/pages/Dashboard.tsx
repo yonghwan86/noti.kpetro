@@ -93,7 +93,7 @@ export default function Dashboard() {
       case 'manager':
         return {
           icon: <Wrench className="h-6 w-6 text-blue-500" />,
-          title: '장비 관리자 대시보드',
+          title: '대상 관리자 대시보드',
           description: '내가 관리하는 대상의 현황입니다.'
         };
       case 'staff':
@@ -198,7 +198,7 @@ export default function Dashboard() {
                 ? '시스템에 등록된 대상이 없습니다. 스케줄 관리 메뉴에서 새 대상을 등록하세요.'
                 : currentUser?.role === 'manager'
                 ? '관리 중인 대상이 없습니다. 마스터에게 배정을 요청하세요.'
-                : '담당 대상이 없습니다. 장비 관리자에게 배정을 요청하세요.'}
+                : '담당 대상이 없습니다. 대상 관리자에게 배정을 요청하세요.'}
             </CardDescription>
           </CardHeader>
         </Card>

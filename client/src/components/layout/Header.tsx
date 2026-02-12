@@ -106,7 +106,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin': return <Badge className="bg-purple-500 text-white text-xs">마스터</Badge>;
-      case 'manager': return <Badge className="bg-blue-500 text-white text-xs">장비 관리자</Badge>;
+      case 'manager': return <Badge className="bg-blue-500 text-white text-xs">대상 관리자</Badge>;
       case 'staff': return <Badge variant="secondary" className="text-xs">담당자</Badge>;
       default: return null;
     }

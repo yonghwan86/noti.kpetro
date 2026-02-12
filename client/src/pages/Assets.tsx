@@ -235,7 +235,7 @@ export default function Assets() {
             <CardDescription>
               {currentUser?.role === 'manager' 
                 ? '아직 관리자로 지정된 장비가 없습니다. 마스터에게 장비 배정을 요청하세요.'
-                : '아직 담당자로 지정된 장비가 없습니다. 장비 관리자에게 장비 배정을 요청하세요.'}
+                : '아직 담당자로 지정된 대상이 없습니다. 대상 관리자에게 배정을 요청하세요.'}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -507,7 +507,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
             </div>
             {editCategoryManagers.length > 1 && (
               <div className="space-y-2">
-                <Label>장비 관리자</Label>
+                <Label>대상 관리자</Label>
                 <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -679,7 +679,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
             </div>
             {categoryManagers.length > 1 && (
               <div className="space-y-2">
-                <Label>장비 관리자</Label>
+                <Label>대상 관리자</Label>
                 <Select defaultValue={categoryManagers[0]?.id} onValueChange={(v) => setValue("managerId", v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="관리자 선택" />
