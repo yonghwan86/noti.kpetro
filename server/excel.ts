@@ -26,13 +26,13 @@ export async function exportCategoriesToExcel(): Promise<Buffer> {
   const users = await storage.getUsers();
   
   const data = categories.map(c => ({
-    "장비 구분명": c.name,
+    "구분명": c.name,
     "관리자": (c.managerIds || []).map(mid => users.find(u => u.id === mid)?.username).filter(Boolean).join(", ") || "",
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "장비구분");
+  XLSX.utils.book_append_sheet(wb, ws, "구분");
   
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
@@ -70,9 +70,9 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
   };
   
   const data = assets.map(a => ({
-    "장비명": a.name,
+    "대상": a.name,
     "시리얼번호": a.serialNumber,
-    "장비 구분": categories.find(c => c.id === a.categoryId)?.name || "",
+    "구분": categories.find(c => c.id === a.categoryId)?.name || "",
     "관리자": users.find(u => u.id === a.managerId)?.username || "",
     "관리팀": teams.find(t => t.id === a.teamId)?.name || "",
     "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
@@ -162,7 +162,7 @@ export async function importCategoriesFromExcel(buffer: Buffer): Promise<ImportR
     const row = rows[i];
     const rowNum = i + 2;
     
-    const name = (row["장비 구분명"] || row["카테고리명"])?.toString().trim();
+    const name = (row["구분명"] || row["장비 구분명"] || row["카테고리명"])?.toString().trim();
     const managerName = row["관리자"]?.toString().trim();
     
     if (!name) {
@@ -269,9 +269,9 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     const row = rows[i];
     const rowNum = i + 2;
     
-    const name = row["장비명"]?.toString().trim();
+    const name = (row["대상"] || row["장비명"])?.toString().trim();
     const serialNumber = row["시리얼번호"]?.toString().trim();
-    const categoryName = (row["장비 구분"] || row["카테고리"])?.toString().trim();
+    const categoryName = (row["구분"] || row["장비 구분"] || row["카테고리"])?.toString().trim();
     const teamName = row["관리팀"]?.toString().trim();
     const usageTeamName = row["사용팀"]?.toString().trim();
     const staffName = row["담당자"]?.toString().trim();
@@ -280,7 +280,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     const notes = row["비고"]?.toString().trim() || null;
     
     if (!name) {
-      errors.push({ row: rowNum, field: "장비명", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "대상", message: "필수 항목입니다" });
       continue;
     }
     if (!serialNumber) {
@@ -288,7 +288,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       continue;
     }
     if (!categoryName) {
-      errors.push({ row: rowNum, field: "장비 구분", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "구분", message: "필수 항목입니다" });
       continue;
     }
     if (!teamName) {
@@ -320,12 +320,12 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     
     const category = categories.find(c => c.name === categoryName);
     if (!category) {
-      errors.push({ row: rowNum, field: "장비 구분", message: `'${categoryName}' 장비 구분을 찾을 수 없습니다` });
+      errors.push({ row: rowNum, field: "구분", message: `'${categoryName}' 구분을 찾을 수 없습니다` });
       continue;
     }
     
     if (!category.managerIds || category.managerIds.length === 0) {
-      errors.push({ row: rowNum, field: "장비 구분", message: `'${categoryName}' 장비 구분에 관리자가 지정되지 않았습니다` });
+      errors.push({ row: rowNum, field: "구분", message: `'${categoryName}' 구분에 관리자가 지정되지 않았습니다` });
       continue;
     }
     
@@ -356,7 +356,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       });
       successCount++;
     } catch (e: any) {
-      errors.push({ row: rowNum, field: "장비명", message: e.message || "등록 실패" });
+      errors.push({ row: rowNum, field: "대상", message: e.message || "등록 실패" });
     }
   }
   
@@ -377,10 +377,10 @@ export function getTeamTemplate(): Buffer {
 }
 
 export function getCategoryTemplate(): Buffer {
-  const data = [{ "장비 구분명": "예시장비구분", "관리자": "관리자이름" }];
+  const data = [{ "구분명": "예시구분", "관리자": "관리자이름" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "장비구분");
+  XLSX.utils.book_append_sheet(wb, ws, "구분");
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
@@ -487,9 +487,9 @@ export function getStaffUserTemplate(): Buffer {
 
 export function getAssetTemplate(): Buffer {
   const data = [{
-    "장비명": "예시장비",
+    "대상": "예시대상",
     "시리얼번호": "SN-001",
-    "장비 구분": "장비 구분명",
+    "구분": "구분명",
     "관리팀": "관리팀명",
     "사용팀": "사용팀명",
     "담당자": "담당자이름",

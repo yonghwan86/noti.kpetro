@@ -87,7 +87,7 @@ export default function Team() {
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "장비 구분 삭제됨", description: "장비 구분이 시스템에서 제거되었습니다.", variant: "destructive" });
+      toast({ title: "구분 삭제됨", description: "구분이 시스템에서 제거되었습니다.", variant: "destructive" });
     },
     onError: (error: Error) => {
       toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
@@ -267,7 +267,7 @@ export default function Team() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">관리</h2>
         <p className="text-muted-foreground">
-          장비 구분과 사용자를 관리합니다.
+          구분과 사용자를 관리합니다.
         </p>
       </div>
 
@@ -275,7 +275,7 @@ export default function Team() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
             {isAdmin && (
-              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 장비 구분</TabsTrigger>
+              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
             )}
             {isAdmin && (
               <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 장비 관리자</TabsTrigger>
@@ -300,7 +300,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              장비 구분을 등록하고 관리합니다.
+              구분을 등록하고 관리합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -310,8 +310,8 @@ export default function Team() {
                 </a>
               </Button>
               <ExcelImportDialog
-                title="장비 구분 엑셀 업로드"
-                description="엑셀 파일에서 장비 구분 목록을 일괄 등록합니다."
+                title="구분 엑셀 업로드"
+                description="엑셀 파일에서 구분 목록을 일괄 등록합니다."
                 templateUrl="/api/categories/template"
                 importUrl="/api/categories/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
@@ -323,7 +323,7 @@ export default function Team() {
             <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>장비 구분명</TableHead>
+                  <TableHead>구분명</TableHead>
                   <TableHead>담당 장비 관리자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -333,7 +333,7 @@ export default function Team() {
                 {filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
-                      등록된 장비 구분이 없습니다. "장비 구분 등록" 버튼을 눌러 추가하세요.
+                      등록된 구분이 없습니다. "구분 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -906,7 +906,7 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
       setOpen(false);
       setName("");
       setSelectedManagerIds([]);
-      toast({ title: "장비 구분 등록 완료", description: "새로운 장비 구분이 등록되었습니다." });
+      toast({ title: "구분 등록 완료", description: "새로운 구분이 등록되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });
@@ -935,17 +935,17 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-add-category">
-          <Plus className="w-4 h-4" /> 장비 구분 등록
+          <Plus className="w-4 h-4" /> 구분 등록
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>장비 구분 등록</DialogTitle>
-          <DialogDescription>장비 구분을 등록한 뒤, 장비 관리 페이지에서 해당 구분에 장비를 등록할 수 있습니다.</DialogDescription>
+          <DialogTitle>구분 등록</DialogTitle>
+          <DialogDescription>구분을 등록한 뒤, 스케줄 관리 페이지에서 해당 구분에 대상을 등록할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="category-name">장비 구분명</Label>
+            <Label htmlFor="category-name">구분명</Label>
             <Input
               id="category-name"
               value={name}
@@ -997,7 +997,7 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
-      toast({ title: "장비 구분 수정됨", description: "장비 구분 정보가 업데이트되었습니다." });
+      toast({ title: "구분 수정됨", description: "구분 정보가 업데이트되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "수정 실패", description: error.message, variant: "destructive" });
@@ -1032,12 +1032,12 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>장비 구분 수정</DialogTitle>
-          <DialogDescription>장비 구분 정보를 업데이트합니다.</DialogDescription>
+          <DialogTitle>구분 수정</DialogTitle>
+          <DialogDescription>구분 정보를 업데이트합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-category-name">장비 구분명</Label>
+            <Label htmlFor="edit-category-name">구분명</Label>
             <Input
               id="edit-category-name"
               value={name}

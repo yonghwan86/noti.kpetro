@@ -272,8 +272,8 @@ export default function Dashboard() {
 
           <Card className="lg:col-span-3">
             <CardHeader>
-              <CardTitle>장비 구분별 분포</CardTitle>
-              <CardDescription>구분별 장비 수</CardDescription>
+              <CardTitle>구분별 분포</CardTitle>
+              <CardDescription>구분별 대상 수</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -308,7 +308,7 @@ export default function Dashboard() {
                   })
                 ) : (
                   <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                    장비 구분 데이터가 없습니다
+                    구분 데이터가 없습니다
                   </div>
                 )}
               </div>

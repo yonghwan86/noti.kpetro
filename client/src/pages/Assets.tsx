@@ -296,8 +296,8 @@ export default function Assets() {
             <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>장비명</TableHead>
-                  <TableHead>장비 구분</TableHead>
+                  <TableHead>대상</TableHead>
+                  <TableHead>구분</TableHead>
                   <TableHead>담당자</TableHead>
                   <TableHead>담당팀</TableHead>
                   <TableHead>최근 점검일</TableHead>
@@ -478,7 +478,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">장비명</Label>
+              <Label htmlFor="edit-name">대상</Label>
               <Input id="edit-name" {...register("name", { required: true })} />
             </div>
             <div className="space-y-2">
@@ -488,7 +488,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>장비 구분</Label>
+              <Label>구분</Label>
               <Select defaultValue={asset.categoryId || ""} onValueChange={(v) => {
                 setValue("categoryId", v);
                 setEditCategoryId(v);
@@ -649,7 +649,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">장비명</Label>
+              <Label htmlFor="name">대상</Label>
               <Input id="name" {...register("name", { required: true })} placeholder="예: 정밀 저울" />
             </div>
             <div className="space-y-2">
@@ -660,7 +660,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>장비 구분</Label>
+              <Label>구분</Label>
               <Select onValueChange={(v) => {
                 setValue("categoryId", v);
                 setSelectedCategoryId(v);
@@ -670,7 +670,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
                 }
               }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="장비 구분 선택" />
+                  <SelectValue placeholder="구분 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}

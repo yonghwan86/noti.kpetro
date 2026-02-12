@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
-import { sendTestEmail, sendInspectionReminder } from "./emailService";
+import { sendTestEmail } from "./emailService";
 import { checkUpcomingInspections } from "./scheduler";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -94,7 +94,7 @@ export async function registerRoutes(
       res.setHeader('Content-Disposition', 'attachment; filename=categories.xlsx');
       res.send(buffer);
     } catch (error) {
-      res.status(500).json({ error: "장비 구분 내보내기에 실패했습니다." });
+      res.status(500).json({ error: "구분 내보내기에 실패했습니다." });
     }
   });
 
@@ -117,7 +117,7 @@ export async function registerRoutes(
       const result = await excel.importCategoriesFromExcel(req.file.buffer);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "장비 구분 가져오기에 실패했습니다." });
+      res.status(500).json({ error: "구분 가져오기에 실패했습니다." });
     }
   });
 
@@ -148,9 +148,9 @@ export async function registerRoutes(
     } catch (error: any) {
       if (error.message?.startsWith("REFERENCED:")) {
         const count = error.message.split(":")[1];
-        res.status(409).json({ error: `이 장비 구분에 연결된 장비가 ${count}건 있어 삭제할 수 없습니다.` });
+        res.status(409).json({ error: `이 구분에 연결된 대상이 ${count}건 있어 삭제할 수 없습니다.` });
       } else {
-        res.status(500).json({ error: "장비 구분 삭제에 실패했습니다." });
+        res.status(500).json({ error: "구분 삭제에 실패했습니다." });
       }
     }
   });

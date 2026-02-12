@@ -33,11 +33,13 @@ async function checkUpcomingInspections() {
       const recipients = collectRecipients(asset, users, teams);
       const staff = users.find(u => u.id === asset.staffId);
       const staffName = staff?.username || '담당자';
+      const team = teams.find(t => t.id === asset.teamId);
+      const teamName = team?.name || '미지정';
       const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
 
       for (const email of recipients) {
         console.log(`[SCHEDULER] Sending upcoming reminder for ${asset.name} to ${email}`);
-        const result = await sendInspectionReminder(email, asset.name, dueDate, staffName);
+        const result = await sendInspectionReminder(email, asset.name, dueDate, staffName, teamName);
         if (result.success) {
           console.log(`[SCHEDULER] Sent reminder for ${asset.name} to ${email} (ID: ${result.messageId})`);
         } else {
@@ -51,11 +53,13 @@ async function checkUpcomingInspections() {
       const recipients = collectRecipients(asset, users, teams);
       const staff = users.find(u => u.id === asset.staffId);
       const staffName = staff?.username || '담당자';
+      const team = teams.find(t => t.id === asset.teamId);
+      const teamName = team?.name || '미지정';
       const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
 
       for (const email of recipients) {
         console.log(`[SCHEDULER] Sending overdue alert for ${asset.name} to ${email}`);
-        const result = await sendOverdueAlert(email, asset.name, dueDate, staffName);
+        const result = await sendOverdueAlert(email, asset.name, dueDate, staffName, teamName);
         if (result.success) {
           console.log(`[SCHEDULER] Sent overdue alert for ${asset.name} to ${email} (ID: ${result.messageId})`);
         } else {
