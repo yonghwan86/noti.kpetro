@@ -94,13 +94,13 @@ export default function Dashboard() {
         return {
           icon: <Wrench className="h-6 w-6 text-blue-500" />,
           title: '장비 관리자 대시보드',
-          description: '내가 관리하는 장비의 현황입니다.'
+          description: '내가 관리하는 대상의 현황입니다.'
         };
       case 'staff':
         return {
           icon: <UserCheck className="h-6 w-6 text-green-500" />,
           title: '담당자 대시보드',
-          description: '내가 담당하는 장비의 현황입니다.'
+          description: '내가 담당하는 대상의 현황입니다.'
         };
       default:
         return { icon: null, title: '대시보드', description: '' };
@@ -133,7 +133,7 @@ export default function Dashboard() {
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {currentUser?.role === 'admin' ? '전체 장비' : '내 장비'}
+              {currentUser?.role === 'admin' ? '전체 대상' : '내 대상'}
             </CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -141,7 +141,7 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">{totalAssets}</div>
             <p className="text-xs text-muted-foreground">
               {currentUser?.role === 'admin' ? '전체 팀 합계' : 
-               currentUser?.role === 'manager' ? '관리 중인 장비' : '담당 장비'}
+               currentUser?.role === 'manager' ? '관리 중인 대상' : '담당 대상'}
             </p>
           </CardContent>
         </Card>
@@ -192,13 +192,13 @@ export default function Dashboard() {
       {totalAssets === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>장비가 없습니다</CardTitle>
+            <CardTitle>대상이 없습니다</CardTitle>
             <CardDescription>
               {currentUser?.role === 'admin' 
-                ? '시스템에 등록된 장비가 없습니다. 장비 관리 메뉴에서 새 장비를 등록하세요.'
+                ? '시스템에 등록된 대상이 없습니다. 스케줄 관리 메뉴에서 새 대상을 등록하세요.'
                 : currentUser?.role === 'manager'
-                ? '관리 중인 장비가 없습니다. 마스터에게 장비 배정을 요청하세요.'
-                : '담당 장비가 없습니다. 장비 관리자에게 장비 배정을 요청하세요.'}
+                ? '관리 중인 대상이 없습니다. 마스터에게 배정을 요청하세요.'
+                : '담당 대상이 없습니다. 장비 관리자에게 배정을 요청하세요.'}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -206,8 +206,8 @@ export default function Dashboard() {
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
           <Card className="lg:col-span-4">
             <CardHeader>
-              <CardTitle>장비 상태 현황</CardTitle>
-              <CardDescription>장비 건전성 분포</CardDescription>
+              <CardTitle>상태 현황</CardTitle>
+              <CardDescription>대상 건전성 분포</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
               <div className="h-[300px]">
