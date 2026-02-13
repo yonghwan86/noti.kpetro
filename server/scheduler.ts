@@ -114,6 +114,15 @@ export function startScheduler() {
   });
   
   console.log('[SCHEDULER] Scheduler started - Daily check at 9:00 AM KST');
+
+  const now = new Date();
+  const kstHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
+  if (kstHour >= 9) {
+    console.log('[SCHEDULER] Server started after 9 AM KST - running inspection check now');
+    setTimeout(() => {
+      checkUpcomingInspections();
+    }, 5000);
+  }
 }
 
 export { checkUpcomingInspections };
