@@ -105,10 +105,27 @@ function collectRecipients(asset: any, users: any[], teams: any[]): string[] {
   return recipients;
 }
 
+let lastEmailDate: string | null = null;
+
+function getTodayKST(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+function runDailyCheckIfNeeded() {
+  const today = getTodayKST();
+  if (lastEmailDate === today) {
+    console.log('[SCHEDULER] Already sent emails today, skipping');
+    return;
+  }
+  lastEmailDate = today;
+  console.log('[SCHEDULER] Running daily inspection check');
+  checkUpcomingInspections();
+}
+
 export function startScheduler() {
   cron.schedule('0 9 * * *', () => {
-    console.log('[SCHEDULER] Running daily inspection check at 9 AM KST');
-    checkUpcomingInspections();
+    console.log('[SCHEDULER] 9 AM KST - running scheduled check');
+    runDailyCheckIfNeeded();
   }, {
     timezone: 'Asia/Seoul'
   });
@@ -118,9 +135,9 @@ export function startScheduler() {
   const now = new Date();
   const kstHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
   if (kstHour >= 9) {
-    console.log('[SCHEDULER] Server started after 9 AM KST - running inspection check now');
+    console.log('[SCHEDULER] Server started after 9 AM KST - checking if emails already sent today');
     setTimeout(() => {
-      checkUpcomingInspections();
+      runDailyCheckIfNeeded();
     }, 5000);
   }
 }
