@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스케줄 관리시스템 - 대상 관리자 교육 가이드</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+body {
+  font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  background: #0a1f1a;
+  color: #e2e8f0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+.deck { position: relative; width: 100vw; height: 100vh; }
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 80px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.slide.active { opacity: 1; pointer-events: auto; }
+
+.slide-cover {
+  background: linear-gradient(135deg, #0a1f1a 0%, #134e4a 50%, #0d9488 100%);
+  align-items: center;
+  text-align: center;
+}
+.slide-content {
+  background: linear-gradient(180deg, #0a1f1a 0%, #162e2a 100%);
+}
+.slide-end {
+  background: linear-gradient(135deg, #134e4a 0%, #0d9488 50%, #2dd4bf 100%);
+  align-items: center;
+  text-align: center;
+}
+
+h1 { font-size: 3rem; font-weight: 900; color: #fff; margin-bottom: 16px; line-height: 1.3; }
+h2 { font-size: 2.2rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+h3 { font-size: 1.1rem; font-weight: 400; color: #94a3b8; margin-bottom: 40px; }
+.subtitle { font-size: 1.4rem; color: #5eead4; font-weight: 500; margin-bottom: 12px; }
+
+.slide-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 36px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(13, 148, 136, 0.3);
+}
+.slide-header .icon { font-size: 2.4rem; }
+.slide-header-text h2 { margin-bottom: 4px; font-size: 1.8rem; }
+.slide-header-text p { font-size: 0.95rem; color: #94a3b8; font-weight: 400; }
+
+.content-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+
+.bullet-list { list-style: none; padding: 0; }
+.bullet-list li {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  padding: 10px 0 10px 32px;
+  position: relative;
+  color: #cbd5e1;
+}
+.bullet-list li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: #0d9488;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.bullet-list li strong { color: #fff; font-weight: 600; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.info-card {
+  background: rgba(13, 78, 74, 0.4);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 12px;
+  padding: 24px;
+}
+.info-card .card-icon { font-size: 2rem; margin-bottom: 12px; }
+.info-card h4 { font-size: 1.1rem; color: #fff; font-weight: 600; margin-bottom: 8px; }
+.info-card p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; }
+
+.role-badge {
+  display: inline-block;
+  background: rgba(13, 148, 136, 0.2);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  color: #5eead4;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+.step-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.step-item {
+  background: rgba(13, 78, 74, 0.5);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  border-radius: 12px;
+  padding: 20px 28px;
+  text-align: center;
+  min-width: 160px;
+}
+.step-item .step-icon { font-size: 2rem; margin-bottom: 8px; }
+.step-item .step-num {
+  font-size: 0.75rem;
+  color: #0d9488;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.step-item .step-label { font-size: 1rem; color: #fff; font-weight: 500; }
+.step-arrow { font-size: 1.5rem; color: #0d9488; }
+
+.status-chips {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.chip-ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+.chip-warn { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+.chip-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+.highlight-box {
+  background: rgba(13, 148, 136, 0.1);
+  border-left: 4px solid #0d9488;
+  border-radius: 0 8px 8px 0;
+  padding: 16px 24px;
+  margin: 12px 0;
+  font-size: 1rem;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+.highlight-box strong { color: #5eead4; }
+
+.nav-controls {
+  position: fixed;
+  bottom: 32px;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  z-index: 100;
+}
+.nav-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(13, 78, 74, 0.6);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  color: #5eead4;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+.nav-btn:hover { background: rgba(13, 148, 136, 0.4); transform: scale(1.1); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+.slide-counter {
+  font-size: 0.85rem;
+  color: #5eead4;
+  font-weight: 600;
+  background: rgba(13, 78, 74, 0.6);
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  backdrop-filter: blur(8px);
+  min-width: 60px;
+  text-align: center;
+}
+
+.slide-dots {
+  display: flex;
+  gap: 6px;
+}
+.slide-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(13, 148, 136, 0.3);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.slide-dot.active {
+  background: #0d9488;
+  width: 24px;
+  border-radius: 4px;
+}
+
+.cover-icon { font-size: 4rem; margin-bottom: 24px; }
+.cover-divider {
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, #0d9488, #2dd4bf);
+  margin: 20px auto;
+  border-radius: 2px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.col-section h4 {
+  font-size: 1.1rem;
+  color: #5eead4;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.permission-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.permission-table th, .permission-table td {
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(13, 148, 136, 0.15);
+  font-size: 0.95rem;
+}
+.permission-table th {
+  color: #5eead4;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.permission-table td { color: #cbd5e1; }
+.permission-table .yes { color: #4ade80; }
+.permission-table .no { color: #f87171; }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: 표지 -->
+  <div class="slide slide-cover active">
+    <div class="cover-icon">🔧</div>
+    <div class="role-badge">대상 관리자 교육</div>
+    <h1>스케줄 관리시스템</h1>
+    <div class="cover-divider"></div>
+    <h3>대상 관리자 교육 가이드</h3>
+    <p style="color: #5eead4; font-size: 1rem;">배정받은 대상의 점검 스케줄을 관리하고<br>담당자를 효율적으로 운영하는 방법을 안내합니다.</p>
+  </div>
+
+  <!-- Slide 2: 시스템 개요 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📋</div>
+      <div class="slide-header-text">
+        <h2>시스템 개요</h2>
+        <p>시스템의 목적과 대상 관리자의 역할</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="highlight-box">
+        <strong>스케줄 관리시스템</strong>은 각종 대상의 정기 점검 스케줄을 체계적으로 관리하고, 점검 누락을 방지하는 시스템입니다.
+      </div>
+      <div class="two-col">
+        <div class="col-section">
+          <h4>🏗️ 시스템 역할 구조</h4>
+          <table class="permission-table">
+            <tr><th>역할</th><th>설명</th></tr>
+            <tr><td><strong>마스터</strong></td><td>전체 시스템 관리, 사용자/대상 등록</td></tr>
+            <tr><td style="color: #5eead4;"><strong>대상 관리자 (나)</strong></td><td>배정된 대상 점검 관리, 담당자 관리</td></tr>
+            <tr><td><strong>담당자</strong></td><td>배정된 대상 점검 실행</td></tr>
+          </table>
+        </div>
+        <div class="col-section">
+          <h4>🎯 대상 관리자의 주요 업무</h4>
+          <ul class="bullet-list">
+            <li><strong>배정받은 대상</strong>의 점검 스케줄 관리</li>
+            <li>대상별 <strong>점검 실행</strong> 및 기록</li>
+            <li>소속 <strong>담당자 등록</strong> 및 관리</li>
+            <li>대상 정보 <strong>수정</strong> (삭제 불가)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: 로그인 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">🔐</div>
+      <div class="slide-header-text">
+        <h2>로그인</h2>
+        <p>시스템 접속 방법</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="card-grid">
+        <div class="info-card">
+          <div class="card-icon">📧</div>
+          <h4>Step 1. 이메일 입력</h4>
+          <p>마스터가 등록한 이메일 주소로 로그인합니다. 등록되지 않은 이메일은 접속할 수 없습니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">🔑</div>
+          <h4>Step 2. 비밀번호 설정 (최초)</h4>
+          <p>처음 로그인 시 비밀번호를 직접 설정합니다. 4자리 이상의 비밀번호를 입력하고 확인합니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">✅</div>
+          <h4>Step 3. 로그인 완료</h4>
+          <p>이후 접속 시에는 이메일과 설정한 비밀번호로 바로 로그인합니다.</p>
+        </div>
+      </div>
+      <div class="highlight-box">
+        💡 비밀번호를 잊으셨나요? <strong>마스터에게 비밀번호 초기화를 요청</strong>하시면 다시 새 비밀번호를 설정할 수 있습니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: 대시보드 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📊</div>
+      <div class="slide-header-text">
+        <h2>대시보드</h2>
+        <p>내가 관리하는 대상의 현황을 한눈에 확인</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <ul class="bullet-list">
+        <li><strong>내가 관리하는 대상만</strong> 대시보드에 표시됩니다</li>
+        <li>전체 대상 수, 준수율, 점검 임박, 점검 지연 현황을 확인합니다</li>
+        <li>상태별 분포 차트와 구분별 분포를 시각적으로 확인할 수 있습니다</li>
+        <li>최근 점검 활동 내역이 하단에 표시됩니다</li>
+      </ul>
+
+      <div style="margin-top: 8px;">
+        <p style="color: #5eead4; font-weight: 600; margin-bottom: 12px;">상태 구분</p>
+        <div class="status-chips">
+          <div class="chip chip-ok">✅ 정상 — 점검 주기 내 완료</div>
+          <div class="chip chip-warn">⏰ 임박 — 7일 이내 점검 예정</div>
+          <div class="chip chip-error">⚠️ 지연 — 점검 기한 초과</div>
+        </div>
+      </div>
+
+      <div class="highlight-box">
+        📌 <strong>준수율</strong> = (전체 대상 - 지연 대상) ÷ 전체 대상 × 100%<br>
+        점검 지연이 없으면 준수율 100%를 유지합니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: 스케줄 관리 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📅</div>
+      <div class="slide-header-text">
+        <h2>스케줄 관리</h2>
+        <p>대상 점검 실행 및 정보 관리</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="two-col">
+        <div class="col-section">
+          <h4>📋 대상 목록 확인</h4>
+          <ul class="bullet-list">
+            <li><strong>내가 관리하는 대상만</strong> 목록에 표시</li>
+            <li>상태/구분별 <strong>필터링</strong> 및 검색 가능</li>
+            <li>대상명, 담당자, 최근 점검일, 다음 예정일 확인</li>
+          </ul>
+        </div>
+        <div class="col-section">
+          <h4>🔧 점검 실행</h4>
+          <ul class="bullet-list">
+            <li>대상 옆 <strong>"점검" 버튼</strong> 클릭</li>
+            <li>점검 실시일 선택 후 기록 저장</li>
+            <li><strong>다음 점검 예정일이 자동 계산</strong>됩니다</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <p style="color: #5eead4; font-weight: 600; margin-bottom: 12px;">대상 관리자 권한</p>
+        <table class="permission-table">
+          <tr><th>기능</th><th>가능 여부</th></tr>
+          <tr><td>대상 상세 정보 조회</td><td class="yes">✅ 가능</td></tr>
+          <tr><td>점검 실행 및 기록</td><td class="yes">✅ 가능</td></tr>
+          <tr><td>대상 정보 수정 (이름, 담당자 등)</td><td class="yes">✅ 가능</td></tr>
+          <tr><td>대상 삭제</td><td class="no">❌ 불가 (마스터만 가능)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: 대상 및 사용자 관리 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">👥</div>
+      <div class="slide-header-text">
+        <h2>대상 및 사용자 관리</h2>
+        <p>소속 담당자 확인 및 관리</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="highlight-box">
+        대상 관리자는 <strong>"대상 및 사용자 관리"</strong> 페이지에서 <strong>"전체 사용자" 탭만</strong> 접근할 수 있습니다.
+      </div>
+      <div class="card-grid">
+        <div class="info-card">
+          <div class="card-icon">👤</div>
+          <h4>소속 담당자 확인</h4>
+          <p>내 대상에 배정된 담당자 목록을 확인합니다. 이름, 소속팀, 이메일, 전화번호, 로그인 상태를 조회할 수 있습니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">➕</div>
+          <h4>담당자 등록</h4>
+          <p>"사용자 배정" 버튼으로 새로운 담당자를 등록할 수 있습니다. 등록된 담당자에게 대상을 배정할 수 있습니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">✏️</div>
+          <h4>담당자 정보 수정</h4>
+          <p>담당자의 이름, 연락처 등 기본 정보를 수정할 수 있습니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">📥</div>
+          <h4>목록 다운로드</h4>
+          <p>담당자 목록을 엑셀 파일로 다운로드하여 오프라인에서 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: 이메일 알림 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📧</div>
+      <div class="slide-header-text">
+        <h2>이메일 알림</h2>
+        <p>자동 점검 알림 수신 안내</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <ul class="bullet-list">
+        <li>매일 <strong>오전 9시(KST)</strong>에 자동으로 점검 알림이 발송됩니다</li>
+        <li><strong>내가 관리하는 대상</strong>에 대한 알림만 수신합니다</li>
+      </ul>
+      <div class="card-grid" style="margin-top: 8px;">
+        <div class="info-card">
+          <div class="card-icon">📬</div>
+          <h4>점검 예정 알림</h4>
+          <p>점검일 <strong>7일 전</strong>부터 점검 예정 알림 이메일을 받습니다. 미리 점검을 준비할 수 있습니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">🚨</div>
+          <h4>점검 지연 경고</h4>
+          <p>점검 기한이 <strong>초과</strong>된 대상에 대해 경고 알림을 받습니다. 즉시 점검을 실행해야 합니다.</p>
+        </div>
+      </div>
+      <div class="highlight-box" style="margin-top: 16px;">
+        💡 알림은 대상 관리자뿐만 아니라 해당 대상의 <strong>담당자, 팀장</strong>에게도 함께 발송됩니다.<br>
+        이메일이 등록되어 있어야 알림을 수신할 수 있습니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: 주요 업무 흐름 -->
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">🔄</div>
+      <div class="slide-header-text">
+        <h2>주요 업무 흐름</h2>
+        <p>일상적인 점검 관리 프로세스</p>
+      </div>
+    </div>
+    <div class="content-body" style="align-items: center;">
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-icon">📧</div>
+          <div class="step-num">Step 1</div>
+          <div class="step-label">알림 수신</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">📋</div>
+          <div class="step-num">Step 2</div>
+          <div class="step-label">스케줄 관리<br>페이지 확인</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">🔧</div>
+          <div class="step-num">Step 3</div>
+          <div class="step-label">점검 실행</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">✅</div>
+          <div class="step-num">Step 4</div>
+          <div class="step-label">기록 저장</div>
+        </div>
+      </div>
+
+      <div class="highlight-box" style="max-width: 700px; margin: 24px auto;">
+        <strong>📌 핵심 포인트</strong><br><br>
+        1. 매일 아침 이메일 알림을 확인합니다<br>
+        2. 점검 예정 또는 지연 대상이 있으면 스케줄 관리 페이지로 이동합니다<br>
+        3. 해당 대상의 "점검" 버튼을 클릭하여 점검일을 기록합니다<br>
+        4. 다음 점검 예정일이 자동으로 계산되어 저장됩니다
+      </div>
+
+      <div class="status-chips" style="justify-content: center;">
+        <div class="chip chip-ok">✅ 점검 완료 → 준수율 유지</div>
+        <div class="chip chip-error">⚠️ 점검 미실행 → 지연 경고 발생</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 9: 마무리 -->
+  <div class="slide slide-end">
+    <div class="cover-icon">🎯</div>
+    <h1>교육을 마칩니다</h1>
+    <div class="cover-divider"></div>
+    <h3 style="margin-bottom: 24px;">대상 관리자로서 배정된 대상의 점검을 빠짐없이 관리해 주세요.</h3>
+    <div class="card-grid" style="max-width: 600px; margin: 0 auto;">
+      <div class="info-card" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);">
+        <div class="card-icon">💬</div>
+        <h4>시스템 문의</h4>
+        <p>사용 중 문의사항이 있으면<br><strong>마스터 관리자</strong>에게 연락해 주세요.</p>
+      </div>
+      <div class="info-card" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);">
+        <div class="card-icon">🔑</div>
+        <h4>비밀번호 분실</h4>
+        <p>비밀번호를 잊으신 경우<br><strong>마스터에게 초기화를 요청</strong>하세요.</p>
+      </div>
+    </div>
+    <p style="margin-top: 40px; color: rgba(255,255,255,0.6); font-size: 0.9rem;">스케줄 관리시스템 &middot; 대상 관리자 교육 가이드</p>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-controls">
+  <button class="nav-btn" id="prevBtn" onclick="prev()" disabled>◀</button>
+  <div class="slide-dots" id="dots"></div>
+  <div class="slide-counter" id="counter">1 / 9</div>
+  <button class="nav-btn" id="nextBtn" onclick="next()">▶</button>
+</div>
+
+<script>
+let current = 0;
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+
+function buildDots() {
+  const c = document.getElementById('dots');
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'slide-dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    c.appendChild(d);
+  }
+}
+
+function goTo(n) {
+  if (n < 0 || n >= total) return;
+  slides[current].classList.remove('active');
+  current = n;
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = (current + 1) + ' / ' + total;
+  document.getElementById('prevBtn').disabled = current === 0;
+  document.getElementById('nextBtn').disabled = current === total - 1;
+  document.querySelectorAll('.slide-dot').forEach((d, i) => {
+    d.className = 'slide-dot' + (i === current ? ' active' : '');
+  });
+}
+
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+  if (e.key === 'End') { e.preventDefault(); goTo(total - 1); }
+});
+
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(diff) > 50) { diff > 0 ? next() : prev(); }
+});
+
+buildDots();
+</script>
+
+</body>
+</html>

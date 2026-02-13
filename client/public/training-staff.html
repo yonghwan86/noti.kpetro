@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스케줄 관리시스템 - 담당자 교육 가이드</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+body {
+  font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  background: #1a1207;
+  color: #e2e8f0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+.deck { position: relative; width: 100vw; height: 100vh; }
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 80px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.slide.active { opacity: 1; pointer-events: auto; }
+
+.slide-cover {
+  background: linear-gradient(135deg, #1a1207 0%, #78350f 50%, #d97706 100%);
+  align-items: center;
+  text-align: center;
+}
+.slide-content {
+  background: linear-gradient(180deg, #1a1207 0%, #27200e 100%);
+}
+.slide-end {
+  background: linear-gradient(135deg, #78350f 0%, #d97706 50%, #f59e0b 100%);
+  align-items: center;
+  text-align: center;
+}
+
+h1 { font-size: 3rem; font-weight: 900; color: #fff; margin-bottom: 16px; line-height: 1.3; }
+h2 { font-size: 2.2rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+h3 { font-size: 1.1rem; font-weight: 400; color: #94a3b8; margin-bottom: 40px; }
+.subtitle { font-size: 1.4rem; color: #fbbf24; font-weight: 500; margin-bottom: 12px; }
+
+.slide-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 36px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(217, 119, 6, 0.3);
+}
+.slide-header .icon { font-size: 2.4rem; }
+.slide-header-text h2 { margin-bottom: 4px; font-size: 1.8rem; }
+.slide-header-text p { font-size: 0.95rem; color: #94a3b8; font-weight: 400; }
+
+.content-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+
+.bullet-list { list-style: none; padding: 0; }
+.bullet-list li {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  padding: 10px 0 10px 32px;
+  position: relative;
+  color: #cbd5e1;
+}
+.bullet-list li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: #d97706;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.bullet-list li strong { color: #fff; font-weight: 600; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.info-card {
+  background: rgba(120, 53, 15, 0.4);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  border-radius: 12px;
+  padding: 24px;
+}
+.info-card .card-icon { font-size: 2rem; margin-bottom: 12px; }
+.info-card h4 { font-size: 1.1rem; color: #fff; font-weight: 600; margin-bottom: 8px; }
+.info-card p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; }
+
+.role-badge {
+  display: inline-block;
+  background: rgba(217, 119, 6, 0.2);
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  color: #fbbf24;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+.step-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.step-item {
+  background: rgba(120, 53, 15, 0.5);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-radius: 12px;
+  padding: 20px 28px;
+  text-align: center;
+  min-width: 150px;
+}
+.step-item .step-icon { font-size: 2rem; margin-bottom: 8px; }
+.step-item .step-num {
+  font-size: 0.75rem;
+  color: #d97706;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.step-item .step-label { font-size: 1rem; color: #fff; font-weight: 500; }
+.step-arrow { font-size: 1.5rem; color: #d97706; }
+
+.status-chips {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.chip-ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+.chip-warn { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+.chip-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+.highlight-box {
+  background: rgba(217, 119, 6, 0.1);
+  border-left: 4px solid #d97706;
+  border-radius: 0 8px 8px 0;
+  padding: 16px 24px;
+  margin: 12px 0;
+  font-size: 1rem;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+.highlight-box strong { color: #fbbf24; }
+
+.nav-controls {
+  position: fixed;
+  bottom: 32px;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  z-index: 100;
+}
+.nav-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(120, 53, 15, 0.6);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  color: #fbbf24;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+.nav-btn:hover { background: rgba(217, 119, 6, 0.4); transform: scale(1.1); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+.slide-counter {
+  font-size: 0.85rem;
+  color: #fbbf24;
+  font-weight: 600;
+  background: rgba(120, 53, 15, 0.6);
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  backdrop-filter: blur(8px);
+  min-width: 60px;
+  text-align: center;
+}
+
+.slide-dots {
+  display: flex;
+  gap: 6px;
+}
+.slide-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(217, 119, 6, 0.3);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.slide-dot.active {
+  background: #d97706;
+  width: 24px;
+  border-radius: 4px;
+}
+
+.cover-icon { font-size: 4rem; margin-bottom: 24px; }
+.cover-divider {
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, #d97706, #f59e0b);
+  margin: 20px auto;
+  border-radius: 2px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.col-section h4 {
+  font-size: 1.1rem;
+  color: #fbbf24;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.permission-note {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  padding: 14px 20px;
+  color: #fca5a5;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.permission-note .note-icon { font-size: 1.2rem; }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <div class="slide slide-cover active">
+    <div class="cover-icon">👤</div>
+    <div class="role-badge">담당자 교육</div>
+    <h1>스케줄 관리시스템</h1>
+    <div class="cover-divider"></div>
+    <h3>담당자 교육 가이드</h3>
+    <p style="color: #fbbf24; font-size: 1rem;">배정받은 대상의 점검을 수행하고<br>점검 결과를 기록하는 방법을 안내합니다.</p>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📋</div>
+      <div class="slide-header-text">
+        <h2>시스템 개요</h2>
+        <p>시스템의 목적과 담당자의 역할</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="highlight-box">
+        <strong>스케줄 관리시스템</strong>은 다양한 대상(장비, 시설 등)의 정기 점검 스케줄을 체계적으로 관리하는 시스템입니다.
+      </div>
+      <div class="card-grid">
+        <div class="info-card">
+          <div class="card-icon">🎯</div>
+          <h4>시스템 목적</h4>
+          <p>점검 대상의 주기적 점검을 빠짐없이 수행하여 안전성과 신뢰성을 확보합니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">👤</div>
+          <h4>담당자 역할</h4>
+          <p>배정받은 대상의 점검을 직접 수행하고 점검 결과를 시스템에 기록합니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">📊</div>
+          <h4>핵심 업무</h4>
+          <p>점검 일정 확인, 점검 실행, 결과 기록 — 이 세 가지가 담당자의 핵심 업무입니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">🔐</div>
+      <div class="slide-header-text">
+        <h2>로그인</h2>
+        <p>시스템 접속 방법</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="two-col">
+        <div class="col-section">
+          <h4>📧 로그인 방법</h4>
+          <ul class="bullet-list">
+            <li><strong>마스터</strong> 또는 <strong>대상 관리자</strong>가 사전 등록한 이메일로 로그인</li>
+            <li>이메일 주소를 입력하면 등록 여부를 자동으로 확인</li>
+            <li>등록되지 않은 이메일은 로그인 불가</li>
+          </ul>
+        </div>
+        <div class="col-section">
+          <h4>🔑 최초 로그인</h4>
+          <ul class="bullet-list">
+            <li>처음 로그인 시 <strong>비밀번호 설정</strong> 화면이 표시됩니다</li>
+            <li>4자리 이상의 비밀번호를 설정하세요</li>
+            <li>설정 완료 후 자동으로 로그인됩니다</li>
+          </ul>
+        </div>
+      </div>
+      <div class="highlight-box">
+        💡 이메일이 등록되지 않은 경우 <strong>대상 관리자</strong>에게 등록을 요청하세요.
+      </div>
+    </div>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📊</div>
+      <div class="slide-header-text">
+        <h2>대시보드</h2>
+        <p>나에게 배정된 대상의 현황 한눈에 보기</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <ul class="bullet-list">
+        <li>로그인 후 <strong>담당자 대시보드</strong>가 표시됩니다</li>
+        <li>나에게 배정된 대상의 <strong>전체 수, 점검 준수율, 임박/지연 현황</strong>을 확인</li>
+        <li>각 카드를 클릭하면 해당 상태의 대상 목록으로 이동</li>
+      </ul>
+      <div style="margin-top: 8px;">
+        <p style="color: #fbbf24; font-weight: 600; margin-bottom: 12px;">상태 구분</p>
+        <div class="status-chips">
+          <div class="chip chip-ok">✅ 정상 — 점검 주기 내 완료</div>
+          <div class="chip chip-warn">⏰ 점검 임박 — 7일 이내 예정</div>
+          <div class="chip chip-error">⚠️ 점검 지연 — 예정일 초과</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        📌 대시보드에는 <strong>나에게 배정된 대상만</strong> 표시됩니다. 다른 담당자의 대상은 보이지 않습니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📅</div>
+      <div class="slide-header-text">
+        <h2>스케줄 관리</h2>
+        <p>배정된 대상의 점검 실행</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="two-col">
+        <div class="col-section">
+          <h4>📋 목록 확인</h4>
+          <ul class="bullet-list">
+            <li><strong>나에게 배정된 대상만</strong> 목록에 표시</li>
+            <li>대상명, 구분, 최근 점검일, 다음 예정일 확인</li>
+            <li>상태 필터로 정상/임박/지연 구분 조회</li>
+            <li>검색 기능으로 특정 대상 빠르게 찾기</li>
+          </ul>
+        </div>
+        <div class="col-section">
+          <h4>✅ 점검 실행</h4>
+          <ul class="bullet-list">
+            <li><strong>점검</strong> 버튼을 클릭하여 점검 기록</li>
+            <li>점검 실시일을 선택 후 확인</li>
+            <li>점검일 기록 시 <strong>다음 점검일이 자동 계산</strong></li>
+            <li>점검 주기(개월)에 따라 자동 산출</li>
+          </ul>
+        </div>
+      </div>
+      <div class="permission-note">
+        <span class="note-icon">🚫</span>
+        <span>담당자는 대상 정보의 <strong style="color: #fca5a5;">수정 및 삭제가 불가</strong>합니다. 수정이 필요하면 대상 관리자에게 요청하세요.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">📧</div>
+      <div class="slide-header-text">
+        <h2>이메일 알림</h2>
+        <p>자동 점검 알림 시스템</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="card-grid">
+        <div class="info-card">
+          <div class="card-icon">⏰</div>
+          <h4>매일 자동 알림</h4>
+          <p>매일 오전 <strong style="color: #fbbf24;">9시(KST)</strong>에 점검 현황을 자동으로 확인하여 이메일을 발송합니다.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">📅</div>
+          <h4>점검 예정 알림</h4>
+          <p>점검일 <strong style="color: #fbbf24;">7일 전</strong>부터 예정 알림을 수신합니다. 미리 점검 준비를 하세요.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">🚨</div>
+          <h4>지연 경고 알림</h4>
+          <p>점검 예정일이 지나면 <strong style="color: #f87171;">경고 알림</strong>이 발송됩니다. 즉시 점검을 수행하세요.</p>
+        </div>
+      </div>
+      <div class="highlight-box">
+        💡 알림은 담당자 본인과 <strong>대상 관리자</strong>에게도 함께 발송됩니다. 점검을 미루지 마세요!
+      </div>
+    </div>
+  </div>
+
+  <div class="slide slide-content">
+    <div class="slide-header">
+      <div class="icon">🔄</div>
+      <div class="slide-header-text">
+        <h2>주요 업무 흐름</h2>
+        <p>담당자의 일상 업무 프로세스</p>
+      </div>
+    </div>
+    <div class="content-body">
+      <div class="step-flow">
+        <div class="step-item">
+          <div class="step-icon">📧</div>
+          <div class="step-num">Step 1</div>
+          <div class="step-label">이메일 알림<br>수신</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">🔐</div>
+          <div class="step-num">Step 2</div>
+          <div class="step-label">시스템<br>로그인</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">📋</div>
+          <div class="step-num">Step 3</div>
+          <div class="step-label">스케줄 관리<br>페이지 확인</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">✅</div>
+          <div class="step-num">Step 4</div>
+          <div class="step-label">점검<br>실행</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">🎉</div>
+          <div class="step-num">Step 5</div>
+          <div class="step-label">완료</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        📌 점검이 완료되면 <strong>다음 점검 예정일이 자동으로 계산</strong>됩니다. 별도의 추가 작업은 필요 없습니다.
+      </div>
+      <ul class="bullet-list" style="margin-top: 8px;">
+        <li>알림 이메일을 확인하여 점검이 필요한 대상을 파악합니다</li>
+        <li>시스템에 로그인하여 스케줄 관리 페이지에서 대상을 확인합니다</li>
+        <li>해당 대상의 <strong>점검</strong> 버튼을 클릭하여 점검일을 기록합니다</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="slide slide-end">
+    <div class="cover-icon">🎓</div>
+    <h1>교육을 마칩니다</h1>
+    <div class="cover-divider"></div>
+    <h3 style="margin-bottom: 24px;">담당자 교육 가이드를 완료하셨습니다</h3>
+    <div class="card-grid" style="max-width: 600px; margin: 0 auto;">
+      <div class="info-card" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);">
+        <div class="card-icon">💬</div>
+        <h4>문의 안내</h4>
+        <p style="color: #fef3c7;">시스템 사용 중 문의 사항이 있으면<br><strong style="color: #fff;">대상 관리자</strong>에게 연락하세요.</p>
+      </div>
+      <div class="info-card" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);">
+        <div class="card-icon">📌</div>
+        <h4>핵심 기억 사항</h4>
+        <p style="color: #fef3c7;">배정된 대상의 점검을 기한 내에 수행하고<br>시스템에 <strong style="color: #fff;">점검 결과를 기록</strong>하세요.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-controls">
+  <button class="nav-btn" id="prevBtn" onclick="prev()" disabled>◀</button>
+  <div class="slide-dots" id="dots"></div>
+  <span class="slide-counter" id="counter">1 / 8</span>
+  <button class="nav-btn" id="nextBtn" onclick="next()">▶</button>
+</div>
+
+<script>
+let current = 0;
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+const counter = document.getElementById('counter');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const dotsContainer = document.getElementById('dots');
+
+for (let i = 0; i < total; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'slide-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => goTo(i);
+  dotsContainer.appendChild(dot);
+}
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  dotsContainer.children[current].classList.remove('active');
+  current = n;
+  slides[current].classList.add('active');
+  dotsContainer.children[current].classList.add('active');
+  counter.textContent = (current + 1) + ' / ' + total;
+  prevBtn.disabled = current === 0;
+  nextBtn.disabled = current === total - 1;
+}
+
+function next() { if (current < total - 1) goTo(current + 1); }
+function prev() { if (current > 0) goTo(current - 1); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+});
+
+document.addEventListener('click', e => {
+  if (e.target.closest('.nav-controls') || e.target.closest('.slide-dot')) return;
+  const x = e.clientX;
+  if (x > window.innerWidth * 0.6) next();
+  else if (x < window.innerWidth * 0.4) prev();
+});
+</script>
+
+</body>
+</html>
