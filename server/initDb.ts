@@ -36,7 +36,7 @@ export async function initializeDatabase() {
     if (existingUsers.length === 0) {
       console.log("[INIT] Creating admin user...");
       const newUser = await db.insert(users).values({
-        username: "시스템 관리자",
+        username: "system_admin",
         fullName: "관리자",
         role: "admin",
         teamId: teamId,
