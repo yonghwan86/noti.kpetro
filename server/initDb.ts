@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { users, teams } from "@shared/schema";
 
-const ADMIN_EMAIL = "yonghwan86@gmail.com";
+const ADMIN_EMAIL = "ax@kpetro.or.kr";
 
 export async function initializeDatabase() {
   try {
