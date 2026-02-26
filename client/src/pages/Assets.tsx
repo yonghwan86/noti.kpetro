@@ -87,7 +87,7 @@ function InspectionCyclePreview({ lastDate, cycleDays }: { lastDate: string; cyc
           <>예상 차기 점검일: {adjustedStr}</>
         )}
       </p>
-      <p className="text-xs text-blue-500 mt-1">해당 날짜 오전 9시에 알림이 발송됩니다</p>
+      <p className="text-xs text-blue-500 mt-1">예상 차기 점검일 7일 전부터 매일 오전 9시에 알림이 발송됩니다</p>
     </div>
   );
 }
