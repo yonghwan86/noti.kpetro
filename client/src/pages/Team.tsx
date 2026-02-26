@@ -324,7 +324,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>대상명</TableHead>
-                  <TableHead>담당 대상 관리자</TableHead>
+                  <TableHead>대상 담당 사용자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
