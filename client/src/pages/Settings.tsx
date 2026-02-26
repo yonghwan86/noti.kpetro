@@ -84,8 +84,8 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>기본 점검 주기 (개월)</Label>
-              <Input type="number" defaultValue={6} className="max-w-[200px]" />
+              <Label>기본 점검 주기 (일)</Label>
+              <Input type="number" defaultValue={180} className="max-w-[200px]" />
               <p className="text-xs text-muted-foreground">신규 장비 등록 시 기본값으로 사용됩니다.</p>
             </div>
             <div className="grid gap-2">
