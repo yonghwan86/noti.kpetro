@@ -992,6 +992,18 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: () => api.users.getAll(),
+  });
+
+  const availableUsers = (() => {
+    const managerIds = new Set(managerUsers.map(u => u.id));
+    const existingIds = category.managerIds || [];
+    const existingNonManagers = allUsers.filter(u => existingIds.includes(u.id) && !managerIds.has(u.id));
+    return [...managerUsers, ...existingNonManagers];
+  })();
+
   const updateMutation = useMutation({
     mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds }),
     onSuccess: () => {
@@ -1049,10 +1061,10 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
           <div className="space-y-2">
             <Label>담당 대상 관리자 (복수 선택 가능)</Label>
             <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
-              {managerUsers.length === 0 ? (
+              {availableUsers.length === 0 ? (
                 <p className="text-sm text-muted-foreground p-1">등록된 대상 관리자가 없습니다.</p>
               ) : (
-                managerUsers.map((u) => (
+                availableUsers.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
                     <input
                       type="checkbox"
@@ -1061,7 +1073,7 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
                       className="rounded"
                       data-testid={`checkbox-edit-manager-${u.id}`}
                     />
-                    <span className="text-sm">{u.username}</span>
+                    <span className="text-sm">{u.username}{u.role !== 'manager' ? ` (${u.role})` : ''}</span>
                   </label>
                 ))
               )}
