@@ -823,6 +823,16 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
                 if (cat?.managerIds && cat.managerIds.length > 0) {
                   setValue("managerId", cat.managerIds[0]);
                 }
+                if (cat?.defaultCycleDays) {
+                  const preset = CYCLE_OPTIONS.find(o => o.value !== "custom" && parseInt(o.value) === cat.defaultCycleDays);
+                  if (preset) {
+                    setCycleSelectValue(preset.value);
+                    setCustomCycleDays("");
+                  } else {
+                    setCycleSelectValue("custom");
+                    setCustomCycleDays(String(cat.defaultCycleDays));
+                  }
+                }
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="구분 선택" />

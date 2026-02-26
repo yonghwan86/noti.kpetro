@@ -34,6 +34,7 @@ export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   managerIds: text("manager_ids").array().default(sql`'{}'::text[]`),
+  defaultCycleDays: integer("default_cycle_days"),
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });

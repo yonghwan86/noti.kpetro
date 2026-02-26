@@ -30,6 +30,7 @@ export interface Category {
   id: string;
   name: string;
   managerIds?: string[] | null;
+  defaultCycleDays?: number | null;
 }
 
 export type AssetStatus = 'ok' | 'upcoming' | 'overdue';

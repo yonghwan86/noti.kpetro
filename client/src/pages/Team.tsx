@@ -324,6 +324,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>대상명</TableHead>
+                  <TableHead>기본 주기</TableHead>
                   <TableHead>대상 담당 관리자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -332,7 +333,7 @@ export default function Team() {
               <TableBody>
                 {filteredCategories.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       등록된 대상이 없습니다. "대상 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
@@ -342,6 +343,7 @@ export default function Team() {
                     return (
                       <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
                         <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{category.defaultCycleDays ? `${category.defaultCycleDays}일` : "-"}</TableCell>
                         <TableCell>{categoryManagers.length > 0 ? categoryManagers.map(m => m!.username).join(", ") : "-"}</TableCell>
                         <TableCell>{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => teams.find(t => t.id === m!.teamId)?.name).filter(Boolean))).join(", ") : "-"}</TableCell>
                         <TableCell className="text-right">
@@ -892,11 +894,25 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   );
 }
 
+const CYCLE_PRESETS = [
+  { value: "none", label: "선택 안함" },
+  { value: "7", label: "7일 (1주)" },
+  { value: "14", label: "14일 (2주)" },
+  { value: "30", label: "30일 (1개월)" },
+  { value: "90", label: "90일 (3개월)" },
+  { value: "180", label: "180일 (6개월)" },
+  { value: "365", label: "365일 (1년)" },
+  { value: "730", label: "730일 (2년)" },
+  { value: "custom", label: "직접 지정" },
+];
+
 function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState("");
+  const [cycleSelectValue, setCycleSelectValue] = useState<string>("none");
+  const [customCycleDays, setCustomCycleDays] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -906,14 +922,18 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
     (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const effectiveCycleDays = cycleSelectValue === "custom" ? (parseInt(customCycleDays) || null) : (cycleSelectValue && cycleSelectValue !== "none" ? parseInt(cycleSelectValue) : null);
+
   const createMutation = useMutation({
-    mutationFn: () => api.categories.create({ name, managerIds: selectedManagerIds }),
+    mutationFn: () => api.categories.create({ name, managerIds: selectedManagerIds, defaultCycleDays: effectiveCycleDays }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
       setName("");
       setSelectedManagerIds([]);
       setUserSearch("");
+      setCycleSelectValue("none");
+      setCustomCycleDays("");
       toast({ title: "대상 등록 완료", description: "새로운 대상이 등록되었습니다." });
     },
     onError: (error: Error) => {
@@ -937,6 +957,8 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
       setName("");
       setSelectedManagerIds([]);
       setUserSearch("");
+      setCycleSelectValue("none");
+      setCustomCycleDays("");
     }
   };
 
@@ -965,7 +987,30 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
             />
           </div>
           <div className="space-y-2">
-            <Label>담당 사용자 (복수 선택 가능)</Label>
+            <Label>기본 점검 주기</Label>
+            <p className="text-xs text-muted-foreground">스케줄 관리에서 이 대상을 선택하면 기본값으로 적용됩니다.</p>
+            <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
+              <SelectTrigger>
+                <SelectValue placeholder="주기 선택 (선택사항)" />
+              </SelectTrigger>
+              <SelectContent>
+                {CYCLE_PRESETS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {cycleSelectValue === "custom" && (
+              <Input
+                type="number"
+                min={1}
+                placeholder="일수 입력"
+                value={customCycleDays}
+                onChange={(e) => setCustomCycleDays(e.target.value)}
+              />
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>담당 관리자 (복수 선택 가능)</Label>
             <Input
               placeholder="사용자 검색..."
               value={userSearch}
@@ -1011,6 +1056,10 @@ function EditCategoryDialog({ category, allUsers }: { category: Category, allUse
   const [name, setName] = useState(category.name);
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(category.managerIds || []);
   const [userSearch, setUserSearch] = useState("");
+  const currentDays = category.defaultCycleDays;
+  const presetMatch = currentDays ? CYCLE_PRESETS.find(o => o.value !== "custom" && o.value !== "none" && parseInt(o.value) === currentDays) : null;
+  const [cycleSelectValue, setCycleSelectValue] = useState<string>(presetMatch ? presetMatch.value : (currentDays ? "custom" : "none"));
+  const [customCycleDays, setCustomCycleDays] = useState<string>(presetMatch ? "" : (currentDays ? String(currentDays) : ""));
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1026,8 +1075,10 @@ function EditCategoryDialog({ category, allUsers }: { category: Category, allUse
     return aSelected - bSelected;
   });
 
+  const effectiveCycleDays = cycleSelectValue === "custom" ? (parseInt(customCycleDays) || null) : (cycleSelectValue && cycleSelectValue !== "none" ? parseInt(cycleSelectValue) : null);
+
   const updateMutation = useMutation({
-    mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds }),
+    mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds, defaultCycleDays: effectiveCycleDays }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
@@ -1054,6 +1105,10 @@ function EditCategoryDialog({ category, allUsers }: { category: Category, allUse
       setName(category.name);
       setSelectedManagerIds(category.managerIds || []);
       setUserSearch("");
+      const cd = category.defaultCycleDays;
+      const pm = cd ? CYCLE_PRESETS.find(o => o.value !== "custom" && o.value !== "none" && parseInt(o.value) === cd) : null;
+      setCycleSelectValue(pm ? pm.value : (cd ? "custom" : "none"));
+      setCustomCycleDays(pm ? "" : (cd ? String(cd) : ""));
     }
   };
 
@@ -1082,7 +1137,29 @@ function EditCategoryDialog({ category, allUsers }: { category: Category, allUse
             />
           </div>
           <div className="space-y-2">
-            <Label>담당 사용자 (복수 선택 가능)</Label>
+            <Label>기본 점검 주기</Label>
+            <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
+              <SelectTrigger>
+                <SelectValue placeholder="주기 선택 (선택사항)" />
+              </SelectTrigger>
+              <SelectContent>
+                {CYCLE_PRESETS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {cycleSelectValue === "custom" && (
+              <Input
+                type="number"
+                min={1}
+                placeholder="일수 입력"
+                value={customCycleDays}
+                onChange={(e) => setCustomCycleDays(e.target.value)}
+              />
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>담당 관리자 (복수 선택 가능)</Label>
             <Input
               placeholder="사용자 검색..."
               value={userSearch}
