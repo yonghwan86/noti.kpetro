@@ -544,7 +544,8 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
     }
   });
 
-  const staffMembers = users.filter(u => u.role === 'staff');
+  const watchedTeamId = watch("teamId");
+  const staffMembers = users.filter(u => u.role === 'staff' && u.teamId === watchedTeamId);
   const editCategory = categories.find(c => c.id === editCategoryId);
   const editCategoryManagers = (editCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
 
@@ -631,7 +632,15 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
             )}
             <div className="space-y-2">
               <Label>담당팀</Label>
-              <Select value={watch("teamId")} onValueChange={(v) => setValue("teamId", v)}>
+              <Select value={watch("teamId")} onValueChange={(v) => {
+                setValue("teamId", v);
+                const teamStaff = users.filter(u => u.role === 'staff' && u.teamId === v);
+                if (teamStaff.length > 0) {
+                  setValue("staffId", teamStaff[0].id);
+                } else {
+                  setValue("staffId", "");
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -647,7 +656,9 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  {staffMembers.length > 0 ? staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">해당 팀에 소속된 담당자가 없습니다</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -715,6 +726,7 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
 function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [cycleSelectValue, setCycleSelectValue] = useState<string>("");
   const [customCycleDays, setCustomCycleDays] = useState<string>("");
   const [lastDate, setLastDate] = useState<string>("");
@@ -723,7 +735,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
   const queryClient = useQueryClient();
 
   const managers = users.filter(u => u.role === 'manager');
-  const staffMembers = users.filter(u => u.role === 'staff');
+  const staffMembers = selectedTeamId ? users.filter(u => u.role === 'staff' && u.teamId === selectedTeamId) : [];
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
   const categoryManagers = (selectedCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
 
@@ -752,6 +764,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
       setCycleSelectValue("");
       setCustomCycleDays("");
       setLastDate("");
+      setSelectedTeamId("");
       toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
     },
   });
@@ -769,6 +782,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
     if (!isOpen) {
       reset();
       setSelectedCategoryId("");
+      setSelectedTeamId("");
       setCycleSelectValue("");
       setCustomCycleDays("");
       setLastDate("");
@@ -833,7 +847,11 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
             )}
             <div className="space-y-2">
               <Label>담당팀</Label>
-              <Select onValueChange={(v) => setValue("teamId", v)}>
+              <Select onValueChange={(v) => {
+                setValue("teamId", v);
+                setSelectedTeamId(v);
+                setValue("staffId", "");
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="담당팀 선택" />
                 </SelectTrigger>
@@ -844,12 +862,14 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
             </div>
             <div className="space-y-2">
               <Label>담당자</Label>
-              <Select onValueChange={(v) => setValue("staffId", v)}>
+              <Select onValueChange={(v) => setValue("staffId", v)} disabled={!selectedTeamId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="담당자 선택" />
+                  <SelectValue placeholder={selectedTeamId ? "담당자 선택" : "담당팀을 먼저 선택하세요"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                  {staffMembers.length > 0 ? staffMembers.map(u => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">해당 팀에 소속된 담당자가 없습니다</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
