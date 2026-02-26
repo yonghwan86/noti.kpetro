@@ -300,7 +300,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              대상 구분(계량기, 차량 등)을 등록하고, 각 대상을 관리할 담당 관리자를 지정합니다.
+              대상 구분을 등록하고 담당 관리자를 지정합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -380,7 +380,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="managers" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              전체 사용자 중에서 대상 관리자 역할을 부여합니다. 대상 관리자로 배정된 사용자만 대상 구분에 담당 관리자로 지정할 수 있습니다.
+              전체 사용자 중 대상 관리자 역할을 부여합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
