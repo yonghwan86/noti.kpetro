@@ -17,7 +17,18 @@ import {
   inspectionLogs
 } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
-import { addMonths, parseISO, differenceInDays } from "date-fns";
+import { addDays, parseISO, differenceInDays, isWeekend, nextMonday } from "date-fns";
+
+const skipWeekends = (date: Date): Date => {
+  return isWeekend(date) ? nextMonday(date) : date;
+};
+
+const calculateNextDueDate = (lastDate: string, cycleDays: number): string => {
+  const base = parseISO(lastDate);
+  const raw = addDays(base, cycleDays - 1);
+  const adjusted = skipWeekends(raw);
+  return adjusted.toISOString().split('T')[0];
+};
 
 const calculateStatus = (nextDueDate: string): 'ok' | 'upcoming' | 'overdue' => {
   const today = new Date();
@@ -189,7 +200,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async createAsset(asset: InsertAsset): Promise<Asset> {
-    const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
+    const nextDueDate = calculateNextDueDate(asset.lastInspectedDate, asset.inspectionCycleDays);
     const status = calculateStatus(nextDueDate);
     
     const result = await db.insert(assets).values({
@@ -205,10 +216,10 @@ export class PostgresStorage implements IStorage {
     if (!asset) return undefined;
 
     let nextDueDate = asset.nextDueDate;
-    if (updates.inspectionCycleMonths || updates.lastInspectedDate) {
-      const cycleMonths = updates.inspectionCycleMonths ?? asset.inspectionCycleMonths;
+    if (updates.inspectionCycleDays || updates.lastInspectedDate) {
+      const cycleDays = updates.inspectionCycleDays ?? asset.inspectionCycleDays;
       const lastDate = updates.lastInspectedDate ?? asset.lastInspectedDate;
-      nextDueDate = addMonths(parseISO(lastDate), cycleMonths).toISOString().split('T')[0];
+      nextDueDate = calculateNextDueDate(lastDate, cycleDays);
     }
 
     const status = calculateStatus(nextDueDate);
@@ -225,7 +236,7 @@ export class PostgresStorage implements IStorage {
     const asset = await this.getAsset(id);
     if (!asset) return undefined;
 
-    const nextDueDate = addMonths(parseISO(newDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
+    const nextDueDate = calculateNextDueDate(newDate, asset.inspectionCycleDays);
     const status = calculateStatus(nextDueDate);
 
     const result = await db.update(assets).set({

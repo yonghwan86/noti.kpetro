@@ -1,4 +1,4 @@
-import { addMonths, differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO } from 'date-fns';
 
 export type Role = 'admin' | 'manager' | 'staff';
 
@@ -43,7 +43,7 @@ export interface Asset {
   managerId: string; // Equipment Manager (장비 관리자)
   usageTeamId: string; // Usage Team (사용 팀)
   staffId: string; // Staff/Person in Charge (담당자)
-  inspectionCycleMonths: number;
+  inspectionCycleDays: number;
   lastInspectedDate: string; // ISO date string
   nextDueDate: string; // ISO date string
   status: AssetStatus;

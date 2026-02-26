@@ -30,7 +30,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, addDays, parseISO, isWeekend, nextMonday } from "date-fns";
+import { ko } from "date-fns/locale";
 import { 
   CalendarIcon, 
   Filter, 
@@ -46,6 +47,94 @@ import {
   Eye,
   Download
 } from "lucide-react";
+
+const CYCLE_OPTIONS = [
+  { value: "7", label: "7일 (1주)" },
+  { value: "14", label: "14일 (2주)" },
+  { value: "30", label: "30일 (1개월)" },
+  { value: "90", label: "90일 (3개월)" },
+  { value: "180", label: "180일 (6개월)" },
+  { value: "365", label: "365일 (1년)" },
+  { value: "730", label: "730일 (2년)" },
+  { value: "custom", label: "직접 지정" },
+];
+
+function calculatePreviewDate(lastDate: string, cycleDays: number): { raw: Date; adjusted: Date; isAdjusted: boolean } | null {
+  if (!lastDate || !cycleDays || cycleDays <= 0) return null;
+  try {
+    const base = parseISO(lastDate);
+    const raw = addDays(base, cycleDays - 1);
+    const adjusted = isWeekend(raw) ? nextMonday(raw) : raw;
+    return { raw, adjusted, isAdjusted: isWeekend(raw) };
+  } catch {
+    return null;
+  }
+}
+
+function InspectionCyclePreview({ lastDate, cycleDays }: { lastDate: string; cycleDays: number }) {
+  const preview = calculatePreviewDate(lastDate, cycleDays);
+  if (!preview) return null;
+
+  const rawStr = format(preview.raw, "yyyy-MM-dd (EEE)", { locale: ko });
+  const adjustedStr = format(preview.adjusted, "yyyy-MM-dd (EEE)", { locale: ko });
+
+  return (
+    <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-200">
+      <p className="text-sm font-bold text-blue-700">
+        {preview.isAdjusted ? (
+          <>예상 차기 점검일: <span className="line-through text-blue-400">{rawStr}</span> → 주말 제외 조정됨: {adjustedStr}</>
+        ) : (
+          <>예상 차기 점검일: {adjustedStr}</>
+        )}
+      </p>
+      <p className="text-xs text-blue-500 mt-1">해당 날짜 오전 9시에 알림이 발송됩니다</p>
+    </div>
+  );
+}
+
+function CycleSelector({ value, onChange, customValue, onCustomChange }: {
+  value: string;
+  onChange: (v: string) => void;
+  customValue: string;
+  onCustomChange: (v: string) => void;
+}) {
+  const isCustom = value === "custom";
+
+  return (
+    <div className="space-y-2">
+      <Label>점검 주기</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="주기 선택" />
+        </SelectTrigger>
+        <SelectContent>
+          {CYCLE_OPTIONS.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {isCustom && (
+        <div className="space-y-1">
+          <Input
+            type="number"
+            min={1}
+            placeholder="일수 입력"
+            value={customValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "" || parseInt(val) > 0) {
+                onCustomChange(val);
+              }
+            }}
+          />
+          {customValue !== "" && parseInt(customValue) <= 0 && (
+            <p className="text-xs text-red-500">1 이상의 숫자를 입력해주세요.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { 
   DropdownMenu, 
@@ -390,7 +479,7 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
         <DialogHeader>
           <DialogTitle>점검 기록</DialogTitle>
           <DialogDescription>
-            <strong>{asset.name}</strong>의 점검일을 업데이트합니다. {asset.inspectionCycleMonths}개월 주기로 다음 예정일이 자동 계산됩니다.
+            <strong>{asset.name}</strong>의 점검일을 업데이트합니다. {asset.inspectionCycleDays}일 주기로 다음 예정일이 자동 계산됩니다.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -436,6 +525,12 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
 function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[] }) {
   const [open, setOpen] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState<string>(asset.categoryId || "");
+
+  const currentDays = asset.inspectionCycleDays;
+  const presetMatch = CYCLE_OPTIONS.find(o => o.value !== "custom" && parseInt(o.value) === currentDays);
+  const [cycleSelectValue, setCycleSelectValue] = useState<string>(presetMatch ? presetMatch.value : "custom");
+  const [customCycleDays, setCustomCycleDays] = useState<string>(presetMatch ? "" : String(currentDays));
+
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: asset.name,
@@ -444,7 +539,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
       teamId: asset.teamId,
       managerId: asset.managerId,
       staffId: asset.staffId,
-      inspectionCycleMonths: asset.inspectionCycleMonths
+      lastInspectedDate: asset.lastInspectedDate,
     }
   });
 
@@ -452,16 +547,31 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
   const editCategory = categories.find(c => c.id === editCategoryId);
   const editCategoryManagers = (editCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
 
+  const effectiveCycleDays = cycleSelectValue === "custom" ? parseInt(customCycleDays) || 0 : parseInt(cycleSelectValue) || 0;
+  const watchedLastDate = watch("lastInspectedDate");
+
   const onSubmit = (data: any) => {
+    if (effectiveCycleDays <= 0) return;
     onEdit(asset.id, {
       ...data,
-      inspectionCycleMonths: parseInt(data.inspectionCycleMonths)
+      inspectionCycleDays: effectiveCycleDays,
     });
     setOpen(false);
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      const pm = CYCLE_OPTIONS.find(o => o.value !== "custom" && parseInt(o.value) === asset.inspectionCycleDays);
+      setCycleSelectValue(pm ? pm.value : "custom");
+      setCustomCycleDays(pm ? "" : String(asset.inspectionCycleDays));
+      setEditCategoryId(asset.categoryId || "");
+      setValue("lastInspectedDate", asset.lastInspectedDate);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
           <Pencil className="mr-2 h-4 w-4" />
@@ -542,11 +652,26 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
+            <CycleSelector
+              value={cycleSelectValue}
+              onChange={setCycleSelectValue}
+              customValue={customCycleDays}
+              onCustomChange={setCustomCycleDays}
+            />
             <div className="space-y-2">
-              <Label>점검 주기 (개월)</Label>
-              <Input type="number" {...register("inspectionCycleMonths", { required: true })} />
+              <Label>최근 점검일</Label>
+              <Input
+                type="date"
+                {...register("lastInspectedDate")}
+                onChange={(e) => setValue("lastInspectedDate", e.target.value)}
+              />
             </div>
           </div>
+
+          {watchedLastDate && effectiveCycleDays > 0 && (
+            <InspectionCyclePreview lastDate={watchedLastDate} cycleDays={effectiveCycleDays} />
+          )}
+
           <DialogFooter>
             <Button type="submit">저장</Button>
           </DialogFooter>
@@ -589,6 +714,9 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
 function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [cycleSelectValue, setCycleSelectValue] = useState<string>("");
+  const [customCycleDays, setCustomCycleDays] = useState<string>("");
+  const [lastDate, setLastDate] = useState<string>("");
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -597,6 +725,8 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
   const staffMembers = users.filter(u => u.role === 'staff');
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
   const categoryManagers = (selectedCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
+
+  const effectiveCycleDays = cycleSelectValue === "custom" ? parseInt(customCycleDays) || 0 : parseInt(cycleSelectValue) || 0;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => {
@@ -608,7 +738,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
         managerId: data.managerId || (selectedCategory?.managerIds && selectedCategory.managerIds.length > 0 ? selectedCategory.managerIds[0] : null) || currentUser?.id || managers[0]?.id,
         usageTeamId: data.teamId,
         staffId: data.staffId || staffMembers[0]?.id,
-        inspectionCycleMonths: parseInt(data.inspectionCycleMonths),
+        inspectionCycleDays: effectiveCycleDays,
         lastInspectedDate: data.lastInspectedDate,
         inspectorId: currentUser?.id,
       });
@@ -618,11 +748,18 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
       queryClient.invalidateQueries({ queryKey: ["/api/logs"] });
       setOpen(false);
       reset();
+      setCycleSelectValue("");
+      setCustomCycleDays("");
+      setLastDate("");
       toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
     },
   });
 
   const onSubmit = (data: any) => {
+    if (effectiveCycleDays <= 0) {
+      toast({ title: "입력 오류", description: "점검 주기를 선택하거나 1 이상의 숫자를 입력해주세요.", variant: "destructive" });
+      return;
+    }
     createMutation.mutate(data);
   };
 
@@ -631,6 +768,9 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
     if (!isOpen) {
       reset();
       setSelectedCategoryId("");
+      setCycleSelectValue("");
+      setCustomCycleDays("");
+      setLastDate("");
     }
   };
 
@@ -715,16 +855,29 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <CycleSelector
+              value={cycleSelectValue}
+              onChange={setCycleSelectValue}
+              customValue={customCycleDays}
+              onCustomChange={setCustomCycleDays}
+            />
             <div className="space-y-2">
-              <Label>점검 주기 (개월)</Label>
-              <Input type="number" {...register("inspectionCycleMonths", { required: true })} placeholder="6" />
+              <Label htmlFor="lastDate">최근 점검일</Label>
+              <Input
+                id="lastDate"
+                type="date"
+                {...register("lastInspectedDate", { required: true })}
+                onChange={(e) => {
+                  setValue("lastInspectedDate", e.target.value);
+                  setLastDate(e.target.value);
+                }}
+              />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="lastDate">최근 점검일</Label>
-            <Input id="lastDate" type="date" {...register("lastInspectedDate", { required: true })} />
-          </div>
+          {lastDate && effectiveCycleDays > 0 && (
+            <InspectionCyclePreview lastDate={lastDate} cycleDays={effectiveCycleDays} />
+          )}
 
           <DialogFooter className="mt-4">
             <Button type="submit">등록 완료</Button>

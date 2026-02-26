@@ -1,5 +1,5 @@
 import { Asset, AssetStatus, Category, Team, User, InspectionLog } from './types';
-import { addMonths, differenceInDays, parseISO, subDays, subHours } from 'date-fns';
+import { addDays, differenceInDays, parseISO, subDays, subHours, isWeekend, nextMonday } from 'date-fns';
 
 // Initial Mock Data
 
@@ -43,9 +43,9 @@ const initialAssets: Asset[] = [
     managerId: 'u4', // Manager: Management Team Leader
     usageTeamId: 't1', // Used by Inspection Team
     staffId: 'u3', // Staff: Inspection Staff A
-    inspectionCycleMonths: 1, // 1 month
+    inspectionCycleDays: 30,
     lastInspectedDate: '2025-05-01',
-    nextDueDate: '2025-06-01',
+    nextDueDate: '2025-05-30',
     status: 'overdue', 
   },
   {
@@ -53,13 +53,13 @@ const initialAssets: Asset[] = [
     name: '지게차 F-500',
     serialNumber: 'VH-9982',
     categoryId: 'c2',
-    teamId: 't2', // Managed by Management Team
+    teamId: 't2',
     managerId: 'u4',
-    usageTeamId: 't2', // Used by Management Team
+    usageTeamId: 't2',
     staffId: 'u5',
-    inspectionCycleMonths: 3, // 3 months
+    inspectionCycleDays: 90,
     lastInspectedDate: '2025-06-15',
-    nextDueDate: '2025-09-15',
+    nextDueDate: '2025-09-12',
     status: 'ok',
   },
   {
@@ -67,13 +67,13 @@ const initialAssets: Asset[] = [
     name: '분광광도계 Pro',
     serialNumber: 'SP-112',
     categoryId: 'c3',
-    teamId: 't1', // Managed by Inspection Team
+    teamId: 't1',
     managerId: 'u2',
-    usageTeamId: 't1', // Used by Inspection Team
+    usageTeamId: 't1',
     staffId: 'u3',
-    inspectionCycleMonths: 6, // 6 months
+    inspectionCycleDays: 180,
     lastInspectedDate: '2025-01-10',
-    nextDueDate: '2025-07-10',
+    nextDueDate: '2025-07-08',
     status: 'upcoming',
   },
 ];
@@ -135,7 +135,8 @@ class Store {
   getAssetsByTeam(teamId: string) { return this.assets.filter(a => a.teamId === teamId); }
 
   addAsset(asset: Omit<Asset, 'id' | 'status' | 'nextDueDate'>) {
-    const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
+    const rawDate = addDays(parseISO(asset.lastInspectedDate), asset.inspectionCycleDays - 1);
+    const nextDueDate = (isWeekend(rawDate) ? nextMonday(rawDate) : rawDate).toISOString().split('T')[0];
     const newAsset: Asset = {
       ...asset,
       id: Math.random().toString(36).substr(2, 9),
@@ -157,7 +158,8 @@ class Store {
     const index = this.assets.findIndex(a => a.id === id);
     if (index !== -1) {
       const asset = this.assets[index];
-      const nextDueDate = addMonths(parseISO(newDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
+      const rawD = addDays(parseISO(newDate), asset.inspectionCycleDays - 1);
+      const nextDueDate = (isWeekend(rawD) ? nextMonday(rawD) : rawD).toISOString().split('T')[0];
       this.assets[index] = {
         ...asset,
         lastInspectedDate: newDate,
@@ -182,9 +184,10 @@ class Store {
     const index = this.assets.findIndex(a => a.id === id);
     if (index !== -1) {
       this.assets[index] = { ...this.assets[index], ...updates };
-      if (updates.inspectionCycleMonths || updates.lastInspectedDate) {
+      if (updates.inspectionCycleDays || updates.lastInspectedDate) {
          const asset = this.assets[index];
-         const nextDueDate = addMonths(parseISO(asset.lastInspectedDate), asset.inspectionCycleMonths).toISOString().split('T')[0];
+         const rawD2 = addDays(parseISO(asset.lastInspectedDate), asset.inspectionCycleDays - 1);
+         const nextDueDate = (isWeekend(rawD2) ? nextMonday(rawD2) : rawD2).toISOString().split('T')[0];
          this.assets[index].nextDueDate = nextDueDate;
          this.assets[index].status = calculateStatus(nextDueDate);
       }

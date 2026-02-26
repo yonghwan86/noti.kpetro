@@ -59,7 +59,7 @@ Preferred communication style: Simple, everyday language.
 
 **Business Logic**: 
 - Asset status calculation is automated based on inspection due dates (ok, upcoming within 7 days, overdue)
-- Inspection cycle tracking uses months as the unit
+- Inspection cycle tracking uses days as the unit (n-1 calculation with weekend adjustment)
 - Date calculations use date-fns library for reliable date arithmetic
 
 **Development Mode**: Uses Vite middleware in development for HMR (Hot Module Replacement) with custom error handling that exits the process on Vite errors.
@@ -140,6 +140,17 @@ Preferred communication style: Simple, everyday language.
 - Build process bundles specific server dependencies to optimize cold start performance on serverless platforms
 
 ## Recent Changes
+
+### February 2026 - Inspection Cycle Refactor: Months to Days
+- Changed inspection cycle from months-based to days-based calculation
+- Database column renamed: `inspection_cycle_months` → `inspection_cycle_days`
+- Added preset dropdown selector: 7일 (1주), 14일 (2주), 30일 (1개월), 90일 (3개월), 180일 (6개월), 365일 (1년), 730일 (2년), 직접 지정 (custom)
+- Implemented n-1 date calculation: next due = last inspected date + (cycle days - 1)
+- Weekend adjustment: if calculated date falls on Saturday/Sunday, automatically moved to next Monday
+- Live preview shows expected next inspection date with weekend adjustment indication
+- Updated Excel import/export: column name changed from "점검주기(개월)" to "점검주기(일)", backward compatible import accepts old column name
+- CycleSelector and InspectionCyclePreview reusable components added to Assets.tsx
+- Edit dialog now includes cycle selector and last inspection date with live preview
 
 ### February 2026 - Equipment Type Registration Workflow & Role Permissions
 - Renamed "관리자" tab to "장비 구분" tab with dedicated equipment type registration interface

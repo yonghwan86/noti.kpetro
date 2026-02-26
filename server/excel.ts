@@ -77,7 +77,7 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
     "관리팀": teams.find(t => t.id === a.teamId)?.name || "",
     "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
     "담당자": users.find(u => u.id === a.staffId)?.username || "",
-    "점검주기(개월)": a.inspectionCycleMonths,
+    "점검주기(일)": a.inspectionCycleDays,
     "최근점검일": a.lastInspectedDate,
     "다음점검일": a.nextDueDate,
     "상태": statusMap[a.status] || a.status,
@@ -275,7 +275,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     const teamName = row["관리팀"]?.toString().trim();
     const usageTeamName = row["사용팀"]?.toString().trim();
     const staffName = row["담당자"]?.toString().trim();
-    const inspectionCycleMonths = parseInt(row["점검주기(개월)"]?.toString() || "0");
+    const inspectionCycleDays = parseInt(row["점검주기(일)"]?.toString() || row["점검주기(개월)"]?.toString() || "0");
     const lastInspectedDate = row["최근점검일"]?.toString().trim();
     const notes = row["비고"]?.toString().trim() || null;
     
@@ -303,8 +303,8 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       errors.push({ row: rowNum, field: "담당자", message: "필수 항목입니다" });
       continue;
     }
-    if (!inspectionCycleMonths || inspectionCycleMonths <= 0) {
-      errors.push({ row: rowNum, field: "점검주기(개월)", message: "1 이상의 숫자를 입력해주세요" });
+    if (!inspectionCycleDays || inspectionCycleDays <= 0) {
+      errors.push({ row: rowNum, field: "점검주기(일)", message: "1 이상의 숫자를 입력해주세요" });
       continue;
     }
     if (!lastInspectedDate) {
@@ -350,7 +350,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
         managerId: category.managerIds![0],
         usageTeamId: usageTeam.id,
         staffId: staff.id,
-        inspectionCycleMonths,
+        inspectionCycleDays,
         lastInspectedDate,
         notes
       });

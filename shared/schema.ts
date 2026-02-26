@@ -66,7 +66,7 @@ export const assets = pgTable("assets", {
   managerId: varchar("manager_id").notNull().references(() => users.id),
   usageTeamId: varchar("usage_team_id").notNull().references(() => teams.id),
   staffId: varchar("staff_id").notNull().references(() => users.id),
-  inspectionCycleMonths: integer("inspection_cycle_months").notNull(),
+  inspectionCycleDays: integer("inspection_cycle_days").notNull(),
   lastInspectedDate: text("last_inspected_date").notNull(),
   nextDueDate: text("next_due_date").notNull(),
   status: text("status").notNull(),
