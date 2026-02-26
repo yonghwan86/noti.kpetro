@@ -105,21 +105,45 @@ function collectRecipients(asset: any, users: any[], teams: any[]): string[] {
   return recipients;
 }
 
-let lastEmailDate: string | null = null;
-
 function getTodayKST(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
-function runDailyCheckIfNeeded() {
+async function getLastEmailDate(): Promise<string | null> {
+  try {
+    const { db } = await import('../db');
+    const result = await db.execute(
+      `SELECT value FROM system_settings WHERE key = 'last_email_date' LIMIT 1`
+    );
+    const rows = result.rows as any[];
+    return rows.length > 0 ? rows[0].value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function setLastEmailDate(date: string): Promise<void> {
+  try {
+    const { db } = await import('../db');
+    await db.execute(
+      `INSERT INTO system_settings (key, value) VALUES ('last_email_date', '${date}')
+       ON CONFLICT (key) DO UPDATE SET value = '${date}'`
+    );
+  } catch (error) {
+    console.error('[SCHEDULER] Failed to save last email date:', error);
+  }
+}
+
+async function runDailyCheckIfNeeded() {
   const today = getTodayKST();
+  const lastEmailDate = await getLastEmailDate();
   if (lastEmailDate === today) {
     console.log('[SCHEDULER] Already sent emails today, skipping');
     return;
   }
-  lastEmailDate = today;
+  await setLastEmailDate(today);
   console.log('[SCHEDULER] Running daily inspection check');
-  checkUpcomingInspections();
+  await checkUpcomingInspections();
 }
 
 export function startScheduler() {
