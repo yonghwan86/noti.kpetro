@@ -489,7 +489,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>구분</Label>
-              <Select defaultValue={asset.categoryId || ""} onValueChange={(v) => {
+              <Select value={watch("categoryId")} onValueChange={(v) => {
                 setValue("categoryId", v);
                 setEditCategoryId(v);
                 const cat = categories.find(c => c.id === v);
@@ -505,10 +505,10 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                 </SelectContent>
               </Select>
             </div>
-            {editCategoryManagers.length > 1 && (
+            {editCategoryManagers.length > 0 && (
               <div className="space-y-2">
                 <Label>대상 관리자</Label>
-                <Select defaultValue={asset.managerId} onValueChange={(v) => setValue("managerId", v)}>
+                <Select value={watch("managerId")} onValueChange={(v) => setValue("managerId", v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -520,7 +520,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
             )}
             <div className="space-y-2">
               <Label>담당팀</Label>
-              <Select defaultValue={asset.teamId} onValueChange={(v) => setValue("teamId", v)}>
+              <Select value={watch("teamId")} onValueChange={(v) => setValue("teamId", v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -531,7 +531,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
             </div>
             <div className="space-y-2">
               <Label>담당자</Label>
-              <Select defaultValue={asset.staffId} onValueChange={(v) => setValue("staffId", v)}>
+              <Select value={watch("staffId")} onValueChange={(v) => setValue("staffId", v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
