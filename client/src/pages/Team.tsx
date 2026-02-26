@@ -275,10 +275,10 @@ export default function Team() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
             {isAdmin && (
-              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 대상</TabsTrigger>
+              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 대상 (구분)</TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 대상 관리자</TabsTrigger>
+              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 대상 관리자 (역할)</TabsTrigger>
             )}
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 전체 사용자</TabsTrigger>
             {isAdmin && (
@@ -300,7 +300,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              대상을 등록하고 관리합니다.
+              대상 구분(계량기, 차량 등)을 등록하고, 각 대상을 관리할 담당 관리자를 지정합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -324,7 +324,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>대상명</TableHead>
-                  <TableHead>대상 담당 사용자</TableHead>
+                  <TableHead>대상 담당 관리자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -380,7 +380,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="managers" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              장비를 관리하는 대상 관리자 계정을 등록하고 관리합니다.
+              전체 사용자 중에서 대상 관리자 역할을 부여합니다. 대상 관리자로 배정된 사용자만 대상 구분에 담당 관리자로 지정할 수 있습니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -485,7 +485,7 @@ export default function Team() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
               {isAdmin 
-                ? "회사 직원(담당자) 계정을 등록하고 관리합니다." 
+                ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '대상 관리자' 탭에서 관리자 역할로 배정할 수 있습니다." 
                 : "내 장비에 배정된 담당자 목록입니다. '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
             </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -624,7 +624,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="admins" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              시스템 마스터(최고 관리자) 계정을 관리합니다.
+              시스템 최고 관리자(마스터) 계정을 직접 생성합니다. 마스터는 모든 기능에 접근할 수 있습니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <AddMasterDialog teams={teams} onCreated={pushRecentUser} />
