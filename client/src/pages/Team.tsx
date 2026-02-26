@@ -316,7 +316,7 @@ export default function Team() {
                 importUrl="/api/categories/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
               />
-              <AddEquipTypeCategoryDialog managerUsers={managerUsers} />
+              <AddEquipTypeCategoryDialog allUsers={users} />
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -354,7 +354,7 @@ export default function Team() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditCategoryDialog category={category} managerUsers={managerUsers} />
+                              <EditCategoryDialog category={category} allUsers={users} />
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -892,12 +892,19 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   );
 }
 
-function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) {
+function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
+  const [userSearch, setUserSearch] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const selectableUsers = allUsers.filter(u => u.role !== 'admin');
+  const filteredUsers = selectableUsers.filter(u =>
+    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   const createMutation = useMutation({
     mutationFn: () => api.categories.create({ name, managerIds: selectedManagerIds }),
@@ -906,6 +913,7 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
       setOpen(false);
       setName("");
       setSelectedManagerIds([]);
+      setUserSearch("");
       toast({ title: "대상 등록 완료", description: "새로운 대상이 등록되었습니다." });
     },
     onError: (error: Error) => {
@@ -928,6 +936,7 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
     if (!isOpen) {
       setName("");
       setSelectedManagerIds([]);
+      setUserSearch("");
     }
   };
 
@@ -956,12 +965,20 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
             />
           </div>
           <div className="space-y-2">
-            <Label>담당 대상 관리자 (복수 선택 가능)</Label>
-            <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1" data-testid="select-category-managers">
-              {managerUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-1">등록된 대상 관리자가 없습니다.</p>
+            <Label>담당 사용자 (복수 선택 가능)</Label>
+            <Input
+              placeholder="사용자 검색..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className="mb-2 h-8 text-sm"
+            />
+            <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-category-managers">
+              {filteredUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-1">
+                  {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                </p>
               ) : (
-                managerUsers.map((u) => (
+                filteredUsers.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
                     <input
                       type="checkbox"
@@ -971,10 +988,14 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
                       data-testid={`checkbox-manager-${u.id}`}
                     />
                     <span className="text-sm">{u.username}</span>
+                    <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
                   </label>
                 ))
               )}
             </div>
+            {selectedManagerIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
+            )}
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-category">등록</Button>
@@ -985,24 +1006,25 @@ function AddEquipTypeCategoryDialog({ managerUsers }: { managerUsers: User[] }) 
   );
 }
 
-function EditCategoryDialog({ category, managerUsers }: { category: Category, managerUsers: User[] }) {
+function EditCategoryDialog({ category, allUsers }: { category: Category, allUsers: User[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(category.name);
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(category.managerIds || []);
+  const [userSearch, setUserSearch] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: allUsers = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    queryFn: () => api.users.getAll(),
-  });
+  const selectableUsers = allUsers.filter(u => u.role !== 'admin');
+  const filteredUsers = selectableUsers.filter(u =>
+    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+  );
 
-  const availableUsers = (() => {
-    const managerIds = new Set(managerUsers.map(u => u.id));
-    const existingIds = category.managerIds || [];
-    const existingNonManagers = allUsers.filter(u => existingIds.includes(u.id) && !managerIds.has(u.id));
-    return [...managerUsers, ...existingNonManagers];
-  })();
+  const selectedFirst = [...filteredUsers].sort((a, b) => {
+    const aSelected = selectedManagerIds.includes(a.id) ? 0 : 1;
+    const bSelected = selectedManagerIds.includes(b.id) ? 0 : 1;
+    return aSelected - bSelected;
+  });
 
   const updateMutation = useMutation({
     mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds }),
@@ -1031,6 +1053,7 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
     if (isOpen) {
       setName(category.name);
       setSelectedManagerIds(category.managerIds || []);
+      setUserSearch("");
     }
   };
 
@@ -1059,12 +1082,20 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
             />
           </div>
           <div className="space-y-2">
-            <Label>담당 대상 관리자 (복수 선택 가능)</Label>
-            <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
-              {availableUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-1">등록된 대상 관리자가 없습니다.</p>
+            <Label>담당 사용자 (복수 선택 가능)</Label>
+            <Input
+              placeholder="사용자 검색..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              className="mb-2 h-8 text-sm"
+            />
+            <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
+              {selectedFirst.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-1">
+                  {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                </p>
               ) : (
-                availableUsers.map((u) => (
+                selectedFirst.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
                     <input
                       type="checkbox"
@@ -1073,11 +1104,15 @@ function EditCategoryDialog({ category, managerUsers }: { category: Category, ma
                       className="rounded"
                       data-testid={`checkbox-edit-manager-${u.id}`}
                     />
-                    <span className="text-sm">{u.username}{u.role !== 'manager' ? ` (${u.role})` : ''}</span>
+                    <span className="text-sm">{u.username}</span>
+                    <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
                   </label>
                 ))
               )}
             </div>
+            {selectedManagerIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
+            )}
           </div>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-category">저장</Button>
