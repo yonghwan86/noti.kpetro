@@ -48,6 +48,7 @@ export const users = pgTable("users", {
   role: text("role").notNull(),
   teamId: varchar("team_id").notNull().references(() => teams.id),
   managerId: varchar("manager_id"),
+  assignedCategoryIds: text("assigned_category_ids").array().default(sql`'{}'::text[]`),
   position: text("position"),
   email: text("email"),
   phone: text("phone"),

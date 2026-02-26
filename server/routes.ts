@@ -488,12 +488,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/staff/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/staff/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "파일을 업로드해주세요" });
       }
-      const result = await excel.importStaffUsersFromExcel(req.file.buffer);
+      const currentUser = (req as any).currentUser;
+      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
+      const result = await excel.importStaffUsersFromExcel(req.file.buffer, managerId);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import staff users" });

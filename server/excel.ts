@@ -395,6 +395,7 @@ export function getUserTemplate(): Buffer {
 export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffer> {
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
+  const categories = await storage.getCategories();
   let staffUsers = users.filter(u => u.role === 'staff');
   if (managerId) {
     staffUsers = staffUsers.filter(u => u.managerId === managerId);
@@ -406,6 +407,7 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
     "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
     "이메일": u.email || "",
     "전화번호": u.phone || "",
+    "배정 대상": (u.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ") || "",
     "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
   }));
 
@@ -416,12 +418,13 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
-export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportResult> {
+export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: string): Promise<ImportResult> {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
 
   const teams = await storage.getTeams();
+  const categories = await storage.getCategories();
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
   let managerUpdateCount = 0;
@@ -435,6 +438,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
+    const categoryName = row["배정 대상"]?.toString().trim() || null;
 
     if (!username) {
       errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
@@ -451,16 +455,40 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
       continue;
     }
 
+    let assignCategoryId: string | null = null;
+    if (categoryName) {
+      const cat = categories.find(c => c.name === categoryName);
+      if (!cat) {
+        errors.push({ row: rowNum, field: "배정 대상", message: `'${categoryName}' 대상을 찾을 수 없습니다` });
+        continue;
+      }
+      assignCategoryId = cat.id;
+    }
+
     try {
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
-        await storage.updateUser(existingUser.id, { teamId: team.id, email, phone, position });
+        const updateData: any = { teamId: team.id, email, phone, position };
+        if (managerId) {
+          updateData.managerId = managerId;
+        }
+        if (assignCategoryId) {
+          const existing = existingUser.assignedCategoryIds || [];
+          if (!existing.includes(assignCategoryId)) {
+            updateData.assignedCategoryIds = [...existing, assignCategoryId];
+          }
+        }
+        await storage.updateUser(existingUser.id, updateData);
         if (existingUser.role === 'manager') {
           managerUpdateCount++;
         }
         successCount++;
       } else {
-        await storage.createUser({ username, fullName: null, role: 'staff', teamId: team.id, email, phone, managerId: null, position });
+        const newUser = await storage.createUser({
+          username, fullName: null, role: 'staff', teamId: team.id, email, phone,
+          managerId: managerId || null, position,
+          assignedCategoryIds: assignCategoryId ? [assignCategoryId] : [],
+        });
         successCount++;
       }
     } catch (e: any) {
@@ -478,7 +506,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer): Promise<ImportR
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
+  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678", "배정 대상": "계량기" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");

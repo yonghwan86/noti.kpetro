@@ -180,6 +180,7 @@ export default function Team() {
   const [managerPage, setManagerPage] = useState(1);
   const [staffPage, setStaffPage] = useState(1);
   const [adminPage, setAdminPage] = useState(1);
+  const [managerCategoryFilter, setManagerCategoryFilter] = useState<string>("all");
 
   if (!auth.canAccessTeamPage(currentUser)) {
     return (
@@ -231,11 +232,18 @@ export default function Team() {
       teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
   ));
 
+  const myCategories = isManager && currentUser
+    ? categories.filter(c => (c.managerIds || []).includes(currentUser.id))
+    : [];
+
   const filteredStaffUsers = sortRecent(users.filter(
     (user) => {
       if (user.role !== 'staff') return false;
       if (isManager && currentUser) {
         if (user.managerId !== currentUser.id) return false;
+        if (managerCategoryFilter !== "all") {
+          if (!(user.assignedCategoryIds || []).includes(managerCategoryFilter)) return false;
+        }
       }
       const search = searchTerm.toLowerCase();
       return (
@@ -488,7 +496,7 @@ export default function Team() {
             <p className="text-sm text-muted-foreground hidden sm:block">
               {isAdmin 
                 ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '대상 관리자' 탭에서 관리자 역할로 배정할 수 있습니다." 
-                : "내 장비에 배정된 담당자 목록입니다. '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
+                : "내 대상에 배정된 담당자 목록입니다. 대상별로 필터링하거나 '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
             </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {isAdmin && (
@@ -517,11 +525,41 @@ export default function Team() {
                       다운로드
                     </a>
                   </Button>
-                  <AssignStaffDialog users={users} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} />
+                  <ExcelImportDialog
+                    title="사용자 엑셀 업로드"
+                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다. '배정 대상' 컬럼으로 대상을 지정할 수 있습니다."
+                    templateUrl="/api/staff/template"
+                    importUrl="/api/staff/import"
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                  />
+                  <AssignStaffDialog users={users} categories={myCategories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} />
                 </>
               )}
             </div>
           </div>
+          {isManager && myCategories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={managerCategoryFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setManagerCategoryFilter("all"); setStaffPage(1); }}
+                data-testid="button-filter-all"
+              >
+                전체
+              </Button>
+              {myCategories.map(cat => (
+                <Button
+                  key={cat.id}
+                  variant={managerCategoryFilter === cat.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setManagerCategoryFilter(cat.id); setStaffPage(1); }}
+                  data-testid={`button-filter-category-${cat.id}`}
+                >
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
+          )}
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
             <Table className="min-w-[700px]">
               <TableHeader>
@@ -529,6 +567,7 @@ export default function Team() {
                   <TableHead>이름</TableHead>
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
+                  {isManager && <TableHead>배정 대상</TableHead>}
                   <TableHead>이메일</TableHead>
                   <TableHead>전화번호</TableHead>
                   <TableHead>로그인</TableHead>
@@ -538,7 +577,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={isManager ? 8 : 7} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
@@ -552,6 +591,13 @@ export default function Team() {
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
+                      {isManager && (
+                        <TableCell>
+                          {(user.assignedCategoryIds || []).length > 0
+                            ? (user.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ")
+                            : <span className="text-muted-foreground">미지정</span>}
+                        </TableCell>
+                      )}
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
                       <TableCell>
@@ -603,7 +649,7 @@ export default function Team() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
                                     className="text-destructive focus:text-destructive"
-                                    onClick={() => handleEditUser(user.id, { managerId: null })}
+                                    onClick={() => handleEditUser(user.id, { managerId: null, assignedCategoryIds: [] })}
                                   >
                                     <UserPlus className="mr-2 h-4 w-4" />
                                     배정 해제
@@ -1325,18 +1371,26 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
   );
 }
 
-function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: () => void }) {
+function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], categories: Category[], onAssigned: () => void }) {
   const { currentUser } = useUser();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const unassignedStaff = users.filter(u => 
-    u.role === 'staff' && !u.managerId &&
-    (u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const unassignedStaff = users.filter(u => {
+    if (u.role !== 'staff') return false;
+    if (selectedCategoryId) {
+      const alreadyAssignedToCategory = u.managerId === currentUser?.id && (u.assignedCategoryIds || []).includes(selectedCategoryId);
+      if (alreadyAssignedToCategory) return false;
+    }
+    if (!u.managerId || u.managerId === currentUser?.id) {
+      const search = searchTerm.toLowerCase();
+      return u.username.toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search);
+    }
+    return false;
+  });
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -1349,9 +1403,17 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      const promises = Array.from(selectedIds).map(id =>
-        api.users.update(id, { managerId: currentUser?.id })
-      );
+      const promises = Array.from(selectedIds).map(id => {
+        const user = users.find(u => u.id === id);
+        const existingCats = user?.assignedCategoryIds || [];
+        const newCats = selectedCategoryId && !existingCats.includes(selectedCategoryId)
+          ? [...existingCats, selectedCategoryId]
+          : existingCats;
+        return api.users.update(id, {
+          managerId: currentUser?.id,
+          assignedCategoryIds: newCats,
+        });
+      });
       await Promise.all(promises);
     },
     onSuccess: () => {
@@ -1359,6 +1421,7 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
       setOpen(false);
       setSelectedIds(new Set());
       setSearchTerm("");
+      setSelectedCategoryId("");
       toast({
         title: "배정 완료",
         description: `${selectedIds.size}명의 담당자가 배정되었습니다.`,
@@ -1378,6 +1441,7 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
     if (!isOpen) {
       setSelectedIds(new Set());
       setSearchTerm("");
+      setSelectedCategoryId("");
     }
   };
 
@@ -1391,9 +1455,24 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>사용자 배정</DialogTitle>
-          <DialogDescription>미배정 담당자를 내 장비에 배정합니다.</DialogDescription>
+          <DialogDescription>담당자를 선택한 대상에 배정합니다.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {categories.length > 0 && (
+            <div className="space-y-2">
+              <Label>배정 대상</Label>
+              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="대상을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1407,7 +1486,7 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
           <div className="border rounded-md max-h-[300px] overflow-auto">
             {unassignedStaff.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                미배정 담당자가 없습니다.
+                {selectedCategoryId ? "배정 가능한 담당자가 없습니다." : "대상을 먼저 선택해주세요."}
               </div>
             ) : (
               unassignedStaff.map(u => (
@@ -1427,6 +1506,9 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
                     <div className="font-medium text-sm">{u.username}</div>
                     <div className="text-xs text-muted-foreground">{u.email || '이메일 없음'}</div>
                   </div>
+                  {u.managerId === currentUser?.id && (
+                    <Badge variant="secondary" className="text-xs">이미 배정됨</Badge>
+                  )}
                   {u.position && <Badge variant="outline" className="text-xs">{u.position}</Badge>}
                 </div>
               ))
@@ -1439,7 +1521,7 @@ function AssignStaffDialog({ users, onAssigned }: { users: User[], onAssigned: (
         <DialogFooter className="mt-2">
           <Button
             onClick={() => assignMutation.mutate()}
-            disabled={selectedIds.size === 0 || assignMutation.isPending}
+            disabled={selectedIds.size === 0 || !selectedCategoryId || assignMutation.isPending}
             data-testid="button-submit-assign"
           >
             {assignMutation.isPending ? "배정 중..." : `배정 (${selectedIds.size}명)`}
