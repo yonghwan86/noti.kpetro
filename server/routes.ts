@@ -87,7 +87,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/categories/export", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.get("/api/categories/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const buffer = await excel.exportCategoriesToExcel();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -98,7 +98,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/categories/template", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.get("/api/categories/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const buffer = excel.getCategoryTemplate();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -109,7 +109,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/categories/import", requireAuth(['admin']), upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/categories/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "파일이 없습니다." });
@@ -121,18 +121,32 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/categories", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.post("/api/categories", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
-      const category = insertCategorySchema.parse(req.body);
-      const created = await storage.createCategory(category);
+      const currentUser = (req as any).currentUser;
+      const categoryData = insertCategorySchema.parse(req.body);
+      if (currentUser.role === 'manager') {
+        const managerIds = categoryData.managerIds || [];
+        if (!managerIds.includes(currentUser.id)) {
+          categoryData.managerIds = [...managerIds, currentUser.id];
+        }
+      }
+      const created = await storage.createCategory(categoryData);
       res.status(201).json(created);
     } catch (error) {
       res.status(400).json({ error: "Invalid category data" });
     }
   });
 
-  app.patch("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.patch("/api/categories/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const existing = await storage.getCategory(req.params.id);
+        if (!existing || !(existing.managerIds || []).includes(currentUser.id)) {
+          return res.status(403).json({ error: "본인이 담당하는 대상만 수정할 수 있습니다." });
+        }
+      }
       const updated = await storage.updateCategory(req.params.id, req.body);
       if (!updated) return res.status(404).json({ error: "Category not found" });
       res.json(updated);
@@ -141,8 +155,15 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/categories/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.delete("/api/categories/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const existing = await storage.getCategory(req.params.id);
+        if (!existing || !(existing.managerIds || []).includes(currentUser.id)) {
+          return res.status(403).json({ error: "본인이 담당하는 대상만 삭제할 수 있습니다." });
+        }
+      }
       await storage.deleteCategory(req.params.id);
       res.status(204).send();
     } catch (error: any) {
@@ -299,7 +320,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/assets", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+  app.post("/api/assets", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const currentUser = (req as any).currentUser;
       const asset = insertAssetSchema.parse(req.body);
@@ -317,7 +338,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assets/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+  app.get("/api/assets/export", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const buffer = await excel.exportAssetsToExcel();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -328,7 +349,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assets/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+  app.get("/api/assets/template", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const buffer = excel.getAssetTemplate();
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -339,7 +360,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/assets/import", requireAuth(['admin', 'manager']), upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/assets/import", requireAuth(['admin', 'manager', 'staff']), upload.single('file'), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "파일을 업로드해주세요" });
@@ -408,8 +429,15 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/assets/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+  app.delete("/api/assets/:id", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const currentUser = (req as any).currentUser;
+      if (currentUser.role === 'manager') {
+        const asset = await storage.getAsset(req.params.id);
+        if (!asset || asset.managerId !== currentUser.id) {
+          return res.status(403).json({ error: "본인이 관리하는 장비만 삭제할 수 있습니다." });
+        }
+      }
       await storage.deleteAsset(req.params.id);
       res.status(204).send();
     } catch (error) {

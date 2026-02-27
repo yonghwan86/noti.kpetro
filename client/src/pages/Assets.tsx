@@ -443,7 +443,7 @@ export default function Assets() {
                                   users={users}
                                   categories={categories}
                                 />
-                                {auth.canDeleteAsset(currentUser) && (
+                                {auth.canDeleteAsset(currentUser, asset) && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DeleteAssetDialog asset={asset} onDelete={handleDelete} />

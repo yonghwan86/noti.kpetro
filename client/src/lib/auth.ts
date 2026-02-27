@@ -34,12 +34,18 @@ export const auth = {
     if (!user) return false;
     if (user.role === 'admin') return true;
     if (user.role === 'manager') return asset.managerId === user.id;
+    if (user.role === 'staff') return asset.staffId === user.id;
     return false;
   },
 
-  canDeleteAsset: (user: User | null): boolean => {
+  canDeleteAsset: (user: User | null, asset?: Asset): boolean => {
     if (!user) return false;
-    return user.role === 'admin';
+    if (user.role === 'admin') return true;
+    if (user.role === 'manager') {
+      if (asset) return asset.managerId === user.id;
+      return true;
+    }
+    return false;
   },
 
   canInspectAsset: (user: User | null, asset: Asset): boolean => {
@@ -67,12 +73,19 @@ export const auth = {
 
   canAddAsset: (user: User | null): boolean => {
     if (!user) return false;
-    return user.role === 'admin' || user.role === 'manager';
+    return user.role === 'admin' || user.role === 'manager' || user.role === 'staff';
   },
 
   canManageCategories: (user: User | null): boolean => {
     if (!user) return false;
-    return user.role === 'admin';
+    return user.role === 'admin' || user.role === 'manager';
+  },
+
+  canEditCategory: (user: User | null, category: { managerIds?: string[] }): boolean => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'manager') return (category.managerIds || []).includes(user.id);
+    return false;
   },
 
   getRoleName: (role: Role): string => {

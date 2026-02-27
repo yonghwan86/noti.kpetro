@@ -221,7 +221,10 @@ export default function Team() {
     );
   });
   const managerUsers = users.filter(u => u.role === 'manager');
-  const filteredCategories = categories.filter(c =>
+  const visibleCategories = isManager && currentUser
+    ? categories.filter(c => (c.managerIds || []).includes(currentUser.id))
+    : categories;
+  const filteredCategories = visibleCategories.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.managerIds || []).some(mid => (users.find(u => u.id === mid)?.username || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -279,10 +282,10 @@ export default function Team() {
         </p>
       </div>
 
-      <Tabs defaultValue={isAdmin ? "equipTypes" : "staff"} className="space-y-4">
+      <Tabs defaultValue={(isAdmin || isManager) ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
-            {isAdmin && (
+            {(isAdmin || isManager) && (
               <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 대상 (구분)</TabsTrigger>
             )}
             {isAdmin && (
@@ -305,10 +308,10 @@ export default function Team() {
           </div>
         </div>
 
-        {isAdmin && <TabsContent value="equipTypes" className="space-y-4">
+        {(isAdmin || isManager) && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              대상 구분을 등록하고 담당 관리자를 지정합니다.
+              {isAdmin ? '대상 구분을 등록하고 담당 관리자를 지정합니다.' : '담당 대상을 관리합니다.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -324,7 +327,7 @@ export default function Team() {
                 importUrl="/api/categories/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
               />
-              <AddEquipTypeCategoryDialog allUsers={users} />
+              <AddEquipTypeCategoryDialog allUsers={users} currentUser={currentUser} />
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -364,16 +367,20 @@ export default function Team() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditCategoryDialog category={category} allUsers={users} />
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => deleteCategoryMutation.mutate(category.id)}
-                                data-testid={`button-delete-category-${category.id}`}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                삭제
-                              </DropdownMenuItem>
+                              {auth.canEditCategory(currentUser, category) && (
+                                <>
+                                  <EditCategoryDialog category={category} allUsers={users} currentUser={currentUser} />
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => deleteCategoryMutation.mutate(category.id)}
+                                    data-testid={`button-delete-category-${category.id}`}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -952,7 +959,7 @@ const CYCLE_PRESETS = [
   { value: "custom", label: "직접 지정" },
 ];
 
-function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
+function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
@@ -962,6 +969,7 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const isManagerUser = currentUser?.role === 'manager';
   const selectableUsers = allUsers.filter(u => u.role !== 'admin');
   const filteredUsers = selectableUsers.filter(u =>
     u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -969,9 +977,10 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
   );
 
   const effectiveCycleDays = cycleSelectValue === "custom" ? (parseInt(customCycleDays) || null) : (cycleSelectValue && cycleSelectValue !== "none" ? parseInt(cycleSelectValue) : null);
+  const finalManagerIds = isManagerUser && currentUser ? [currentUser.id] : selectedManagerIds;
 
   const createMutation = useMutation({
-    mutationFn: () => api.categories.create({ name, managerIds: selectedManagerIds, defaultCycleDays: effectiveCycleDays }),
+    mutationFn: () => api.categories.create({ name, managerIds: finalManagerIds, defaultCycleDays: effectiveCycleDays }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
@@ -1055,39 +1064,46 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
               />
             )}
           </div>
-          <div className="space-y-2">
-            <Label>담당 관리자 (복수 선택 가능)</Label>
-            <Input
-              placeholder="사용자 검색..."
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              className="mb-2 h-8 text-sm"
-            />
-            <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-category-managers">
-              {filteredUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-1">
-                  {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
-                </p>
-              ) : (
-                filteredUsers.map((u) => (
-                  <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedManagerIds.includes(u.id)}
-                      onChange={() => toggleManager(u.id)}
-                      className="rounded"
-                      data-testid={`checkbox-manager-${u.id}`}
-                    />
-                    <span className="text-sm">{u.username}</span>
-                    <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
-                  </label>
-                ))
+          {isManagerUser ? (
+            <div className="space-y-2">
+              <Label>담당 관리자</Label>
+              <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>담당 관리자 (복수 선택 가능)</Label>
+              <Input
+                placeholder="사용자 검색..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="mb-2 h-8 text-sm"
+              />
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-category-managers">
+                {filteredUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-1">
+                    {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                  </p>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedManagerIds.includes(u.id)}
+                        onChange={() => toggleManager(u.id)}
+                        className="rounded"
+                        data-testid={`checkbox-manager-${u.id}`}
+                      />
+                      <span className="text-sm">{u.username}</span>
+                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {selectedManagerIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
               )}
             </div>
-            {selectedManagerIds.length > 0 && (
-              <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
-            )}
-          </div>
+          )}
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-category">등록</Button>
           </DialogFooter>
@@ -1097,7 +1113,7 @@ function AddEquipTypeCategoryDialog({ allUsers }: { allUsers: User[] }) {
   );
 }
 
-function EditCategoryDialog({ category, allUsers }: { category: Category, allUsers: User[] }) {
+function EditCategoryDialog({ category, allUsers, currentUser }: { category: Category, allUsers: User[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(category.name);
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(category.managerIds || []);
@@ -1204,39 +1220,46 @@ function EditCategoryDialog({ category, allUsers }: { category: Category, allUse
               />
             )}
           </div>
-          <div className="space-y-2">
-            <Label>담당 관리자 (복수 선택 가능)</Label>
-            <Input
-              placeholder="사용자 검색..."
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              className="mb-2 h-8 text-sm"
-            />
-            <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
-              {selectedFirst.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-1">
-                  {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
-                </p>
-              ) : (
-                selectedFirst.map((u) => (
-                  <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedManagerIds.includes(u.id)}
-                      onChange={() => toggleManager(u.id)}
-                      className="rounded"
-                      data-testid={`checkbox-edit-manager-${u.id}`}
-                    />
-                    <span className="text-sm">{u.username}</span>
-                    <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
-                  </label>
-                ))
+          {currentUser?.role === 'manager' ? (
+            <div className="space-y-2">
+              <Label>담당 관리자</Label>
+              <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>담당 관리자 (복수 선택 가능)</Label>
+              <Input
+                placeholder="사용자 검색..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="mb-2 h-8 text-sm"
+              />
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
+                {selectedFirst.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-1">
+                    {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                  </p>
+                ) : (
+                  selectedFirst.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedManagerIds.includes(u.id)}
+                        onChange={() => toggleManager(u.id)}
+                        className="rounded"
+                        data-testid={`checkbox-edit-manager-${u.id}`}
+                      />
+                      <span className="text-sm">{u.username}</span>
+                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {selectedManagerIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
               )}
             </div>
-            {selectedManagerIds.length > 0 && (
-              <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
-            )}
-          </div>
+          )}
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-category">저장</Button>
           </DialogFooter>

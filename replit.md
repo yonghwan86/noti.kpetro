@@ -52,9 +52,13 @@ Preferred communication style: Simple, everyday language.
 - Pre-registration workflow: Admin creates users with email addresses, users login with Replit Auth, system matches by email
 - Session management via express-session with PostgreSQL session store (connect-pg-simple)
 - Database tables: `sessions` for session storage, `users.replit_id` links Replit identity to app users
-- Role-based access control (RBAC) with three roles: admin (마스터), manager (장비관리자), staff (담당자)
+- Role-based access control (RBAC) with three roles: admin (마스터), manager (대상 관리자), staff (담당자)
 - Permission middleware (`requireAuth`) enforces role requirements on protected routes
-- Authorization logic is centralized in `server/auth.ts`
+- Authorization logic is centralized in `server/auth.ts` and `client/src/lib/auth.ts`
+- Permission matrix:
+  - Admin: Full access to all features
+  - Manager: Category CRUD (own categories only), Asset CRUD + delete (own assets only), Staff management (assigned staff)
+  - Staff: Asset add/edit (own assets only), Inspection execution
 - Auth routes: `/api/login` (login), `/api/logout` (logout), `/api/auth/user` (get current user)
 
 **Business Logic**: 
