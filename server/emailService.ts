@@ -1,52 +1,17 @@
-// Gmail Email Service - Using Replit Gmail Connector
-import { google } from 'googleapis';
+import nodemailer from 'nodemailer';
 
-let connectionSettings: any;
-
-async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
-  }
-  
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
-
-  if (!connectionSettings || !accessToken) {
-    throw new Error('Gmail not connected');
-  }
-  return accessToken;
-}
-
-async function getGmailClient() {
-  const accessToken = await getAccessToken();
-
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({
-    access_token: accessToken
-  });
-
-  return google.gmail({ version: 'v1', auth: oauth2Client });
-}
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'mail.kpetro.or.kr',
+  port: parseInt(process.env.SMTP_PORT || '25'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER || 'ax',
+    pass: process.env.SMTP_PASSWORD || '',
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
 
 interface EmailOptions {
   to: string;
@@ -57,41 +22,25 @@ interface EmailOptions {
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const gmail = await getGmailClient();
-    
-    const contentType = options.isHtml ? 'text/html' : 'text/plain';
-    
-    const emailContent = [
-      `To: ${options.to}`,
-      `Subject: =?UTF-8?B?${Buffer.from(options.subject).toString('base64')}?=`,
-      `MIME-Version: 1.0`,
-      `Content-Type: ${contentType}; charset=UTF-8`,
-      '',
-      options.body
-    ].join('\r\n');
+    const fromName = process.env.SMTP_FROM_NAME || 'AI 업무 알림 서비스';
+    const fromEmail = process.env.SMTP_FROM_EMAIL || 'ax@kpetro.or.kr';
 
-    const encodedMessage = Buffer.from(emailContent)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    const result = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage
-      }
+    const info = await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: options.to,
+      subject: options.subject,
+      ...(options.isHtml ? { html: options.body } : { text: options.body }),
     });
 
     return {
       success: true,
-      messageId: result.data.id || undefined
+      messageId: info.messageId,
     };
   } catch (error: any) {
     console.error('Email send error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to send email'
+      error: error.message || 'Failed to send email',
     };
   }
 }
@@ -187,10 +136,11 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; mes
 </head>
 <body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #22c55e;">✅ 이메일 테스트 성공!</h2>
+    <h2 style="color: #22c55e;">이메일 테스트 성공!</h2>
     <p>스케줄 관리시스템의 이메일 발송 기능이 정상적으로 작동합니다.</p>
     <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #22c55e;">
       <p style="margin: 5px 0;">이 메일이 도착했다면 이메일 설정이 완료된 것입니다.</p>
+      <p style="margin: 5px 0;"><strong>발신:</strong> ${process.env.SMTP_FROM_EMAIL || 'ax@kpetro.or.kr'}</p>
     </div>
     <p>이제 다음 기능들을 사용할 수 있습니다:</p>
     <ul>
