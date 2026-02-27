@@ -42,3 +42,13 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["javascript_log_in_with_replit:2.0.0", "google-mail:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+SMTP_HOST = "mail.kpetro.or.kr"
+SMTP_PORT = "25"
+SMTP_SECURE = "true"
+SMTP_USER = "ax"
+SMTP_FROM_EMAIL = "ax@kpetro.or.kr"
+SMTP_FROM_NAME = "AI 업무 알림 서비스"
