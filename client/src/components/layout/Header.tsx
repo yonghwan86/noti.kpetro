@@ -211,23 +211,27 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>역할별 보기 전환</DropdownMenuLabel>
-                {['admin', 'manager', 'staff'].map((role) => {
-                  const representativeUser = users.find(u => u.role === role);
-                  if (!representativeUser) return null;
-                  
-                  return (
-                    <DropdownMenuItem 
-                      key={role}
-                      onClick={() => handleSwitchUser(representativeUser.id)}
-                      className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
-                    >
-                      {getRoleIcon(role)}
-                      <span className="ml-2">{auth.getRoleName(role as any)} 보기</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-                <DropdownMenuSeparator />
+                {import.meta.env.DEV && (
+                  <>
+                    <DropdownMenuLabel>역할별 보기 전환 (개발용)</DropdownMenuLabel>
+                    {['admin', 'manager', 'staff'].map((role) => {
+                      const representativeUser = users.find(u => u.role === role);
+                      if (!representativeUser) return null;
+                      
+                      return (
+                        <DropdownMenuItem 
+                          key={role}
+                          onClick={() => handleSwitchUser(representativeUser.id)}
+                          className={representativeUser.id === currentUser.id ? "bg-accent" : ""}
+                        >
+                          {getRoleIcon(role)}
+                          <span className="ml-2">{auth.getRoleName(role as any)} 보기</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>로그아웃</span>
