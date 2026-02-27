@@ -1,17 +1,4 @@
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'mail.kpetro.or.kr',
-  port: parseInt(process.env.SMTP_PORT || '25'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER || 'ax',
-    pass: process.env.SMTP_PASSWORD || '',
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+import { getUncachableGmailClient } from './gmailClient';
 
 interface EmailOptions {
   to: string;
@@ -20,21 +7,38 @@ interface EmailOptions {
   isHtml?: boolean;
 }
 
+function createRawEmail(to: string, subject: string, body: string, isHtml: boolean): string {
+  const fromName = 'AI 업무 알림 서비스';
+  const boundary = 'boundary_' + Date.now();
+
+  const headers = [
+    `From: "${fromName}" <me>`,
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
+    'MIME-Version: 1.0',
+    `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=UTF-8`,
+    'Content-Transfer-Encoding: base64',
+  ].join('\r\n');
+
+  const encodedBody = Buffer.from(body).toString('base64');
+  const raw = `${headers}\r\n\r\n${encodedBody}`;
+
+  return Buffer.from(raw).toString('base64url');
+}
+
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const fromName = process.env.SMTP_FROM_NAME || 'AI 업무 알림 서비스';
-    const fromEmail = process.env.SMTP_FROM_EMAIL || 'ax@kpetro.or.kr';
+    const gmail = await getUncachableGmailClient();
+    const raw = createRawEmail(options.to, options.subject, options.body, options.isHtml || false);
 
-    const info = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: options.to,
-      subject: options.subject,
-      ...(options.isHtml ? { html: options.body } : { text: options.body }),
+    const result = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw },
     });
 
     return {
       success: true,
-      messageId: info.messageId,
+      messageId: result.data.id || undefined,
     };
   } catch (error: any) {
     console.error('Email send error:', error);
@@ -140,7 +144,7 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; mes
     <p>스케줄 관리시스템의 이메일 발송 기능이 정상적으로 작동합니다.</p>
     <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #22c55e;">
       <p style="margin: 5px 0;">이 메일이 도착했다면 이메일 설정이 완료된 것입니다.</p>
-      <p style="margin: 5px 0;"><strong>발신:</strong> ${process.env.SMTP_FROM_EMAIL || 'ax@kpetro.or.kr'}</p>
+      <p style="margin: 5px 0;"><strong>발송 방식:</strong> Gmail API</p>
     </div>
     <p>이제 다음 기능들을 사용할 수 있습니다:</p>
     <ul>
