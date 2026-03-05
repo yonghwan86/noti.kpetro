@@ -1094,30 +1094,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
               <Label htmlFor="edit-name">대상</Label>
               <Input id="edit-name" {...register("name", { required: true })} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-serial">시리얼 넘버</Label>
-              <Input id="edit-serial" {...register("serialNumber", { required: true })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>구분</Label>
-              <Select value={watch("categoryId")} onValueChange={(v) => {
-                setValue("categoryId", v);
-                setEditCategoryId(v);
-                const cat = categories.find(c => c.id === v);
-                if (cat?.managerIds && cat.managerIds.length > 0) {
-                  setValue("managerId", cat.managerIds[0]);
-                }
-              }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             {editCategoryManagers.length > 0 && (
               <div className="space-y-2">
                 <Label>구분 관리자</Label>
@@ -1132,9 +1108,15 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
               </div>
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-notes">추가정보</Label>
-            <Input id="edit-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-edit-asset-notes" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-serial">추가정보</Label>
+              <Input id="edit-serial" {...register("serialNumber", { required: true })} placeholder="Number, Code 등" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">추가정보2</Label>
+              <Input id="edit-notes" {...register("notes")} placeholder="Number, Code 등" data-testid="input-edit-asset-notes" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1333,17 +1315,6 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">대상</Label>
-              <Input id="name" {...register("name", { required: true })} placeholder="예: 정밀 저울" data-testid="input-asset-name" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="serial">시리얼 넘버</Label>
-              <Input id="serial" {...register("serialNumber", { required: true })} placeholder="SN-12345" data-testid="input-asset-serial" />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label>구분</Label>
               <Select onValueChange={(v) => {
                 setValue("categoryId", v);
@@ -1371,24 +1342,35 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
                 </SelectContent>
               </Select>
             </div>
-            {categoryManagers.length > 1 && (
-              <div className="space-y-2">
-                <Label>구분 관리자</Label>
-                <Select defaultValue={categoryManagers[0]?.id} onValueChange={(v) => setValue("managerId", v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="관리자 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryManagers.map(u => u && <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="name">대상</Label>
+              <Input id="name" {...register("name", { required: true })} placeholder="예: 정밀 저울" data-testid="input-asset-name" />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="add-notes">추가정보</Label>
-            <Input id="add-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-asset-notes" />
+          {categoryManagers.length > 1 && (
+            <div className="space-y-2">
+              <Label>구분 관리자</Label>
+              <Select defaultValue={categoryManagers[0]?.id} onValueChange={(v) => setValue("managerId", v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="관리자 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryManagers.map(u => u && <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="serial">추가정보</Label>
+              <Input id="serial" {...register("serialNumber", { required: true })} placeholder="Number, Code 등" data-testid="input-asset-serial" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-notes">추가정보2</Label>
+              <Input id="add-notes" {...register("notes")} placeholder="Number, Code 등" data-testid="input-asset-notes" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
