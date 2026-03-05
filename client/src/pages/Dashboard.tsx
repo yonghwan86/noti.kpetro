@@ -48,6 +48,8 @@ export default function Dashboard() {
   const currentDept = currentTeam?.department || null;
 
   const assets = auth.filterAssetsForUser(allAssets, currentUser);
+  const assetIds = new Set(assets.map(a => a.id));
+  const filteredLogs = logs.filter(log => assetIds.has(log.assetId));
   
   const totalAssets = assets.length;
   const overdueAssets = assets.filter(a => a.status === 'overdue').length;
@@ -329,10 +331,10 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {logs.length === 0 ? (
+            {filteredLogs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">아직 활동 기록이 없습니다.</p>
             ) : (
-              logs.slice(0, 5).map((log) => (
+              filteredLogs.slice(0, 5).map((log) => (
                 <div key={log.id} className="flex items-start gap-4 pb-4 border-b last:border-0 border-border/50">
                   <div className="h-2 w-2 mt-2 rounded-full bg-primary shrink-0" />
                   <div className="space-y-1 flex-1">
