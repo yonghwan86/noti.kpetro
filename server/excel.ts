@@ -97,6 +97,7 @@ interface ImportResult {
   errorCount: number;
   errors: { row: number; field: string; message: string }[];
   managerUpdateCount?: number;
+  updateCount?: number;
 }
 
 export async function importTeamsFromExcel(buffer: Buffer): Promise<ImportResult> {
@@ -262,8 +263,10 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
   const teams = await storage.getTeams();
   const users = await storage.getUsers();
   const categories = await storage.getCategories();
+  const existingAssets = await storage.getAssets();
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
+  let updateCount = 0;
   
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -303,14 +306,6 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       errors.push({ row: rowNum, field: "담당자", message: "필수 항목입니다" });
       continue;
     }
-    if (!inspectionCycleDays || inspectionCycleDays <= 0) {
-      errors.push({ row: rowNum, field: "점검주기(일)", message: "1 이상의 숫자를 입력해주세요" });
-      continue;
-    }
-    if (!lastInspectedDate) {
-      errors.push({ row: rowNum, field: "최근점검일", message: "필수 항목입니다 (YYYY-MM-DD 형식)" });
-      continue;
-    }
     
     const team = teams.find(t => t.name === teamName);
     if (!team) {
@@ -341,20 +336,51 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       continue;
     }
     
+    const existingAsset = existingAssets.find(a => a.serialNumber === serialNumber);
+    
     try {
-      await storage.createAsset({
-        name,
-        serialNumber,
-        categoryId: category.id,
-        teamId: team.id,
-        managerId: category.managerIds![0],
-        usageTeamId: usageTeam.id,
-        staffId: staff.id,
-        inspectionCycleDays,
-        lastInspectedDate,
-        notes
-      });
-      successCount++;
+      if (existingAsset) {
+        const updates: any = {
+          name,
+          categoryId: category.id,
+          teamId: team.id,
+          managerId: category.managerIds![0],
+          usageTeamId: usageTeam.id,
+          staffId: staff.id,
+          notes,
+        };
+        if (inspectionCycleDays && inspectionCycleDays > 0) {
+          updates.inspectionCycleDays = inspectionCycleDays;
+        }
+        if (lastInspectedDate) {
+          updates.lastInspectedDate = lastInspectedDate;
+        }
+        await storage.updateAsset(existingAsset.id, updates);
+        updateCount++;
+        successCount++;
+      } else {
+        if (!inspectionCycleDays || inspectionCycleDays <= 0) {
+          errors.push({ row: rowNum, field: "점검주기(일)", message: "1 이상의 숫자를 입력해주세요" });
+          continue;
+        }
+        if (!lastInspectedDate) {
+          errors.push({ row: rowNum, field: "최근점검일", message: "필수 항목입니다 (YYYY-MM-DD 형식)" });
+          continue;
+        }
+        await storage.createAsset({
+          name,
+          serialNumber,
+          categoryId: category.id,
+          teamId: team.id,
+          managerId: category.managerIds![0],
+          usageTeamId: usageTeam.id,
+          staffId: staff.id,
+          inspectionCycleDays,
+          lastInspectedDate,
+          notes
+        });
+        successCount++;
+      }
     } catch (e: any) {
       errors.push({ row: rowNum, field: "대상", message: e.message || "등록 실패" });
     }
@@ -364,7 +390,8 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     success: errors.length === 0,
     successCount,
     errorCount: errors.length,
-    errors
+    errors,
+    updateCount
   };
 }
 
