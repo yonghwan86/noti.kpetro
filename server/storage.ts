@@ -72,6 +72,7 @@ export interface IStorage {
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
@@ -193,6 +194,11 @@ export class PostgresStorage implements IStorage {
     const allUsers = await db.select().from(users);
     const found = allUsers.find(u => decrypt(u.username) === username);
     return found ? decryptUser(found) : undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result[0] ? decryptUser(result[0]) : undefined;
   }
 
   async createUser(user: InsertUser): Promise<User> {

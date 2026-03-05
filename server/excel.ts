@@ -255,9 +255,11 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
     }
     
     try {
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = email
+        ? (await storage.getUserByEmail(email)) || (await storage.getUserByUsername(username))
+        : await storage.getUserByUsername(username);
       if (existingUser) {
-        await storage.updateUser(existingUser.id, { teamId: team.id, email, phone });
+        await storage.updateUser(existingUser.id, { username, teamId: team.id, email, phone });
         successCount++;
       } else {
         await storage.createUser({ username, fullName: username, role: 'manager', teamId: team.id, email, phone });
@@ -530,9 +532,11 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     }
 
     try {
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = email
+        ? (await storage.getUserByEmail(email)) || (await storage.getUserByUsername(username))
+        : await storage.getUserByUsername(username);
       if (existingUser) {
-        const updateData: any = { teamId: team.id, email, phone, position };
+        const updateData: any = { username, teamId: team.id, email, phone, position };
         if (managerId) {
           updateData.managerId = managerId;
         }
