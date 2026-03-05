@@ -28,7 +28,8 @@ export async function exportCategoriesToExcel(): Promise<Buffer> {
   
   const data = categories.map(c => ({
     "구분명": c.name,
-    "관리자": (c.managerIds || []).map(mid => users.find(u => u.id === mid)?.username).filter(Boolean).join(", ") || "",
+    "기본 주기": c.defaultCycleDays || "",
+    "구분 관리자": (c.managerIds || []).map(mid => users.find(u => u.id === mid)?.username).filter(Boolean).join(", ") || "",
   }));
   
   const ws = XLSX.utils.json_to_sheet(data);
@@ -80,16 +81,15 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
       "대상": a.name,
       "시리얼번호": a.serialNumber,
       "구분": categories.find(c => c.id === a.categoryId)?.name || "",
-      "관리자": users.find(u => u.id === a.managerId)?.username || "",
-      "부서": team?.department || "",
-      "관리팀": team?.name || "",
-      "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
       "담당자": users.find(u => u.id === a.staffId)?.username || "",
+      "부서": team?.department || "",
+      "담당팀": team?.name || "",
+      "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
       "점검주기(일)": a.inspectionCycleDays,
       "최근점검일": a.lastInspectedDate,
       "다음점검일": a.nextDueDate,
       "상태": statusMap[a.status] || a.status,
-      "비고": a.notes || "",
+      "추가정보": a.notes || "",
     };
   });
   
@@ -173,10 +173,12 @@ export async function importCategoriesFromExcel(buffer: Buffer): Promise<ImportR
     const rowNum = i + 2;
     
     const name = (row["구분명"] || row["장비 구분명"] || row["카테고리명"])?.toString().trim();
-    const managerName = row["관리자"]?.toString().trim();
+    const defaultCycleDaysRaw = row["기본 주기"]?.toString().trim();
+    const defaultCycleDays = defaultCycleDaysRaw ? parseInt(defaultCycleDaysRaw) : undefined;
+    const managerName = (row["구분 관리자"] || row["관리자"])?.toString().trim();
     
     if (!name) {
-      errors.push({ row: rowNum, field: "카테고리명", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "구분명", message: "필수 항목입니다" });
       continue;
     }
     
@@ -186,7 +188,7 @@ export async function importCategoriesFromExcel(buffer: Buffer): Promise<ImportR
       for (const mName of managerNames) {
         const manager = users.find(u => u.username === mName);
         if (!manager) {
-          errors.push({ row: rowNum, field: "관리자", message: `'${mName}' 사용자를 찾을 수 없습니다` });
+          errors.push({ row: rowNum, field: "구분 관리자", message: `'${mName}' 사용자를 찾을 수 없습니다` });
           continue;
         }
         managerIds.push(manager.id);
@@ -194,7 +196,7 @@ export async function importCategoriesFromExcel(buffer: Buffer): Promise<ImportR
     }
     
     try {
-      await storage.createCategory({ name, managerIds });
+      await storage.createCategory({ name, managerIds, defaultCycleDays: defaultCycleDays && defaultCycleDays > 0 ? defaultCycleDays : undefined });
       successCount++;
     } catch (e: any) {
       errors.push({ row: rowNum, field: "카테고리명", message: e.message || "등록 실패" });
@@ -223,6 +225,7 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
     const rowNum = i + 2;
     
     const username = row["이름"]?.toString().trim();
+    const departmentName = row["부서"]?.toString().trim() || null;
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
@@ -236,10 +239,19 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
       continue;
     }
     
-    const team = teams.find(t => t.name === teamName);
+    let team = teams.find(t => t.name === teamName && (!departmentName || t.department === departmentName));
     if (!team) {
-      errors.push({ row: rowNum, field: "소속팀", message: `'${teamName}' 팀을 찾을 수 없습니다` });
-      continue;
+      try {
+        team = await storage.createTeam({
+          name: teamName,
+          department: departmentName,
+          type: 'usage',
+        });
+        teams.push(team);
+      } catch (e: any) {
+        errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
+        continue;
+      }
     }
     
     try {
@@ -284,12 +296,13 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     const name = (row["대상"] || row["장비명"])?.toString().trim();
     const serialNumber = row["시리얼번호"]?.toString().trim();
     const categoryName = (row["구분"] || row["장비 구분"] || row["카테고리"])?.toString().trim();
-    const teamName = row["관리팀"]?.toString().trim();
-    const usageTeamName = row["사용팀"]?.toString().trim();
     const staffName = row["담당자"]?.toString().trim();
+    const departmentName = row["부서"]?.toString().trim() || null;
+    const teamName = (row["담당팀"] || row["관리팀"])?.toString().trim();
+    const usageTeamName = row["사용팀"]?.toString().trim();
     const inspectionCycleDays = parseInt(row["점검주기(일)"]?.toString() || row["점검주기(개월)"]?.toString() || "0");
     const lastInspectedDate = row["최근점검일"]?.toString().trim();
-    const notes = row["비고"]?.toString().trim() || null;
+    const notes = (row["추가정보"] || row["비고"])?.toString().trim() || null;
     
     if (!name) {
       errors.push({ row: rowNum, field: "대상", message: "필수 항목입니다" });
@@ -304,7 +317,7 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       continue;
     }
     if (!teamName) {
-      errors.push({ row: rowNum, field: "관리팀", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "담당팀", message: "필수 항목입니다" });
       continue;
     }
     if (!usageTeamName) {
@@ -316,9 +329,9 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
       continue;
     }
     
-    const team = teams.find(t => t.name === teamName);
+    const team = teams.find(t => t.name === teamName && (!departmentName || t.department === departmentName));
     if (!team) {
-      errors.push({ row: rowNum, field: "관리팀", message: `'${teamName}' 팀을 찾을 수 없습니다` });
+      errors.push({ row: rowNum, field: "담당팀", message: `'${teamName}' 팀을 찾을 수 없습니다` });
       continue;
     }
     
@@ -413,7 +426,7 @@ export function getTeamTemplate(): Buffer {
 }
 
 export function getCategoryTemplate(): Buffer {
-  const data = [{ "구분명": "예시구분", "관리자": "관리자이름" }];
+  const data = [{ "구분명": "예시구분", "기본 주기": 7, "구분 관리자": "관리자이름" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "구분");
@@ -421,7 +434,7 @@ export function getCategoryTemplate(): Buffer {
 }
 
 export function getUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
+  const data = [{ "이름": "홍길동", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
@@ -446,7 +459,7 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
       "소속팀": team?.name || "",
       "이메일": u.email || "",
       "전화번호": u.phone || "",
-      "배정 구분": (u.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ") || "",
+      "구분": (u.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ") || "",
       "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
     };
   });
@@ -479,7 +492,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
-    const categoryName = (row["배정 구분"] || row["배정 대상"])?.toString().trim() || null;
+    const categoryName = (row["구분"] || row["배정 구분"] || row["배정 대상"])?.toString().trim() || null;
 
     if (!username) {
       errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
@@ -557,7 +570,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "부서": "부서명", "소속팀": "팀명", "직책": "팀장", "이메일": "email@example.com", "전화번호": "010-1234-5678", "배정 구분": "계량기" }];
+  const data = [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "구분": "계량기", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
@@ -569,12 +582,13 @@ export function getAssetTemplate(): Buffer {
     "대상": "예시대상",
     "시리얼번호": "SN-001",
     "구분": "구분명",
-    "관리팀": "관리팀명",
-    "사용팀": "사용팀명",
     "담당자": "담당자이름",
+    "부서": "부서명",
+    "담당팀": "담당팀명",
+    "사용팀": "사용팀명",
     "점검주기(개월)": 12,
     "최근점검일": "2025-01-01",
-    "비고": ""
+    "추가정보": ""
   }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();

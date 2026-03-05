@@ -1035,6 +1035,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
       managerId: asset.managerId,
       staffId: asset.staffId,
       lastInspectedDate: asset.lastInspectedDate,
+      notes: asset.notes || "",
     }
   });
 
@@ -1203,6 +1204,11 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
             <InspectionCyclePreview lastDate={watchedLastDate} cycleDays={effectiveCycleDays} />
           )}
 
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes">추가정보</Label>
+            <Input id="edit-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-edit-asset-notes" />
+          </div>
+
           <DialogFooter>
             <Button type="submit">저장</Button>
           </DialogFooter>
@@ -1275,6 +1281,7 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
         inspectionCycleDays: effectiveCycleDays,
         lastInspectedDate: data.lastInspectedDate,
         inspectorId: currentUser?.id,
+        notes: data.notes || null,
       });
     },
     onSuccess: () => {
@@ -1457,31 +1464,14 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <CycleSelector
-              value={cycleSelectValue}
-              onChange={setCycleSelectValue}
-              customValue={customCycleDays}
-              onCustomChange={setCustomCycleDays}
-            />
-            <div className="space-y-2">
-              <Label htmlFor="lastDate">최근 점검일</Label>
-              <Input
-                id="lastDate"
-                type="date"
-                {...register("lastInspectedDate", { required: true })}
-                onChange={(e) => {
-                  setValue("lastInspectedDate", e.target.value);
-                  setLastDate(e.target.value);
-                }}
-                data-testid="input-asset-last-date"
-              />
-            </div>
-          </div>
-
           {lastDate && effectiveCycleDays > 0 && (
             <InspectionCyclePreview lastDate={lastDate} cycleDays={effectiveCycleDays} />
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="add-notes">추가정보</Label>
+            <Input id="add-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-asset-notes" />
+          </div>
 
           <DialogFooter className="mt-4">
             <Button type="submit" data-testid="button-submit-asset">등록 완료</Button>

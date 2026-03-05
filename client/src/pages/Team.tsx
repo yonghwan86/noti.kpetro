@@ -334,7 +334,7 @@ export default function Team() {
         {(isAdmin || isManager) && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              {isAdmin ? '구분을 등록하고 담당 관리자를 지정합니다.' : '담당 구분을 관리합니다.'}
+              {isAdmin ? '구분을 등록하고 구분 관리자를 지정합니다.' : '담당 구분을 관리합니다.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -359,7 +359,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead>구분명</TableHead>
                   <TableHead>기본 주기</TableHead>
-                  <TableHead>담당 관리자</TableHead>
+                  <TableHead>구분 관리자</TableHead>
                   <TableHead>부서</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
@@ -1160,12 +1160,12 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
           </div>
           {isManagerUser ? (
             <div className="space-y-2">
-              <Label>담당 관리자</Label>
+              <Label>구분 관리자</Label>
               <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <Label>담당 관리자 (복수 선택 가능)</Label>
+              <Label>구분 관리자 (복수 선택 가능)</Label>
               <Input
                 placeholder="사용자 검색..."
                 value={userSearch}
@@ -1316,12 +1316,12 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
           </div>
           {currentUser?.role === 'manager' ? (
             <div className="space-y-2">
-              <Label>담당 관리자</Label>
+              <Label>구분 관리자</Label>
               <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <Label>담당 관리자 (복수 선택 가능)</Label>
+              <Label>구분 관리자 (복수 선택 가능)</Label>
               <Input
                 placeholder="사용자 검색..."
                 value={userSearch}
