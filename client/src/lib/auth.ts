@@ -91,7 +91,7 @@ export const auth = {
   getRoleName: (role: Role): string => {
     switch (role) {
       case 'admin': return '마스터';
-      case 'manager': return '대상 관리자';
+      case 'manager': return '구분 관리자';
       case 'staff': return '담당자';
       default: return role;
     }

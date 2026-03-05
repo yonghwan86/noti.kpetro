@@ -89,11 +89,12 @@ export default function Team() {
   });
 
   const userAssetCategoryMap = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
+    const map: Record<string, Record<string, string[]>> = {};
     for (const asset of assets) {
       if (!asset.staffId || !asset.categoryId) continue;
       if (!map[asset.staffId]) map[asset.staffId] = {};
-      map[asset.staffId][asset.categoryId] = (map[asset.staffId][asset.categoryId] || 0) + 1;
+      if (!map[asset.staffId][asset.categoryId]) map[asset.staffId][asset.categoryId] = [];
+      map[asset.staffId][asset.categoryId].push(asset.name);
     }
     return map;
   }, [assets]);
@@ -102,7 +103,7 @@ export default function Team() {
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "대상 삭제됨", description: "대상이 시스템에서 제거되었습니다.", variant: "destructive" });
+      toast({ title: "구분 삭제됨", description: "구분이 시스템에서 제거되었습니다.", variant: "destructive" });
     },
     onError: (error: Error) => {
       toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
@@ -260,7 +261,7 @@ export default function Team() {
       if (isManager && currentUser) {
         if (user.managerId !== currentUser.id) return false;
         if (managerCategoryFilter !== "all") {
-          if (!userAssetCategoryMap[user.id]?.[managerCategoryFilter]) return false;
+          if (!userAssetCategoryMap[user.id]?.[managerCategoryFilter]?.length) return false;
         }
       }
       const search = searchTerm.toLowerCase();
@@ -293,7 +294,7 @@ export default function Team() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">관리</h2>
         <p className="text-muted-foreground">
-          대상과 사용자를 관리합니다.
+          구분과 사용자를 관리합니다.
         </p>
       </div>
 
@@ -301,10 +302,10 @@ export default function Team() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <TabsList className="w-full sm:w-auto">
             {(isAdmin || isManager) && (
-              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 대상 (구분)</TabsTrigger>
+              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 대상 관리자 (역할)</TabsTrigger>
+              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 구분 관리자 (역할)</TabsTrigger>
             )}
             <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
             {isAdmin && (
@@ -326,7 +327,7 @@ export default function Team() {
         {(isAdmin || isManager) && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              {isAdmin ? '대상 구분을 등록하고 담당 관리자를 지정합니다.' : '담당 대상을 관리합니다.'}
+              {isAdmin ? '구분을 등록하고 담당 관리자를 지정합니다.' : '담당 구분을 관리합니다.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -336,8 +337,8 @@ export default function Team() {
                 </a>
               </Button>
               <ExcelImportDialog
-                title="대상 엑셀 업로드"
-                description="엑셀 파일에서 대상 목록을 일괄 등록합니다."
+                title="구분 엑셀 업로드"
+                description="엑셀 파일에서 구분 목록을 일괄 등록합니다."
                 templateUrl="/api/categories/template"
                 importUrl="/api/categories/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
@@ -349,9 +350,9 @@ export default function Team() {
             <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>대상명</TableHead>
+                  <TableHead>구분명</TableHead>
                   <TableHead>기본 주기</TableHead>
-                  <TableHead>대상 담당 관리자</TableHead>
+                  <TableHead>담당 관리자</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -360,7 +361,7 @@ export default function Team() {
                 {filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                      등록된 대상이 없습니다. "대상 등록" 버튼을 눌러 추가하세요.
+                      등록된 구분이 없습니다. "구분 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -412,7 +413,7 @@ export default function Team() {
         {isAdmin && <TabsContent value="managers" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              전체 사용자 중 대상 관리자 역할을 부여합니다.
+              전체 사용자 중 구분 관리자 역할을 부여합니다.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-2" asChild>
@@ -422,8 +423,8 @@ export default function Team() {
                 </a>
               </Button>
               <ExcelImportDialog
-                title="대상 관리자 엑셀 업로드"
-                description="엑셀 파일에서 대상 관리자 목록을 일괄 등록합니다."
+                title="구분 관리자 엑셀 업로드"
+                description="엑셀 파일에서 구분 관리자 목록을 일괄 등록합니다."
                 templateUrl="/api/users/template"
                 importUrl="/api/users/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
@@ -447,7 +448,7 @@ export default function Team() {
                 {filteredManagerUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
-                      등록된 대상 관리자가 없습니다. "대상 관리자 배정" 버튼을 눌러 사용자를 대상 관리자로 배정하세요.
+                      등록된 구분 관리자가 없습니다. "구분 관리자 배정" 버튼을 눌러 사용자를 구분 관리자로 배정하세요.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -492,14 +493,14 @@ export default function Team() {
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
                               onClick={() => {
-                                if (confirm(`"${user.username}" 님을 대상 관리자에서 해제하시겠습니까? 사용자 계정은 유지됩니다.`)) {
+                                if (confirm(`"${user.username}" 님을 구분 관리자에서 해제하시겠습니까? 사용자 계정은 유지됩니다.`)) {
                                   handleEditUser(user.id, { role: 'staff' });
                                 }
                               }}
                               data-testid={`button-demote-manager-${user.id}`}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              대상 관리자 해제
+                              구분 관리자 해제
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -517,8 +518,8 @@ export default function Team() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
               {isAdmin 
-                ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '대상 관리자' 탭에서 관리자 역할로 배정할 수 있습니다." 
-                : "내 대상에 배정된 담당자 목록입니다. 대상별로 필터링하거나 '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
+                ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '구분 관리자' 탭에서 관리자 역할로 배정할 수 있습니다." 
+                : "배정된 담당자 목록입니다. 구분별로 필터링하거나 '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
             </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {isAdmin && (
@@ -549,7 +550,7 @@ export default function Team() {
                   </Button>
                   <ExcelImportDialog
                     title="사용자 엑셀 업로드"
-                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다. '배정 대상' 컬럼으로 대상을 지정할 수 있습니다."
+                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다. '배정 구분' 컬럼으로 구분을 지정할 수 있습니다."
                     templateUrl="/api/staff/template"
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
@@ -583,13 +584,14 @@ export default function Team() {
             </div>
           )}
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[700px]">
+            <Table className="min-w-[850px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
-                  <TableHead>담당 장비</TableHead>
+                  <TableHead>구분</TableHead>
+                  <TableHead>대상</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>전화번호</TableHead>
                   <TableHead>로그인</TableHead>
@@ -599,7 +601,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={9} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
@@ -615,11 +617,18 @@ export default function Team() {
                       </TableCell>
                       <TableCell>
                         {userAssetCategoryMap[user.id]
-                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, count]) => {
+                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, names], idx) => {
                               const catName = categories.find(c => c.id === catId)?.name || catId;
-                              return `${catName}(${count})`;
-                            }).join(", ")
-                          : <span className="text-muted-foreground">미지정</span>}
+                              return <div key={catId}>{catName}</div>;
+                            })
+                          : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell>
+                        {userAssetCategoryMap[user.id]
+                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, names]) => (
+                              <div key={catId}>{names.join(", ")}</div>
+                            ))
+                          : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
@@ -1005,7 +1014,7 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
       setUserSearch("");
       setCycleSelectValue("none");
       setCustomCycleDays("");
-      toast({ title: "대상 등록 완료", description: "새로운 대상이 등록되었습니다." });
+      toast({ title: "구분 등록 완료", description: "새로운 구분이 등록되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });
@@ -1037,17 +1046,17 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-add-category">
-          <Plus className="w-4 h-4" /> 대상 등록
+          <Plus className="w-4 h-4" /> 구분 등록
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>대상 등록</DialogTitle>
-          <DialogDescription>대상을 등록한 뒤, 스케줄 관리 페이지에서 해당 대상에 항목을 등록할 수 있습니다.</DialogDescription>
+          <DialogTitle>구분 등록</DialogTitle>
+          <DialogDescription>구분을 등록한 뒤, 스케줄 관리 페이지에서 해당 구분에 대상을 등록할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="category-name">대상명</Label>
+            <Label htmlFor="category-name">구분명</Label>
             <Input
               id="category-name"
               value={name}
@@ -1059,7 +1068,7 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
           </div>
           <div className="space-y-2">
             <Label>기본 점검 주기</Label>
-            <p className="text-xs text-muted-foreground">스케줄 관리에서 이 대상을 선택하면 기본값으로 적용됩니다.</p>
+            <p className="text-xs text-muted-foreground">스케줄 관리에서 이 구분을 선택하면 기본값으로 적용됩니다.</p>
             <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
               <SelectTrigger>
                 <SelectValue placeholder="주기 선택 (선택사항)" />
@@ -1110,7 +1119,7 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
                         data-testid={`checkbox-manager-${u.id}`}
                       />
                       <span className="text-sm">{u.username}</span>
-                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
+                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '구분 관리자' : '사용자'})</span>
                     </label>
                   ))
                 )}
@@ -1160,7 +1169,7 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
-      toast({ title: "대상 수정됨", description: "대상 정보가 업데이트되었습니다." });
+      toast({ title: "구분 수정됨", description: "구분 정보가 업데이트되었습니다." });
     },
     onError: (error: Error) => {
       toast({ title: "수정 실패", description: error.message, variant: "destructive" });
@@ -1200,12 +1209,12 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>대상 수정</DialogTitle>
-          <DialogDescription>대상 정보를 업데이트합니다.</DialogDescription>
+          <DialogTitle>구분 수정</DialogTitle>
+          <DialogDescription>구분 정보를 업데이트합니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-category-name">대상명</Label>
+            <Label htmlFor="edit-category-name">구분명</Label>
             <Input
               id="edit-category-name"
               value={name}
@@ -1266,7 +1275,7 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
                         data-testid={`checkbox-edit-manager-${u.id}`}
                       />
                       <span className="text-sm">{u.username}</span>
-                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '대상 관리자' : '사용자'})</span>
+                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '구분 관리자' : '사용자'})</span>
                     </label>
                   ))
                 )}
@@ -1321,7 +1330,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
       setOpen(false);
       setSearchTerm("");
       setSelectedIds([]);
-      toast({ title: "대상 관리자 배정 완료", description: `${selectedIds.length}명의 사용자가 대상 관리자로 배정되었습니다.` });
+      toast({ title: "구분 관리자 배정 완료", description: `${selectedIds.length}명의 사용자가 구분 관리자로 배정되었습니다.` });
     } catch (error: any) {
       toast({ title: "배정 실패", description: error.message, variant: "destructive" });
     } finally {
@@ -1341,13 +1350,13 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-promote-manager">
-          <UserPlus className="w-4 h-4" /> 대상 관리자 배정
+          <UserPlus className="w-4 h-4" /> 구분 관리자 배정
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>대상 관리자 배정</DialogTitle>
-          <DialogDescription>사용자 목록에서 대상 관리자로 배정할 사용자를 선택하세요. 여러 명을 동시에 선택할 수 있습니다.</DialogDescription>
+          <DialogTitle>구분 관리자 배정</DialogTitle>
+          <DialogDescription>사용자 목록에서 구분 관리자로 배정할 사용자를 선택하세요. 여러 명을 동시에 선택할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
@@ -1401,7 +1410,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
               disabled={selectedIds.length === 0 || isPromoting}
               data-testid="button-submit-promote"
             >
-              {isPromoting ? "배정 중..." : `대상 관리자로 배정 (${selectedIds.length}명)`}
+              {isPromoting ? "배정 중..." : `구분 관리자로 배정 (${selectedIds.length}명)`}
             </Button>
           </DialogFooter>
         </div>
@@ -1494,15 +1503,15 @@ function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], c
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>사용자 배정</DialogTitle>
-          <DialogDescription>담당자를 선택한 대상에 배정합니다.</DialogDescription>
+          <DialogDescription>담당자를 선택한 구분에 배정합니다.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {categories.length > 0 && (
             <div className="space-y-2">
-              <Label>배정 대상</Label>
+              <Label>배정 구분</Label>
               <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="대상을 선택하세요" />
+                  <SelectValue placeholder="구분을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(cat => (
@@ -1525,7 +1534,7 @@ function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], c
           <div className="border rounded-md max-h-[300px] overflow-auto">
             {unassignedStaff.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                {selectedCategoryId ? "배정 가능한 담당자가 없습니다." : "대상을 먼저 선택해주세요."}
+                {selectedCategoryId ? "배정 가능한 담당자가 없습니다." : "구분을 먼저 선택해주세요."}
               </div>
             ) : (
               unassignedStaff.map(u => (
