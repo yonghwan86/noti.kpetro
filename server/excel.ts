@@ -582,11 +582,15 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
   const allAssets = await storage.getAssets();
   const users = await storage.getUsers();
   const categories = await storage.getCategories();
+  const teams = await storage.getTeams();
+  const departments = await storage.getDepartments();
 
   const data = history.map(h => {
     const asset = allAssets.find(a => a.id === h.assetId);
     const user = users.find(u => u.id === h.userId);
     const category = asset ? categories.find(c => c.id === asset.categoryId) : null;
+    const userTeam = user ? teams.find(t => t.id === user.teamId) : null;
+    const userDept = userTeam?.departmentId ? departments.find(d => d.id === userTeam.departmentId) : null;
 
     return {
       "일자": h.date ? format(new Date(h.date), 'yyyy-MM-dd HH:mm') : '-',
@@ -598,11 +602,13 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
       "이전 값": h.oldValue || '-',
       "변경 값": h.newValue || '-',
       "수행자": user?.username || '-',
+      "부서": userDept?.name || '-',
+      "소속팀": userTeam?.name || '-',
       "비고": h.notes || '-',
     };
   });
 
-  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "일자": "", "구분": "", "명칭": "", "고유번호": "", "변경 유형": "", "변경 항목": "", "이전 값": "", "변경 값": "", "수행자": "", "비고": "" }]);
+  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "일자": "", "구분": "", "명칭": "", "고유번호": "", "변경 유형": "", "변경 항목": "", "이전 값": "", "변경 값": "", "수행자": "", "부서": "", "소속팀": "", "비고": "" }]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "이력");
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));

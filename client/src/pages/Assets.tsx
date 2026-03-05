@@ -499,6 +499,7 @@ export default function Assets() {
                   <TableHead>대상</TableHead>
                   <TableHead>구분</TableHead>
                   <TableHead>담당자</TableHead>
+                  <TableHead>부서</TableHead>
                   <TableHead>담당팀</TableHead>
                   <TableHead>최근 점검일</TableHead>
                   <TableHead>다음 예정일</TableHead>
@@ -509,7 +510,7 @@ export default function Assets() {
               <TableBody>
                 {filteredAssets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                       {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all' ? '검색 결과가 없습니다.' : '등록된 장비가 없습니다.'}
                     </TableCell>
                   </TableRow>
@@ -544,6 +545,7 @@ export default function Assets() {
                       <TableCell>
                         <span className="text-sm">{getUserName(asset.staffId)}</span>
                       </TableCell>
+                      <TableCell className="text-sm">{getDeptName(asset.teamId)}</TableCell>
                       <TableCell>{getTeamName(asset.teamId)}</TableCell>
                       <TableCell>{format(new Date(asset.lastInspectedDate), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="font-medium">
@@ -628,6 +630,8 @@ export default function Assets() {
         assets={allAssets}
         users={users}
         categories={categories}
+        teams={teams}
+        departments={departments}
       />
 
       <GlobalHistoryDialog
@@ -637,6 +641,8 @@ export default function Assets() {
         assets={allAssets}
         users={users}
         categories={categories}
+        teams={teams}
+        departments={departments}
       />
     </div>
   );
@@ -760,13 +766,15 @@ function SuspendAssetDialog({ asset, onSuspend }: { asset: Asset; onSuspend: (id
   );
 }
 
-function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, categories }: {
+function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, categories, teams, departments }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   assetId: string | null;
   assets: Asset[];
   users: User[];
   categories: Category[];
+  teams: Team[];
+  departments: Department[];
 }) {
   const { data: history = [], isLoading } = useQuery<AssetHistory[]>({
     queryKey: ["/api/assets", assetId, "history"],
@@ -804,11 +812,16 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                   <TableHead>일자</TableHead>
                   <TableHead>유형</TableHead>
                   <TableHead>수행자</TableHead>
+                  <TableHead>부서/팀</TableHead>
                   <TableHead>내용</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history.map((h) => (
+                {history.map((h) => {
+                  const performer = h.userId ? users.find(u => u.id === h.userId) : null;
+                  const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
+                  const performerDept = performerTeam?.departmentId ? departments.find(d => d.id === performerTeam.departmentId) : null;
+                  return (
                   <TableRow key={h.id}>
                     <TableCell className="whitespace-nowrap text-sm">
                       {h.date ? format(new Date(h.date), 'yyyy-MM-dd HH:mm') : '-'}
@@ -816,12 +829,14 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                     <TableCell>
                       <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{h.userId ? (users.find(u => u.id === h.userId)?.username || '-') : '-'}</TableCell>
+                    <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept.name} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
                     <TableCell className="text-sm max-w-[250px] truncate" title={h.notes || ''}>
                       {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -841,13 +856,15 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
   );
 }
 
-function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users, categories }: {
+function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users, categories, teams, departments }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryFilter: string;
   assets: Asset[];
   users: User[];
   categories: Category[];
+  teams: Team[];
+  departments: Department[];
 }) {
   const [localCategoryFilter, setLocalCategoryFilter] = useState<string>("all");
 
@@ -910,6 +927,7 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                   <TableHead>명칭</TableHead>
                   <TableHead>유형</TableHead>
                   <TableHead>수행자</TableHead>
+                  <TableHead>부서/팀</TableHead>
                   <TableHead>내용</TableHead>
                 </TableRow>
               </TableHeader>
@@ -917,6 +935,9 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                 {history.map((h) => {
                   const asset = assets.find(a => a.id === h.assetId);
                   const cat = asset ? categories.find(c => c.id === asset.categoryId) : null;
+                  const performer = h.userId ? users.find(u => u.id === h.userId) : null;
+                  const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
+                  const performerDept = performerTeam?.departmentId ? departments.find(d => d.id === performerTeam.departmentId) : null;
                   return (
                     <TableRow key={h.id}>
                       <TableCell className="whitespace-nowrap text-sm">
@@ -927,7 +948,8 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                       <TableCell>
                         <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{h.userId ? (users.find(u => u.id === h.userId)?.username || '-') : '-'}</TableCell>
+                      <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept.name} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate" title={h.notes || ''}>
                         {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                       </TableCell>

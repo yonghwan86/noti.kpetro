@@ -45,7 +45,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { auth } from "@/lib/auth";
-import { Asset, InspectionLog } from "@/lib/types";
+import { Asset, InspectionLog, Department } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
 interface HeaderProps {
@@ -67,6 +67,13 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
     queryKey: ["/api/assets"],
     queryFn: () => api.assets.getAll(),
   });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+    queryFn: () => api.departments.getAll(),
+  });
+
+  const currentDept = currentTeam?.departmentId ? departments.find(d => d.id === currentTeam.departmentId) : null;
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -206,7 +213,7 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{currentUser.username}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {auth.getRoleName(currentUser.role as any)} • {currentTeam?.name || '팀 없음'}
+                      {auth.getRoleName(currentUser.role as any)} • {currentDept ? `${currentDept.name} / ` : ''}{currentTeam?.name || '팀 없음'}
                     </p>
                   </div>
                 </DropdownMenuLabel>

@@ -137,6 +137,13 @@ export default function Team() {
     return map;
   }, [assets]);
 
+  const getDeptName = (teamId: string | null) => {
+    if (!teamId) return "-";
+    const team = teams.find(t => t.id === teamId);
+    if (!team?.departmentId) return "-";
+    return departments.find(d => d.id === team.departmentId)?.name || "-";
+  };
+
   const deleteCategoryMutation = useMutation({
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
@@ -405,6 +412,7 @@ export default function Team() {
                   <TableHead>구분명</TableHead>
                   <TableHead>기본 주기</TableHead>
                   <TableHead>담당 관리자</TableHead>
+                  <TableHead>부서</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
@@ -412,7 +420,7 @@ export default function Team() {
               <TableBody>
                 {filteredCategories.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       등록된 구분이 없습니다. "구분 등록" 버튼을 눌러 추가하세요.
                     </TableCell>
                   </TableRow>
@@ -424,6 +432,7 @@ export default function Team() {
                         <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell>{category.defaultCycleDays ? `${category.defaultCycleDays}일` : "-"}</TableCell>
                         <TableCell>{categoryManagers.length > 0 ? categoryManagers.map(m => m!.username).join(", ") : "-"}</TableCell>
+                        <TableCell className="text-sm">{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => getDeptName(m!.teamId)).filter(v => v !== "-"))).join(", ") || "-" : "-"}</TableCell>
                         <TableCell>{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => teams.find(t => t.id === m!.teamId)?.name).filter(Boolean))).join(", ") : "-"}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -489,6 +498,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
+                  <TableHead>부서</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>전화번호</TableHead>
@@ -499,7 +509,7 @@ export default function Team() {
               <TableBody>
                 {filteredManagerUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       등록된 구분 관리자가 없습니다. "구분 관리자 배정" 버튼을 눌러 사용자를 구분 관리자로 배정하세요.
                     </TableCell>
                   </TableRow>
@@ -507,6 +517,7 @@ export default function Team() {
                   filteredManagerUsers.slice((managerPage - 1) * ITEMS_PER_PAGE, managerPage * ITEMS_PER_PAGE).map((user) => (
                     <TableRow key={user.id} data-testid={`row-manager-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
                       <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
@@ -641,6 +652,7 @@ export default function Team() {
                 <TableRow>
                   <TableHead>이름</TableHead>
                   <TableHead>직책</TableHead>
+                  <TableHead>부서</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>구분</TableHead>
                   <TableHead>대상</TableHead>
@@ -653,7 +665,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
@@ -664,6 +676,7 @@ export default function Team() {
                     <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>{user.position || "-"}</TableCell>
+                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
@@ -767,6 +780,7 @@ export default function Team() {
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
+                  <TableHead>부서</TableHead>
                   <TableHead>소속팀</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>전화번호</TableHead>
@@ -777,7 +791,7 @@ export default function Team() {
               <TableBody>
                 {filteredAdminUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       등록된 마스터 계정이 없습니다.
                     </TableCell>
                   </TableRow>
@@ -785,6 +799,7 @@ export default function Team() {
                   filteredAdminUsers.slice((adminPage - 1) * ITEMS_PER_PAGE, adminPage * ITEMS_PER_PAGE).map((user) => (
                     <TableRow key={user.id} data-testid={`row-admin-${user.id}`}>
                       <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
                       <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
