@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Asset, AssetStatus, Team, User, Category, Department, AssetHistory } from "@/lib/types";
+import { Asset, AssetStatus, Team, User, Category, AssetHistory } from "@/lib/types";
 import { useLocation, useSearch } from "wouter";
 import { 
   Table, 
@@ -218,11 +218,6 @@ export default function Assets() {
     queryFn: () => api.categories.getAll(),
   });
 
-  const { data: departments = [] } = useQuery<Department[]>({
-    queryKey: ["/api/departments"],
-    queryFn: () => api.departments.getAll(),
-  });
-
   const assets = auth.filterAssetsForUser(allAssets, currentUser);
 
   const deleteMutation = useMutation({
@@ -300,8 +295,7 @@ export default function Assets() {
   const getUserName = (id: string) => users.find(u => u.id === id)?.username || id;
   const getDeptName = (teamId: string) => {
     const team = teams.find(t => t.id === teamId);
-    if (!team?.departmentId) return "-";
-    return departments.find(d => d.id === team.departmentId)?.name || "-";
+    return team?.department || "-";
   };
 
   const getStatusBadge = (status: AssetStatus, suspendedReason?: string | null) => {
@@ -397,7 +391,7 @@ export default function Assets() {
               teams={teams} 
               users={users}
               categories={categories}
-              departments={departments}
+              
               currentUser={currentUser}
             />
           )}
@@ -588,7 +582,7 @@ export default function Assets() {
                                       teams={teams}
                                       users={users}
                                       categories={categories}
-                                      departments={departments}
+                                      
                                     />
                                     <SuspendAssetDialog asset={asset} onSuspend={(id, reason) => suspendMutation.mutate({ id, reason })} />
                                     {auth.canDeleteAsset(currentUser, asset) && (
@@ -631,7 +625,7 @@ export default function Assets() {
         users={users}
         categories={categories}
         teams={teams}
-        departments={departments}
+        
       />
 
       <GlobalHistoryDialog
@@ -642,7 +636,7 @@ export default function Assets() {
         users={users}
         categories={categories}
         teams={teams}
-        departments={departments}
+        
       />
     </div>
   );
@@ -766,7 +760,7 @@ function SuspendAssetDialog({ asset, onSuspend }: { asset: Asset; onSuspend: (id
   );
 }
 
-function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, categories, teams, departments }: {
+function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, categories, teams }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   assetId: string | null;
@@ -774,7 +768,6 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
   users: User[];
   categories: Category[];
   teams: Team[];
-  departments: Department[];
 }) {
   const { data: history = [], isLoading } = useQuery<AssetHistory[]>({
     queryKey: ["/api/assets", assetId, "history"],
@@ -820,7 +813,7 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                 {history.map((h) => {
                   const performer = h.userId ? users.find(u => u.id === h.userId) : null;
                   const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
-                  const performerDept = performerTeam?.departmentId ? departments.find(d => d.id === performerTeam.departmentId) : null;
+                  const performerDept = performerTeam?.department || null;
                   return (
                   <TableRow key={h.id}>
                     <TableCell className="whitespace-nowrap text-sm">
@@ -830,7 +823,7 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                       <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept.name} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
                     <TableCell className="text-sm max-w-[250px] truncate" title={h.notes || ''}>
                       {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                     </TableCell>
@@ -856,7 +849,7 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
   );
 }
 
-function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users, categories, teams, departments }: {
+function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users, categories, teams }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryFilter: string;
@@ -864,7 +857,6 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
   users: User[];
   categories: Category[];
   teams: Team[];
-  departments: Department[];
 }) {
   const [localCategoryFilter, setLocalCategoryFilter] = useState<string>("all");
 
@@ -937,7 +929,7 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                   const cat = asset ? categories.find(c => c.id === asset.categoryId) : null;
                   const performer = h.userId ? users.find(u => u.id === h.userId) : null;
                   const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
-                  const performerDept = performerTeam?.departmentId ? departments.find(d => d.id === performerTeam.departmentId) : null;
+                  const performerDept = performerTeam?.department || null;
                   return (
                     <TableRow key={h.id}>
                       <TableCell className="whitespace-nowrap text-sm">
@@ -949,7 +941,7 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                         <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept.name} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate" title={h.notes || ''}>
                         {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                       </TableCell>
@@ -1022,10 +1014,9 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, teams, users, categories, departments }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[], departments: Department[] }) {
+function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[] }) {
   const [open, setOpen] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState<string>(asset.categoryId || "");
-  const [selectedDeptId, setSelectedDeptId] = useState<string>("");
 
   const currentDays = asset.inspectionCycleDays;
   const presetMatch = CYCLE_OPTIONS.find(o => o.value !== "custom" && parseInt(o.value) === currentDays);
@@ -1045,7 +1036,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
   });
 
   const watchedTeamId = watch("teamId");
-  const deptFilteredTeams = selectedDeptId ? teams.filter(t => t.departmentId === selectedDeptId) : teams;
   const staffMembers = users.filter(u => u.role === 'staff' && u.teamId === watchedTeamId);
   const editCategory = categories.find(c => c.id === editCategoryId);
   const editCategoryManagers = (editCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
@@ -1071,7 +1061,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
       setEditCategoryId(asset.categoryId || "");
       setValue("lastInspectedDate", asset.lastInspectedDate);
       const team = teams.find(t => t.id === asset.teamId);
-      setSelectedDeptId(team?.departmentId || "");
     }
   };
 
@@ -1135,24 +1124,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {departments.length > 0 && (
-              <div className="space-y-2">
-                <Label>부서</Label>
-                <Select value={selectedDeptId} onValueChange={(v) => {
-                  setSelectedDeptId(v);
-                  setValue("teamId", "");
-                  setValue("staffId", "");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="부서 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">전체 부서</SelectItem>
-                    {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select value={watch("teamId")} onValueChange={(v) => {
@@ -1168,7 +1139,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(selectedDeptId && selectedDeptId !== "__all__" ? deptFilteredTeams : teams).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1246,10 +1217,9 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ teams, users, categories, departments, currentUser }: { teams: Team[], users: User[], categories: Category[], departments: Department[], currentUser: User | null }) {
+function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
   const [open, setOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [selectedDeptId, setSelectedDeptId] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [cycleSelectValue, setCycleSelectValue] = useState<string>("");
   const [customCycleDays, setCustomCycleDays] = useState<string>("");
@@ -1259,7 +1229,6 @@ function AddAssetDialog({ teams, users, categories, departments, currentUser }: 
   const queryClient = useQueryClient();
 
   const managers = users.filter(u => u.role === 'manager');
-  const deptFilteredTeams = selectedDeptId ? teams.filter(t => t.departmentId === selectedDeptId) : teams;
   const staffMembers = selectedTeamId ? users.filter(u => u.role === 'staff' && u.teamId === selectedTeamId) : [];
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
   const categoryManagers = (selectedCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
@@ -1385,25 +1354,6 @@ function AddAssetDialog({ teams, users, categories, departments, currentUser }: 
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {departments.length > 0 && (
-              <div className="space-y-2">
-                <Label>부서</Label>
-                <Select value={selectedDeptId} onValueChange={(v) => {
-                  setSelectedDeptId(v);
-                  setSelectedTeamId("");
-                  setValue("teamId", "");
-                  setValue("staffId", "");
-                }}>
-                  <SelectTrigger data-testid="select-asset-department">
-                    <SelectValue placeholder="부서 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">전체 부서</SelectItem>
-                    {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="space-y-2">
               <Label>담당팀</Label>
               <Select onValueChange={(v) => {
@@ -1415,7 +1365,7 @@ function AddAssetDialog({ teams, users, categories, departments, currentUser }: 
                   <SelectValue placeholder="담당팀 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(selectedDeptId && selectedDeptId !== "__all__" ? deptFilteredTeams : teams).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -9,7 +9,6 @@ import {
   insertAssetSchema,
   insertInspectionLogSchema,
   insertCategorySchema,
-  insertDepartmentSchema
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
@@ -26,49 +25,6 @@ export async function registerRoutes(
   setupEmailAuth(app);
   registerEmailAuthRoutes(app);
   
-  app.get("/api/departments", async (req, res) => {
-    try {
-      const depts = await storage.getDepartments();
-      res.json(depts);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch departments" });
-    }
-  });
-
-  app.post("/api/departments", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const dept = insertDepartmentSchema.parse(req.body);
-      const created = await storage.createDepartment(dept);
-      res.status(201).json(created);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid department data" });
-    }
-  });
-
-  app.patch("/api/departments/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      const updated = await storage.updateDepartment(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: "Department not found" });
-      res.json(updated);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update department" });
-    }
-  });
-
-  app.delete("/api/departments/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
-    try {
-      await storage.deleteDepartment(req.params.id);
-      res.status(204).send();
-    } catch (error: any) {
-      if (error.message?.startsWith("REFERENCED:")) {
-        const parts = error.message.split(":");
-        res.status(409).json({ error: `이 부서에 소속된 팀이 ${parts[1]}개 있어 삭제할 수 없습니다.` });
-      } else {
-        res.status(500).json({ error: "부서 삭제에 실패했습니다." });
-      }
-    }
-  });
-
   app.get("/api/teams", async (req, res) => {
     try {
       const teams = await storage.getTeams();

@@ -2,15 +2,10 @@ import { differenceInDays, parseISO } from 'date-fns';
 
 export type Role = 'admin' | 'manager' | 'staff';
 
-export interface Department {
-  id: string;
-  name: string;
-}
-
 export interface Team {
   id: string;
   name: string;
-  departmentId?: string | null;
+  department?: string | null;
   type: 'management' | 'usage';
   contactEmail: string;
   phone?: string | null;

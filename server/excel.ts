@@ -41,16 +41,14 @@ export async function exportCategoriesToExcel(): Promise<Buffer> {
 export async function exportUsersToExcel(): Promise<Buffer> {
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
-  const departments = await storage.getDepartments();
   
   const managerUsers = users.filter(u => u.role === 'manager');
   
   const data = managerUsers.map(u => {
     const team = teams.find(t => t.id === u.teamId);
-    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
     return {
       "이름": u.username,
-      "부서": dept?.name || "",
+      "부서": team?.department || "",
       "소속팀": team?.name || "",
       "이메일": u.email || "",
       "전화번호": u.phone || "",
@@ -69,7 +67,6 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
   const teams = await storage.getTeams();
   const users = await storage.getUsers();
   const categories = await storage.getCategories();
-  const departments = await storage.getDepartments();
   
   const statusMap: Record<string, string> = {
     'ok': '정상',
@@ -79,13 +76,12 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
   
   const data = assets.map(a => {
     const team = teams.find(t => t.id === a.teamId);
-    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
     return {
       "대상": a.name,
       "시리얼번호": a.serialNumber,
       "구분": categories.find(c => c.id === a.categoryId)?.name || "",
       "관리자": users.find(u => u.id === a.managerId)?.username || "",
-      "부서": dept?.name || "",
+      "부서": team?.department || "",
       "관리팀": team?.name || "",
       "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
       "담당자": users.find(u => u.id === a.staffId)?.username || "",
@@ -441,14 +437,12 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
     staffUsers = staffUsers.filter(u => u.managerId === managerId);
   }
 
-  const departments = await storage.getDepartments();
   const data = staffUsers.map(u => {
     const team = teams.find(t => t.id === u.teamId);
-    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
     return {
       "이름": u.username,
       "직책": u.position || "",
-      "부서": dept?.name || "",
+      "부서": team?.department || "",
       "소속팀": team?.name || "",
       "이메일": u.email || "",
       "전화번호": u.phone || "",
@@ -601,14 +595,12 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
   const users = await storage.getUsers();
   const categories = await storage.getCategories();
   const teams = await storage.getTeams();
-  const departments = await storage.getDepartments();
 
   const data = history.map(h => {
     const asset = allAssets.find(a => a.id === h.assetId);
     const user = users.find(u => u.id === h.userId);
     const category = asset ? categories.find(c => c.id === asset.categoryId) : null;
     const userTeam = user ? teams.find(t => t.id === user.teamId) : null;
-    const userDept = userTeam?.departmentId ? departments.find(d => d.id === userTeam.departmentId) : null;
 
     return {
       "일자": h.date ? format(new Date(h.date), 'yyyy-MM-dd HH:mm') : '-',
@@ -620,7 +612,7 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
       "이전 값": h.oldValue || '-',
       "변경 값": h.newValue || '-',
       "수행자": user?.username || '-',
-      "부서": userDept?.name || '-',
+      "부서": userTeam?.department || '-',
       "소속팀": userTeam?.name || '-',
       "비고": h.notes || '-',
     };

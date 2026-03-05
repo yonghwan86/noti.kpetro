@@ -80,7 +80,7 @@ Preferred communication style: Simple, everyday language.
 **Database**: PostgreSQL with Drizzle ORM for type-safe database access.
 
 **Schema Design** (defined in `shared/schema.ts`):
-- **teams**: Organization teams with contact information
+- **teams**: Organization teams with contact information and a `department` text field (plain string, no separate departments table)
 - **categories**: Equipment type classifications with `managerIds` (text array) supporting multiple manager assignments per equipment type, and `defaultCycleDays` for auto-filling inspection cycle when registering assets
 - **users**: System users with roles and team assignments; managers are promoted from staff users; `assignedCategoryIds` (text array) tracks which categories a staff member is assigned to under their manager
 - **assets**: Equipment assets with detailed tracking fields including:

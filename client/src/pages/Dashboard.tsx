@@ -12,7 +12,7 @@ import {
   Cell
 } from "recharts";
 import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck } from "lucide-react";
-import { Asset, InspectionLog, User, Category, Department } from "@/lib/types";
+import { Asset, InspectionLog, User, Category } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -45,12 +45,7 @@ export default function Dashboard() {
     queryFn: () => api.categories.getAll(),
   });
 
-  const { data: departments = [] } = useQuery<Department[]>({
-    queryKey: ["/api/departments"],
-    queryFn: () => api.departments.getAll(),
-  });
-
-  const currentDept = currentTeam?.departmentId ? departments.find(d => d.id === currentTeam.departmentId) : null;
+  const currentDept = currentTeam?.department || null;
 
   const assets = auth.filterAssetsForUser(allAssets, currentUser);
   
@@ -131,7 +126,7 @@ export default function Dashboard() {
         </div>
         {currentTeam && (
           <Badge variant="outline" className="sm:ml-auto w-fit">
-            {currentDept ? `${currentDept.name} / ` : ''}{currentTeam.name}
+            {currentDept ? `${currentDept} / ` : ''}{currentTeam.name}
           </Badge>
         )}
       </div>

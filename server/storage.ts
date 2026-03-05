@@ -10,8 +10,6 @@ import {
   type InsertAsset,
   type InspectionLog,
   type InsertInspectionLog,
-  type Department,
-  type InsertDepartment,
   type AssetHistory,
   type InsertAssetHistory,
   users,
@@ -19,7 +17,6 @@ import {
   categories,
   assets,
   inspectionLogs,
-  departments,
   assetHistory
 } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
@@ -60,12 +57,6 @@ const calculateStatus = (nextDueDate: string, suspendedReason?: string | null): 
 };
 
 export interface IStorage {
-  getDepartments(): Promise<Department[]>;
-  getDepartment(id: string): Promise<Department | undefined>;
-  createDepartment(dept: InsertDepartment): Promise<Department>;
-  updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined>;
-  deleteDepartment(id: string): Promise<void>;
-
   getTeams(): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
@@ -106,34 +97,6 @@ export interface IStorage {
 }
 
 export class PostgresStorage implements IStorage {
-  async getDepartments(): Promise<Department[]> {
-    return await db.select().from(departments);
-  }
-
-  async getDepartment(id: string): Promise<Department | undefined> {
-    const result = await db.select().from(departments).where(eq(departments.id, id));
-    return result[0];
-  }
-
-  async createDepartment(dept: InsertDepartment): Promise<Department> {
-    const result = await db.insert(departments).values(dept).returning();
-    return result[0];
-  }
-
-  async updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined> {
-    const result = await db.update(departments).set(updates).where(eq(departments.id, id)).returning();
-    return result[0];
-  }
-
-  async deleteDepartment(id: string): Promise<void> {
-    const referencedTeams = await db.select({ id: teams.id }).from(teams)
-      .where(eq(teams.departmentId, id));
-    if (referencedTeams.length > 0) {
-      throw new Error(`REFERENCED:${referencedTeams.length}:teams`);
-    }
-    await db.delete(departments).where(eq(departments.id, id));
-  }
-
   async getTeams(): Promise<Team[]> {
     return await db.select().from(teams);
   }

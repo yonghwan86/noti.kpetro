@@ -13,19 +13,10 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
-export const departments = pgTable("departments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull().unique(),
-});
-
-export const insertDepartmentSchema = createInsertSchema(departments).omit({ id: true });
-export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
-export type Department = typeof departments.$inferSelect;
-
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  departmentId: varchar("department_id"),
+  department: text("department"),
   type: text("type").notNull().default("management"),
   contactEmail: text("contact_email"),
   phone: text("phone"),
@@ -36,7 +27,7 @@ export const teams = pgTable("teams", {
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
   type: z.enum(["management", "usage"]).default("management"),
   contactEmail: z.string().nullable().optional(),
-  departmentId: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
 });
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
