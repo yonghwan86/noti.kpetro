@@ -490,7 +490,7 @@ export default function Team() {
                 importUrl="/api/users/import"
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
               />
-              <PromoteToManagerDialog users={users} teams={teams} onPromoted={pushRecentUser} />
+              <PromoteToManagerDialog users={users} teams={teams} onPromoted={pushRecentUser} departments={departments} />
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -542,7 +542,7 @@ export default function Team() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>작업</DropdownMenuLabel>
-                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} departments={departments} />
                             {user.hasPassword && (
                               <>
                                 <DropdownMenuSeparator />
@@ -600,7 +600,7 @@ export default function Team() {
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
                   />
-                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
+                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} departments={departments} />
                 </>
               )}
               {isManager && (
@@ -618,7 +618,7 @@ export default function Team() {
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
                   />
-                  <AssignStaffDialog users={users} categories={myCategories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} />
+                  <AssignStaffDialog users={users} categories={myCategories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} teams={teams} departments={departments} />
                 </>
               )}
             </div>
@@ -719,7 +719,7 @@ export default function Team() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} departments={departments} />
                               {isAdmin && user.hasPassword && (
                                 <>
                                   <DropdownMenuSeparator />
@@ -772,7 +772,7 @@ export default function Team() {
               시스템 최고 관리자(마스터) 계정을 직접 생성합니다. 마스터는 모든 기능에 접근할 수 있습니다.
             </p>
             <div className="flex flex-wrap gap-2">
-              <AddMasterDialog teams={teams} onCreated={pushRecentUser} />
+              <AddMasterDialog teams={teams} onCreated={pushRecentUser} departments={departments} />
             </div>
           </div>
           <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -824,7 +824,7 @@ export default function Team() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>작업</DropdownMenuLabel>
-                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
+                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} departments={departments} />
                             {user.hasPassword && (
                               <>
                                 <DropdownMenuSeparator />
@@ -868,10 +868,11 @@ export default function Team() {
   );
 }
 
-function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
+function EditUserDialog({ user, teams, onEdit, departments }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void, departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>("__all__");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
   const { register, handleSubmit, reset } = useForm({
     defaultValues: {
@@ -886,7 +887,8 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const filteredTeams = teams.filter(t => 
+  const deptFilteredTeams = selectedDeptId === "__all__" ? teams : teams.filter(t => t.departmentId === selectedDeptId);
+  const filteredTeams = deptFilteredTeams.filter(t => 
     t.name.toLowerCase().includes(teamInput.toLowerCase())
   );
 
@@ -929,6 +931,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
       const currentTeam = teams.find(t => t.id === user.teamId);
       setTeamInput(currentTeam?.name || "");
       setSelectedTeamId(user.teamId);
+      setSelectedDeptId(currentTeam?.departmentId || "__all__");
       reset({
         username: user.username,
         fullName: user.fullName || "",
@@ -974,6 +977,20 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               </div>
             )}
           </div>
+          {departments.length > 0 && (
+            <div className="space-y-2">
+              <Label>부서</Label>
+              <Select value={selectedDeptId} onValueChange={(v) => { setSelectedDeptId(v); setTeamInput(""); setSelectedTeamId(null); }}>
+                <SelectTrigger data-testid="select-edit-department">
+                  <SelectValue placeholder="부서 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">전체 부서</SelectItem>
+                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative">
               <Label htmlFor="edit-team">소속 팀</Label>
@@ -1361,7 +1378,7 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
   );
 }
 
-function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], teams: TeamType[], onPromoted?: (id: string) => void }) {
+function PromoteToManagerDialog({ users, teams, onPromoted, departments }: { users: User[], teams: TeamType[], onPromoted?: (id: string) => void, departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1460,7 +1477,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
                     <div className="flex-1 flex flex-col">
                       <span className="font-medium">{user.username}</span>
                       <span className="text-xs text-muted-foreground">
-                        {teams.find(t => t.id === user.teamId)?.name || "-"} {user.position ? `· ${user.position}` : ''}
+                        {(() => { const t = teams.find(t => t.id === user.teamId); const d = t?.departmentId ? departments.find(d => d.id === t.departmentId) : null; return d ? `${d.name} / ${t?.name}` : (t?.name || "-"); })()} {user.position ? `· ${user.position}` : ''}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1486,7 +1503,7 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
   );
 }
 
-function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], categories: Category[], onAssigned: () => void }) {
+function AssignStaffDialog({ users, categories, onAssigned, teams, departments }: { users: User[], categories: Category[], onAssigned: () => void, teams?: TeamType[], departments?: Department[] }) {
   const { currentUser } = useUser();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1619,7 +1636,10 @@ function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], c
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{u.username}</div>
-                    <div className="text-xs text-muted-foreground">{u.email || '이메일 없음'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {(() => { const t = teams?.find(t => t.id === u.teamId); const d = t?.departmentId && departments ? departments.find(d => d.id === t.departmentId) : null; return d ? `${d.name} / ${t?.name}` : (t?.name || ''); })()}
+                      {u.email ? ` · ${u.email}` : ''}
+                    </div>
                   </div>
                   {u.managerId === currentUser?.id && (
                     <Badge variant="secondary" className="text-xs">이미 배정됨</Badge>
@@ -1647,18 +1667,20 @@ function AssignStaffDialog({ users, categories, onAssigned }: { users: User[], c
   );
 }
 
-function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddStaffUserDialog({ teams, onCreated, departments }: { teams: TeamType[], onCreated?: (id: string) => void, departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>("__all__");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
   const { register, handleSubmit, reset, setValue } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const deptFilteredTeams = selectedDeptId === "__all__" ? teams : teams.filter(t => t.departmentId === selectedDeptId);
   const filteredTeams = teamInput
-    ? teams.filter(t => t.name.toLowerCase().includes(teamInput.toLowerCase()))
-    : teams;
+    ? deptFilteredTeams.filter(t => t.name.toLowerCase().includes(teamInput.toLowerCase()))
+    : deptFilteredTeams;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1727,6 +1749,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       reset();
       setTeamInput("");
       setSelectedTeamId(null);
+      setSelectedDeptId("__all__");
     }
   };
 
@@ -1763,6 +1786,20 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
           </div>
+          {departments.length > 0 && (
+            <div className="space-y-2">
+              <Label>부서</Label>
+              <Select value={selectedDeptId} onValueChange={(v) => { setSelectedDeptId(v); setTeamInput(""); setSelectedTeamId(null); }}>
+                <SelectTrigger data-testid="select-staff-department">
+                  <SelectValue placeholder="부서 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">전체 부서</SelectItem>
+                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2 relative">
             <Label>소속 팀</Label>
             <Input
@@ -1826,18 +1863,20 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   );
 }
 
-function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddMasterDialog({ teams, onCreated, departments }: { teams: TeamType[], onCreated?: (id: string) => void, departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [teamInput, setTeamInput] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>("__all__");
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const deptFilteredTeams = selectedDeptId === "__all__" ? teams : teams.filter(t => t.departmentId === selectedDeptId);
   const filteredTeams = teamInput
-    ? teams.filter(t => t.name.toLowerCase().includes(teamInput.toLowerCase()))
-    : teams;
+    ? deptFilteredTeams.filter(t => t.name.toLowerCase().includes(teamInput.toLowerCase()))
+    : deptFilteredTeams;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1893,6 +1932,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
       reset();
       setTeamInput("");
       setSelectedTeamId(null);
+      setSelectedDeptId("__all__");
     }
   };
 
@@ -1918,6 +1958,20 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
               data-testid="input-master-username"
             />
           </div>
+          {departments.length > 0 && (
+            <div className="space-y-2">
+              <Label>부서</Label>
+              <Select value={selectedDeptId} onValueChange={(v) => { setSelectedDeptId(v); setTeamInput(""); setSelectedTeamId(null); }}>
+                <SelectTrigger data-testid="select-master-department">
+                  <SelectValue placeholder="부서 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">전체 부서</SelectItem>
+                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2 relative">
             <Label>소속 팀</Label>
             <Input

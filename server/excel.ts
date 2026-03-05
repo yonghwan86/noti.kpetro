@@ -41,15 +41,21 @@ export async function exportCategoriesToExcel(): Promise<Buffer> {
 export async function exportUsersToExcel(): Promise<Buffer> {
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
+  const departments = await storage.getDepartments();
   
   const managerUsers = users.filter(u => u.role === 'manager');
   
-  const data = managerUsers.map(u => ({
-    "이름": u.username,
-    "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
-    "이메일": u.email || "",
-    "전화번호": u.phone || "",
-  }));
+  const data = managerUsers.map(u => {
+    const team = teams.find(t => t.id === u.teamId);
+    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
+    return {
+      "이름": u.username,
+      "부서": dept?.name || "",
+      "소속팀": team?.name || "",
+      "이메일": u.email || "",
+      "전화번호": u.phone || "",
+    };
+  });
   
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -63,6 +69,7 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
   const teams = await storage.getTeams();
   const users = await storage.getUsers();
   const categories = await storage.getCategories();
+  const departments = await storage.getDepartments();
   
   const statusMap: Record<string, string> = {
     'ok': '정상',
@@ -70,20 +77,25 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
     'overdue': '점검지연'
   };
   
-  const data = assets.map(a => ({
-    "대상": a.name,
-    "시리얼번호": a.serialNumber,
-    "구분": categories.find(c => c.id === a.categoryId)?.name || "",
-    "관리자": users.find(u => u.id === a.managerId)?.username || "",
-    "관리팀": teams.find(t => t.id === a.teamId)?.name || "",
-    "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
-    "담당자": users.find(u => u.id === a.staffId)?.username || "",
-    "점검주기(일)": a.inspectionCycleDays,
-    "최근점검일": a.lastInspectedDate,
-    "다음점검일": a.nextDueDate,
-    "상태": statusMap[a.status] || a.status,
-    "비고": a.notes || "",
-  }));
+  const data = assets.map(a => {
+    const team = teams.find(t => t.id === a.teamId);
+    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
+    return {
+      "대상": a.name,
+      "시리얼번호": a.serialNumber,
+      "구분": categories.find(c => c.id === a.categoryId)?.name || "",
+      "관리자": users.find(u => u.id === a.managerId)?.username || "",
+      "부서": dept?.name || "",
+      "관리팀": team?.name || "",
+      "사용팀": teams.find(t => t.id === a.usageTeamId)?.name || "",
+      "담당자": users.find(u => u.id === a.staffId)?.username || "",
+      "점검주기(일)": a.inspectionCycleDays,
+      "최근점검일": a.lastInspectedDate,
+      "다음점검일": a.nextDueDate,
+      "상태": statusMap[a.status] || a.status,
+      "비고": a.notes || "",
+    };
+  });
   
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -429,15 +441,21 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
     staffUsers = staffUsers.filter(u => u.managerId === managerId);
   }
 
-  const data = staffUsers.map(u => ({
-    "이름": u.username,
-    "직책": u.position || "",
-    "소속팀": teams.find(t => t.id === u.teamId)?.name || "",
-    "이메일": u.email || "",
-    "전화번호": u.phone || "",
-    "배정 구분": (u.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ") || "",
-    "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
-  }));
+  const departments = await storage.getDepartments();
+  const data = staffUsers.map(u => {
+    const team = teams.find(t => t.id === u.teamId);
+    const dept = team?.departmentId ? departments.find(d => d.id === team.departmentId) : null;
+    return {
+      "이름": u.username,
+      "직책": u.position || "",
+      "부서": dept?.name || "",
+      "소속팀": team?.name || "",
+      "이메일": u.email || "",
+      "전화번호": u.phone || "",
+      "배정 구분": (u.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ") || "",
+      "로그인 상태": u.passwordHash ? "설정완료" : (u.email ? "미설정" : "이메일없음"),
+    };
+  });
 
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
