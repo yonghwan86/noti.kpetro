@@ -215,3 +215,23 @@ Preferred communication style: Simple, everyday language.
 - Updated `requireAuth` middleware to use session-based auth instead of x-user-id header
 - Authentication flow: Admin pre-registers users with email → Users login via Replit → System matches by email and links Replit ID
 - Admin can edit user email and phone numbers via Team management page
+
+### March 2026 - Personal Data Encryption
+- Added AES-256-GCM encryption for `username` field in users table
+- `server/encryption.ts`: encrypt/decrypt utility using `ENCRYPTION_KEY` environment variable
+- Storage layer (`server/storage.ts`): encrypts username on create/update, decrypts on read
+- `server/emailAuth.ts`: decrypts username in findUserByEmail, getUserById, setUserPassword, resetUserPassword
+- `server/encryptionMigration.ts`: auto-migrates existing plaintext usernames on server startup
+- Migration flag stored in `system_settings` table to prevent re-execution
+- Email and phone fields remain plaintext (can be encrypted later if needed)
+- `isEncrypted()` helper detects already-encrypted values via `enc:` prefix
+
+### March 2026 - Asset Excel Upload Upsert
+- Modified `importAssetsFromExcel` to update existing assets when serial number matches (upsert behavior)
+- New assets require inspection cycle and last inspected date; updates allow partial fields
+- `ImportResult` now includes `updateCount` field showing how many existing records were updated
+- `ExcelImportDialog` displays update count in success message
+
+### March 2026 - Terminology Updates
+- "장비 관리" → "구분 관리" across UI and server error messages
+- "장비관리자" → "구분관리자" in server error messages

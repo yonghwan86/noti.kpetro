@@ -5,6 +5,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { decrypt } from "./encryption";
 
 const SALT_ROUNDS = 12;
 
@@ -42,7 +43,8 @@ export function setupEmailAuth(app: Express) {
 
 export async function findUserByEmail(email: string) {
   const [user] = await db.select().from(users).where(eq(users.email, email));
-  return user;
+  if (!user) return undefined;
+  return { ...user, username: decrypt(user.username) };
 }
 
 export async function setUserPassword(userId: string, password: string) {
@@ -52,7 +54,8 @@ export async function setUserPassword(userId: string, password: string) {
     .set({ passwordHash: hash })
     .where(eq(users.id, userId))
     .returning();
-  return updated;
+  if (!updated) return undefined;
+  return { ...updated, username: decrypt(updated.username) };
 }
 
 export async function resetUserPassword(userId: string) {
@@ -61,12 +64,14 @@ export async function resetUserPassword(userId: string) {
     .set({ passwordHash: null })
     .where(eq(users.id, userId))
     .returning();
-  return updated;
+  if (!updated) return undefined;
+  return { ...updated, username: decrypt(updated.username) };
 }
 
 export async function getUserById(userId: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
-  return user;
+  if (!user) return undefined;
+  return { ...user, username: decrypt(user.username) };
 }
 
 export function registerEmailAuthRoutes(app: Express) {

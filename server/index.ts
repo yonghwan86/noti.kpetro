@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initializeDatabase } from "./initDb";
 import { startScheduler } from "./scheduler";
+import { migrateEncryption } from "./encryptionMigration";
 
 const BUILD_VERSION = "v2.1.0-auto-init-20260118";
 console.log(`[SERVER] Starting with build version: ${BUILD_VERSION}`);
@@ -97,6 +98,7 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
 
       await initializeDatabase();
+      await migrateEncryption();
       startScheduler();
     },
   );

@@ -18,6 +18,18 @@ import {
 } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { addDays, parseISO, differenceInDays, isWeekend, nextMonday } from "date-fns";
+import { encrypt, decrypt } from "./encryption";
+
+function decryptUser(user: User): User {
+  return {
+    ...user,
+    username: decrypt(user.username),
+  };
+}
+
+function encryptUsername(username: string): string {
+  return encrypt(username);
+}
 
 const skipWeekends = (date: Date): Date => {
   return isWeekend(date) ? nextMonday(date) : date;
@@ -136,27 +148,37 @@ export class PostgresStorage implements IStorage {
   }
 
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    const result = await db.select().from(users);
+    return result.map(decryptUser);
   }
 
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
-    return result[0];
+    return result[0] ? decryptUser(result[0]) : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username));
-    return result[0];
+    const allUsers = await db.select().from(users);
+    const found = allUsers.find(u => decrypt(u.username) === username);
+    return found ? decryptUser(found) : undefined;
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(user).returning();
-    return result[0];
+    const encryptedUser = {
+      ...user,
+      username: encryptUsername(user.username),
+    };
+    const result = await db.insert(users).values(encryptedUser).returning();
+    return decryptUser(result[0]);
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
-    return result[0];
+    const encryptedUpdates = { ...updates };
+    if (encryptedUpdates.username) {
+      encryptedUpdates.username = encryptUsername(encryptedUpdates.username);
+    }
+    const result = await db.update(users).set(encryptedUpdates).where(eq(users.id, id)).returning();
+    return result[0] ? decryptUser(result[0]) : undefined;
   }
 
   async demoteManager(id: string): Promise<User | undefined> {
@@ -172,7 +194,7 @@ export class PostgresStorage implements IStorage {
         }
       }
       const result = await tx.update(users).set({ role: 'staff' }).where(eq(users.id, id)).returning();
-      return result[0];
+      return result[0] ? decryptUser(result[0]) : undefined;
     });
   }
 
