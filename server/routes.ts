@@ -242,10 +242,10 @@ export async function registerRoutes(
       if (currentUser.role === 'manager') {
         const targetUser = await storage.getUser(req.params.id);
         if (targetUser && targetUser.role !== 'staff') {
-          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 수정할 수 있습니다." });
+          return res.status(403).json({ error: "구분관리자는 담당자(staff) 계정만 수정할 수 있습니다." });
         }
         if (targetUser && targetUser.managerId !== null && targetUser.managerId !== currentUser.id) {
-          return res.status(403).json({ error: "다른 장비관리자에게 배정된 담당자는 수정할 수 없습니다." });
+          return res.status(403).json({ error: "다른 구분관리자에게 배정된 담당자는 수정할 수 없습니다." });
         }
         if (req.body.managerId !== undefined && req.body.managerId !== currentUser.id && req.body.managerId !== null) {
           return res.status(403).json({ error: "자신의 장비에만 배정할 수 있습니다." });
@@ -280,7 +280,7 @@ export async function registerRoutes(
       if (currentUser.role === 'manager') {
         const targetUser = await storage.getUser(req.params.id);
         if (targetUser && targetUser.role !== 'staff') {
-          return res.status(403).json({ error: "장비관리자는 담당자(staff) 계정만 삭제할 수 있습니다." });
+          return res.status(403).json({ error: "구분관리자는 담당자(staff) 계정만 삭제할 수 있습니다." });
         }
         if (targetUser && targetUser.managerId !== currentUser.id) {
           return res.status(403).json({ error: "자신에게 배정된 담당자만 삭제할 수 있습니다." });
@@ -291,7 +291,7 @@ export async function registerRoutes(
     } catch (error: any) {
       if (error.message?.startsWith("REFERENCED:")) {
         const count = error.message.split(":")[1];
-        res.status(409).json({ error: `이 사용자에게 연결된 장비가 ${count}건 있어 삭제할 수 없습니다. 먼저 해당 장비의 담당자 또는 장비관리자를 변경해주세요.` });
+        res.status(409).json({ error: `이 사용자에게 연결된 장비가 ${count}건 있어 삭제할 수 없습니다. 먼저 해당 장비의 담당자 또는 구분관리자를 변경해주세요.` });
       } else {
         res.status(500).json({ error: "사용자 삭제에 실패했습니다." });
       }
