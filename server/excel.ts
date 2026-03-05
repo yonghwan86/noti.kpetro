@@ -631,7 +631,8 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
       "일자": h.date ? format(new Date(h.date), 'yyyy-MM-dd HH:mm') : '-',
       "구분": category?.name || '-',
       "명칭": asset?.name || '-',
-      "고유번호": asset?.serialNumber || '-',
+      "추가정보": asset?.serialNumber || '-',
+      "추가정보2": asset?.notes || '-',
       "변경 유형": CHANGE_TYPE_LABELS[h.changeType] || h.changeType,
       "변경 항목": h.fieldName || '-',
       "이전 값": h.oldValue || '-',
@@ -643,7 +644,7 @@ export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: s
     };
   });
 
-  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "일자": "", "구분": "", "명칭": "", "고유번호": "", "변경 유형": "", "변경 항목": "", "이전 값": "", "변경 값": "", "수행자": "", "부서": "", "소속팀": "", "비고": "" }]);
+  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "일자": "", "구분": "", "명칭": "", "추가정보": "", "추가정보2": "", "변경 유형": "", "변경 항목": "", "이전 값": "", "변경 값": "", "수행자": "", "부서": "", "소속팀": "", "비고": "" }]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "이력");
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));

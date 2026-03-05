@@ -782,7 +782,7 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[900px] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
@@ -807,7 +807,10 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                   <TableHead>일자</TableHead>
                   <TableHead>유형</TableHead>
                   <TableHead>수행자</TableHead>
-                  <TableHead>부서/팀</TableHead>
+                  <TableHead>부서</TableHead>
+                  <TableHead>팀</TableHead>
+                  <TableHead>추가정보</TableHead>
+                  <TableHead>추가정보2</TableHead>
                   <TableHead>내용</TableHead>
                 </TableRow>
               </TableHeader>
@@ -815,7 +818,6 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                 {history.map((h) => {
                   const performer = h.userId ? users.find(u => u.id === h.userId) : null;
                   const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
-                  const performerDept = performerTeam?.department || null;
                   return (
                   <TableRow key={h.id}>
                     <TableCell className="whitespace-nowrap text-sm">
@@ -825,8 +827,11 @@ function AssetHistoryDialog({ open, onOpenChange, assetId, assets, users, catego
                       <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
-                    <TableCell className="text-sm max-w-[250px] truncate" title={h.notes || ''}>
+                    <TableCell className="text-sm text-muted-foreground">{performerTeam?.department || '-'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{performerTeam?.name || '-'}</TableCell>
+                    <TableCell className="text-sm">{asset?.serialNumber || '-'}</TableCell>
+                    <TableCell className="text-sm">{asset?.notes || '-'}</TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate" title={h.notes || ''}>
                       {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                     </TableCell>
                   </TableRow>
@@ -882,7 +887,7 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[1100px] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
@@ -921,7 +926,10 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                   <TableHead>명칭</TableHead>
                   <TableHead>유형</TableHead>
                   <TableHead>수행자</TableHead>
-                  <TableHead>부서/팀</TableHead>
+                  <TableHead>부서</TableHead>
+                  <TableHead>팀</TableHead>
+                  <TableHead>추가정보</TableHead>
+                  <TableHead>추가정보2</TableHead>
                   <TableHead>내용</TableHead>
                 </TableRow>
               </TableHeader>
@@ -931,7 +939,6 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                   const cat = asset ? categories.find(c => c.id === asset.categoryId) : null;
                   const performer = h.userId ? users.find(u => u.id === h.userId) : null;
                   const performerTeam = performer ? teams.find(t => t.id === performer.teamId) : null;
-                  const performerDept = performerTeam?.department || null;
                   return (
                     <TableRow key={h.id}>
                       <TableCell className="whitespace-nowrap text-sm">
@@ -943,7 +950,10 @@ function GlobalHistoryDialog({ open, onOpenChange, categoryFilter, assets, users
                         <Badge variant="outline">{CHANGE_TYPE_LABELS[h.changeType] || h.changeType}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">{performer?.username || '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{performerDept ? `${performerDept} / ${performerTeam?.name}` : (performerTeam?.name || '-')}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{performerTeam?.department || '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{performerTeam?.name || '-'}</TableCell>
+                      <TableCell className="text-sm">{asset?.serialNumber || '-'}</TableCell>
+                      <TableCell className="text-sm">{asset?.notes || '-'}</TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate" title={h.notes || ''}>
                         {h.notes || (h.fieldName ? `${h.fieldName}: ${h.oldValue || '-'} → ${h.newValue || '-'}` : '-')}
                       </TableCell>
@@ -1115,7 +1125,7 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-notes">추가정보2</Label>
-              <Input id="edit-notes" {...register("notes")} placeholder="Number, Code 등" data-testid="input-edit-asset-notes" />
+              <Input id="edit-notes" {...register("notes")} placeholder="기타(오차량 등)" data-testid="input-edit-asset-notes" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -1369,7 +1379,7 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-notes">추가정보2</Label>
-              <Input id="add-notes" {...register("notes")} placeholder="Number, Code 등" data-testid="input-asset-notes" />
+              <Input id="add-notes" {...register("notes")} placeholder="기타(오차량 등)" data-testid="input-asset-notes" />
             </div>
           </div>
 
