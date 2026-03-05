@@ -217,7 +217,9 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
                   <>
                     <DropdownMenuLabel>역할별 보기 전환 (개발용)</DropdownMenuLabel>
                     {['admin', 'manager', 'staff'].map((role) => {
-                      const representativeUser = users.find(u => u.role === role);
+                      const representativeUser = role === 'staff' 
+                        ? users.find(u => u.role === role && u.username === '권용환') || users.find(u => u.role === role)
+                        : users.find(u => u.role === role);
                       if (!representativeUser) return null;
                       
                       return (
