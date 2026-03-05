@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Role, Team as TeamType, Category } from "@/lib/types";
+import { useState, useMemo } from "react";
+import { User, Role, Team as TeamType, Category, Asset } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -82,6 +82,21 @@ export default function Team() {
     queryKey: ["/api/categories"],
     queryFn: () => api.categories.getAll(),
   });
+
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+    queryFn: () => api.assets.getAll(),
+  });
+
+  const userAssetCategoryMap = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    for (const asset of assets) {
+      if (!asset.staffId || !asset.categoryId) continue;
+      if (!map[asset.staffId]) map[asset.staffId] = {};
+      map[asset.staffId][asset.categoryId] = (map[asset.staffId][asset.categoryId] || 0) + 1;
+    }
+    return map;
+  }, [assets]);
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (id: string) => api.categories.delete(id),
@@ -245,7 +260,7 @@ export default function Team() {
       if (isManager && currentUser) {
         if (user.managerId !== currentUser.id) return false;
         if (managerCategoryFilter !== "all") {
-          if (!(user.assignedCategoryIds || []).includes(managerCategoryFilter)) return false;
+          if (!userAssetCategoryMap[user.id]?.[managerCategoryFilter]) return false;
         }
       }
       const search = searchTerm.toLowerCase();
@@ -291,7 +306,7 @@ export default function Team() {
             {isAdmin && (
               <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 대상 관리자 (역할)</TabsTrigger>
             )}
-            <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> 전체 사용자</TabsTrigger>
+            <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
             )}
@@ -574,7 +589,7 @@ export default function Team() {
                   <TableHead>이름</TableHead>
                   <TableHead>직책</TableHead>
                   <TableHead>소속팀</TableHead>
-                  {isManager && <TableHead>배정 대상</TableHead>}
+                  <TableHead>담당 장비</TableHead>
                   <TableHead>이메일</TableHead>
                   <TableHead>전화번호</TableHead>
                   <TableHead>로그인</TableHead>
@@ -584,7 +599,7 @@ export default function Team() {
               <TableBody>
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isManager ? 8 : 7} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                       {isAdmin 
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
@@ -598,13 +613,14 @@ export default function Team() {
                       <TableCell>
                         {teams.find((t) => t.id === user.teamId)?.name || "-"}
                       </TableCell>
-                      {isManager && (
-                        <TableCell>
-                          {(user.assignedCategoryIds || []).length > 0
-                            ? (user.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean).join(", ")
-                            : <span className="text-muted-foreground">미지정</span>}
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        {userAssetCategoryMap[user.id]
+                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, count]) => {
+                              const catName = categories.find(c => c.id === catId)?.name || catId;
+                              return `${catName}(${count})`;
+                            }).join(", ")
+                          : <span className="text-muted-foreground">미지정</span>}
+                      </TableCell>
                       <TableCell>{user.email || "-"}</TableCell>
                       <TableCell>{user.phone || "-"}</TableCell>
                       <TableCell>
