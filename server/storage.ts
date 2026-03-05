@@ -10,11 +10,17 @@ import {
   type InsertAsset,
   type InspectionLog,
   type InsertInspectionLog,
+  type Department,
+  type InsertDepartment,
+  type AssetHistory,
+  type InsertAssetHistory,
   users,
   teams,
   categories,
   assets,
-  inspectionLogs
+  inspectionLogs,
+  departments,
+  assetHistory
 } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { addDays, parseISO, differenceInDays, isWeekend, nextMonday } from "date-fns";
@@ -42,7 +48,8 @@ const calculateNextDueDate = (lastDate: string, cycleDays: number): string => {
   return adjusted.toISOString().split('T')[0];
 };
 
-const calculateStatus = (nextDueDate: string): 'ok' | 'upcoming' | 'overdue' => {
+const calculateStatus = (nextDueDate: string, suspendedReason?: string | null): 'ok' | 'upcoming' | 'overdue' | 'suspended' => {
+  if (suspendedReason) return 'suspended';
   const today = new Date();
   const due = parseISO(nextDueDate);
   const diff = differenceInDays(due, today);
@@ -53,6 +60,12 @@ const calculateStatus = (nextDueDate: string): 'ok' | 'upcoming' | 'overdue' => 
 };
 
 export interface IStorage {
+  getDepartments(): Promise<Department[]>;
+  getDepartment(id: string): Promise<Department | undefined>;
+  createDepartment(dept: InsertDepartment): Promise<Department>;
+  updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined>;
+  deleteDepartment(id: string): Promise<void>;
+
   getTeams(): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
@@ -78,14 +91,49 @@ export interface IStorage {
   createAsset(asset: InsertAsset): Promise<Asset>;
   updateAsset(id: string, updates: Partial<Asset>): Promise<Asset | undefined>;
   updateAssetInspection(id: string, newDate: string): Promise<Asset | undefined>;
+  suspendAsset(id: string, reason: string): Promise<Asset | undefined>;
+  resumeAsset(id: string): Promise<Asset | undefined>;
   deleteAsset(id: string): Promise<void>;
 
   getLogs(): Promise<InspectionLog[]>;
   getLog(id: string): Promise<InspectionLog | undefined>;
   createLog(log: InsertInspectionLog): Promise<InspectionLog>;
+
+  getAssetHistoryByAsset(assetId: string): Promise<AssetHistory[]>;
+  getAssetHistoryByCategory(categoryId: string): Promise<AssetHistory[]>;
+  getAllAssetHistory(): Promise<AssetHistory[]>;
+  createAssetHistory(entry: InsertAssetHistory): Promise<AssetHistory>;
 }
 
 export class PostgresStorage implements IStorage {
+  async getDepartments(): Promise<Department[]> {
+    return await db.select().from(departments);
+  }
+
+  async getDepartment(id: string): Promise<Department | undefined> {
+    const result = await db.select().from(departments).where(eq(departments.id, id));
+    return result[0];
+  }
+
+  async createDepartment(dept: InsertDepartment): Promise<Department> {
+    const result = await db.insert(departments).values(dept).returning();
+    return result[0];
+  }
+
+  async updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const result = await db.update(departments).set(updates).where(eq(departments.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteDepartment(id: string): Promise<void> {
+    const referencedTeams = await db.select({ id: teams.id }).from(teams)
+      .where(eq(teams.departmentId, id));
+    if (referencedTeams.length > 0) {
+      throw new Error(`REFERENCED:${referencedTeams.length}:teams`);
+    }
+    await db.delete(departments).where(eq(departments.id, id));
+  }
+
   async getTeams(): Promise<Team[]> {
     return await db.select().from(teams);
   }
@@ -237,6 +285,12 @@ export class PostgresStorage implements IStorage {
     const asset = await this.getAsset(id);
     if (!asset) return undefined;
 
+    if (asset.status === 'suspended' && !updates.suspendedReason && updates.suspendedReason !== null) {
+      updates.status = 'suspended';
+      const result = await db.update(assets).set(updates).where(eq(assets.id, id)).returning();
+      return result[0];
+    }
+
     let nextDueDate = asset.nextDueDate;
     if (updates.inspectionCycleDays || updates.lastInspectedDate) {
       const cycleDays = updates.inspectionCycleDays ?? asset.inspectionCycleDays;
@@ -244,7 +298,8 @@ export class PostgresStorage implements IStorage {
       nextDueDate = calculateNextDueDate(lastDate, cycleDays);
     }
 
-    const status = calculateStatus(nextDueDate);
+    const suspendedReason = updates.suspendedReason !== undefined ? updates.suspendedReason : asset.suspendedReason;
+    const status = calculateStatus(nextDueDate, suspendedReason);
     
     const result = await db.update(assets).set({
       ...updates,
@@ -259,7 +314,7 @@ export class PostgresStorage implements IStorage {
     if (!asset) return undefined;
 
     const nextDueDate = calculateNextDueDate(newDate, asset.inspectionCycleDays);
-    const status = calculateStatus(nextDueDate);
+    const status = calculateStatus(nextDueDate, asset.suspendedReason);
 
     const result = await db.update(assets).set({
       lastInspectedDate: newDate,
@@ -270,8 +325,29 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async suspendAsset(id: string, reason: string): Promise<Asset | undefined> {
+    const result = await db.update(assets).set({
+      suspendedReason: reason,
+      status: 'suspended'
+    }).where(eq(assets.id, id)).returning();
+    return result[0];
+  }
+
+  async resumeAsset(id: string): Promise<Asset | undefined> {
+    const asset = await this.getAsset(id);
+    if (!asset) return undefined;
+
+    const status = calculateStatus(asset.nextDueDate);
+    const result = await db.update(assets).set({
+      suspendedReason: null,
+      status
+    }).where(eq(assets.id, id)).returning();
+    return result[0];
+  }
+
   async deleteAsset(id: string): Promise<void> {
     await db.delete(inspectionLogs).where(eq(inspectionLogs.assetId, id));
+    await db.delete(assetHistory).where(eq(assetHistory.assetId, id));
     await db.delete(assets).where(eq(assets.id, id));
   }
 
@@ -286,6 +362,31 @@ export class PostgresStorage implements IStorage {
 
   async createLog(log: InsertInspectionLog): Promise<InspectionLog> {
     const result = await db.insert(inspectionLogs).values(log).returning();
+    return result[0];
+  }
+
+  async getAssetHistoryByAsset(assetId: string): Promise<AssetHistory[]> {
+    return await db.select().from(assetHistory)
+      .where(eq(assetHistory.assetId, assetId))
+      .orderBy(desc(assetHistory.date));
+  }
+
+  async getAssetHistoryByCategory(categoryId: string): Promise<AssetHistory[]> {
+    const categoryAssets = await db.select({ id: assets.id }).from(assets)
+      .where(eq(assets.categoryId, categoryId));
+    const assetIds = categoryAssets.map(a => a.id);
+    if (assetIds.length === 0) return [];
+    
+    const allHistory = await db.select().from(assetHistory).orderBy(desc(assetHistory.date));
+    return allHistory.filter(h => assetIds.includes(h.assetId));
+  }
+
+  async getAllAssetHistory(): Promise<AssetHistory[]> {
+    return await db.select().from(assetHistory).orderBy(desc(assetHistory.date));
+  }
+
+  async createAssetHistory(entry: InsertAssetHistory): Promise<AssetHistory> {
+    const result = await db.insert(assetHistory).values(entry).returning();
     return result[0];
   }
 }

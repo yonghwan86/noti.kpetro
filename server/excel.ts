@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { storage } from "./storage";
-import type { Team, User, Asset } from "@shared/schema";
+import type { Team, User, Asset, AssetHistory } from "@shared/schema";
+import { format } from "date-fns";
 
 export async function exportTeamsToExcel(): Promise<Buffer> {
   const teams = await storage.getTeams();
@@ -555,5 +556,54 @@ export function getAssetTemplate(): Buffer {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "장비");
+  return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+}
+
+const CHANGE_TYPE_LABELS: Record<string, string> = {
+  'created': '신규 등록',
+  'updated': '정보 수정',
+  'inspected': '점검 수행',
+  'suspended': '중단',
+  'resumed': '재개',
+  'staff_changed': '담당자 변경',
+  'manager_changed': '관리자 변경',
+};
+
+export async function exportAssetHistoryToExcel(assetId?: string, categoryId?: string): Promise<Buffer> {
+  let history: AssetHistory[];
+  if (assetId) {
+    history = await storage.getAssetHistoryByAsset(assetId);
+  } else if (categoryId) {
+    history = await storage.getAssetHistoryByCategory(categoryId);
+  } else {
+    history = await storage.getAllAssetHistory();
+  }
+
+  const allAssets = await storage.getAssets();
+  const users = await storage.getUsers();
+  const categories = await storage.getCategories();
+
+  const data = history.map(h => {
+    const asset = allAssets.find(a => a.id === h.assetId);
+    const user = users.find(u => u.id === h.userId);
+    const category = asset ? categories.find(c => c.id === asset.categoryId) : null;
+
+    return {
+      "일자": h.date ? format(new Date(h.date), 'yyyy-MM-dd HH:mm') : '-',
+      "구분": category?.name || '-',
+      "명칭": asset?.name || '-',
+      "고유번호": asset?.serialNumber || '-',
+      "변경 유형": CHANGE_TYPE_LABELS[h.changeType] || h.changeType,
+      "변경 항목": h.fieldName || '-',
+      "이전 값": h.oldValue || '-',
+      "변경 값": h.newValue || '-',
+      "수행자": user?.username || '-',
+      "비고": h.notes || '-',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "일자": "", "구분": "", "명칭": "", "고유번호": "", "변경 유형": "", "변경 항목": "", "이전 값": "", "변경 값": "", "수행자": "", "비고": "" }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "이력");
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }

@@ -8,7 +8,8 @@ import {
   insertUserSchema, 
   insertAssetSchema,
   insertInspectionLogSchema,
-  insertCategorySchema
+  insertCategorySchema,
+  insertDepartmentSchema
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
@@ -25,6 +26,49 @@ export async function registerRoutes(
   setupEmailAuth(app);
   registerEmailAuthRoutes(app);
   
+  app.get("/api/departments", async (req, res) => {
+    try {
+      const depts = await storage.getDepartments();
+      res.json(depts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch departments" });
+    }
+  });
+
+  app.post("/api/departments", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const dept = insertDepartmentSchema.parse(req.body);
+      const created = await storage.createDepartment(dept);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid department data" });
+    }
+  });
+
+  app.patch("/api/departments/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      const updated = await storage.updateDepartment(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Department not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/departments/:id", requireAuth(['admin']), async (req: Request, res: Response) => {
+    try {
+      await storage.deleteDepartment(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      if (error.message?.startsWith("REFERENCED:")) {
+        const parts = error.message.split(":");
+        res.status(409).json({ error: `이 부서에 소속된 팀이 ${parts[1]}개 있어 삭제할 수 없습니다.` });
+      } else {
+        res.status(500).json({ error: "부서 삭제에 실패했습니다." });
+      }
+    }
+  });
+
   app.get("/api/teams", async (req, res) => {
     try {
       const teams = await storage.getTeams();
@@ -331,6 +375,13 @@ export async function registerRoutes(
         inspectorId: currentUser.id,
         notes: '장비 신규 등록'
       });
+
+      await storage.createAssetHistory({
+        assetId: created.id,
+        userId: currentUser.id,
+        changeType: 'created',
+        notes: '장비 신규 등록'
+      });
       
       res.status(201).json(created);
     } catch (error) {
@@ -369,6 +420,50 @@ export async function registerRoutes(
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to import assets" });
+    }
+  });
+
+  app.post("/api/assets/batch-inspect", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const { assetIds, date } = req.body;
+      
+      if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
+        return res.status(400).json({ error: "점검할 장비를 선택해주세요" });
+      }
+      if (!date) {
+        return res.status(400).json({ error: "점검일을 선택해주세요" });
+      }
+
+      const results = [];
+      for (const assetId of assetIds) {
+        const asset = await storage.getAsset(assetId);
+        if (!asset) continue;
+        if (!auth.canInspectAsset(currentUser, asset)) continue;
+
+        const updated = await storage.updateAssetInspection(assetId, date);
+        if (updated) {
+          await storage.createLog({
+            assetId: updated.id,
+            inspectorId: currentUser.id,
+            notes: `정기 점검 수행 (다음 예정일: ${updated.nextDueDate})`
+          });
+          await storage.createAssetHistory({
+            assetId: updated.id,
+            userId: currentUser.id,
+            changeType: 'inspected',
+            fieldName: 'lastInspectedDate',
+            oldValue: asset.lastInspectedDate,
+            newValue: date,
+            notes: `일괄 점검 수행 (다음 예정일: ${updated.nextDueDate})`
+          });
+          results.push(updated);
+        }
+      }
+
+      res.json({ success: true, count: results.length, assets: results });
+    } catch (error) {
+      res.status(500).json({ error: "일괄 점검 처리에 실패했습니다." });
     }
   });
 
@@ -423,6 +518,16 @@ export async function registerRoutes(
         notes: notes || `정기 점검 수행 (다음 예정일: ${updated.nextDueDate})`
       });
 
+      await storage.createAssetHistory({
+        assetId: updated.id,
+        userId: currentUser.id,
+        changeType: 'inspected',
+        fieldName: 'lastInspectedDate',
+        oldValue: asset.lastInspectedDate,
+        newValue: date,
+        notes: `점검 수행 (다음 예정일: ${updated.nextDueDate})`
+      });
+
       res.json(updated);
     } catch (error) {
       res.status(400).json({ error: "Failed to update inspection" });
@@ -442,6 +547,92 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete asset" });
+    }
+  });
+
+  app.post("/api/assets/:id/suspend", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ error: "중단 사유를 입력해주세요" });
+      }
+      const currentUser = (req as any).currentUser;
+      const asset = await storage.getAsset(req.params.id);
+      if (!asset) return res.status(404).json({ error: "Asset not found" });
+
+      const updated = await storage.suspendAsset(req.params.id, reason);
+      
+      await storage.createAssetHistory({
+        assetId: req.params.id,
+        userId: currentUser.id,
+        changeType: 'suspended',
+        fieldName: 'status',
+        oldValue: asset.status,
+        newValue: 'suspended',
+        notes: reason
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "중단 처리에 실패했습니다." });
+    }
+  });
+
+  app.post("/api/assets/:id/resume", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const asset = await storage.getAsset(req.params.id);
+      if (!asset) return res.status(404).json({ error: "Asset not found" });
+
+      const updated = await storage.resumeAsset(req.params.id);
+
+      await storage.createAssetHistory({
+        assetId: req.params.id,
+        userId: currentUser.id,
+        changeType: 'resumed',
+        fieldName: 'status',
+        oldValue: 'suspended',
+        newValue: updated?.status || 'ok',
+        notes: `중단 해제 (이전 사유: ${asset.suspendedReason})`
+      });
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "재개 처리에 실패했습니다." });
+    }
+  });
+
+  app.get("/api/assets/:id/history", async (req: Request, res: Response) => {
+    try {
+      const history = await storage.getAssetHistoryByAsset(req.params.id);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: "이력 조회에 실패했습니다." });
+    }
+  });
+
+  app.get("/api/history", async (req: Request, res: Response) => {
+    try {
+      const categoryId = req.query.categoryId as string | undefined;
+      const history = categoryId 
+        ? await storage.getAssetHistoryByCategory(categoryId)
+        : await storage.getAllAssetHistory();
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: "이력 조회에 실패했습니다." });
+    }
+  });
+
+  app.get("/api/history/export", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const categoryId = req.query.categoryId as string | undefined;
+      const assetId = req.query.assetId as string | undefined;
+      const buffer = await excel.exportAssetHistoryToExcel(assetId, categoryId);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=asset_history.xlsx");
+      res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ error: "이력 내보내기에 실패했습니다." });
     }
   });
 

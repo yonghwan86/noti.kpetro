@@ -1,4 +1,4 @@
-import { Asset, Team, User, InspectionLog, Category } from "./types";
+import { Asset, Team, User, InspectionLog, Category, Department, AssetHistory } from "./types";
 
 const API_BASE = "/api";
 
@@ -22,6 +22,42 @@ async function handleResponse<T>(res: Response, errorMessage: string): Promise<T
 }
 
 export const api = {
+  departments: {
+    getAll: async (): Promise<Department[]> => {
+      const res = await fetch(`${API_BASE}/departments`, fetchOptions);
+      return handleResponse(res, "Failed to fetch departments");
+    },
+    create: async (dept: Omit<Department, "id">): Promise<Department> => {
+      const res = await fetch(`${API_BASE}/departments`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(dept),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to create department");
+    },
+    update: async (id: string, updates: Partial<Department>): Promise<Department> => {
+      const res = await fetch(`${API_BASE}/departments/${id}`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to update department");
+    },
+    delete: async (id: string): Promise<void> => {
+      const res = await fetch(`${API_BASE}/departments/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        ...fetchOptions,
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to delete department" }));
+        throw new Error(error.error || "Failed to delete department");
+      }
+    },
+  },
+
   teams: {
     getAll: async (): Promise<Team[]> => {
       const res = await fetch(`${API_BASE}/teams`, fetchOptions);
@@ -162,6 +198,32 @@ export const api = {
       });
       return handleResponse(res, "Failed to update inspection");
     },
+    suspend: async (id: string, reason: string): Promise<Asset> => {
+      const res = await fetch(`${API_BASE}/assets/${id}/suspend`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason }),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to suspend asset");
+    },
+    resume: async (id: string): Promise<Asset> => {
+      const res = await fetch(`${API_BASE}/assets/${id}/resume`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to resume asset");
+    },
+    batchInspect: async (assetIds: string[], date: string): Promise<{ success: boolean; count: number; assets: Asset[] }> => {
+      const res = await fetch(`${API_BASE}/assets/batch-inspect`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ assetIds, date }),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to batch inspect assets");
+    },
     delete: async (id: string): Promise<void> => {
       const res = await fetch(`${API_BASE}/assets/${id}`, { 
         method: "DELETE",
@@ -172,6 +234,18 @@ export const api = {
         const error = await res.json().catch(() => ({ error: "Failed to delete asset" }));
         throw new Error(error.error || "Failed to delete asset");
       }
+    },
+  },
+
+  history: {
+    getByAsset: async (assetId: string): Promise<AssetHistory[]> => {
+      const res = await fetch(`${API_BASE}/assets/${assetId}/history`, fetchOptions);
+      return handleResponse(res, "Failed to fetch history");
+    },
+    getAll: async (categoryId?: string): Promise<AssetHistory[]> => {
+      const url = categoryId ? `${API_BASE}/history?categoryId=${categoryId}` : `${API_BASE}/history`;
+      const res = await fetch(url, fetchOptions);
+      return handleResponse(res, "Failed to fetch history");
     },
   },
 

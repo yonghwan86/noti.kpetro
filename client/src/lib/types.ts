@@ -2,9 +2,15 @@ import { differenceInDays, parseISO } from 'date-fns';
 
 export type Role = 'admin' | 'manager' | 'staff';
 
+export interface Department {
+  id: string;
+  name: string;
+}
+
 export interface Team {
   id: string;
   name: string;
+  departmentId?: string | null;
   type: 'management' | 'usage';
   contactEmail: string;
   phone?: string | null;
@@ -34,21 +40,22 @@ export interface Category {
   defaultCycleDays?: number | null;
 }
 
-export type AssetStatus = 'ok' | 'upcoming' | 'overdue';
+export type AssetStatus = 'ok' | 'upcoming' | 'overdue' | 'suspended';
 
 export interface Asset {
   id: string;
   name: string;
   serialNumber: string;
   categoryId?: string | null;
-  teamId: string; // Managing Team (관리 팀)
-  managerId: string; // Equipment Manager (장비 관리자)
-  usageTeamId: string; // Usage Team (사용 팀)
-  staffId: string; // Staff/Person in Charge (담당자)
+  teamId: string;
+  managerId: string;
+  usageTeamId: string;
+  staffId: string;
   inspectionCycleDays: number;
-  lastInspectedDate: string; // ISO date string
-  nextDueDate: string; // ISO date string
+  lastInspectedDate: string;
+  nextDueDate: string;
   status: AssetStatus;
+  suspendedReason?: string | null;
   notes?: string;
 }
 
@@ -58,4 +65,16 @@ export interface InspectionLog {
   inspectorId: string;
   date: string;
   notes: string;
+}
+
+export interface AssetHistory {
+  id: string;
+  assetId: string;
+  userId?: string | null;
+  changeType: string;
+  fieldName?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  date: string;
+  notes?: string | null;
 }

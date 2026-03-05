@@ -15,13 +15,15 @@ async function checkUpcomingInspections() {
     today.setHours(0, 0, 0, 0);
     const sevenDaysFromNow = addDays(today, 7);
     
-    const upcomingAssets = assets.filter(asset => {
+    const activeAssets = assets.filter(asset => asset.status !== 'suspended');
+
+    const upcomingAssets = activeAssets.filter(asset => {
       if (!asset.nextDueDate) return false;
       const dueDate = parseISO(asset.nextDueDate);
       return isAfter(dueDate, today) && isBefore(dueDate, sevenDaysFromNow);
     });
 
-    const overdueAssets = assets.filter(asset => {
+    const overdueAssets = activeAssets.filter(asset => {
       if (!asset.nextDueDate) return false;
       const dueDate = parseISO(asset.nextDueDate);
       return isBefore(dueDate, today);

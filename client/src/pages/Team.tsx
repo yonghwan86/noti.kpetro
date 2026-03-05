@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { User, Role, Team as TeamType, Category, Asset } from "@/lib/types";
+import { User, Role, Team as TeamType, Category, Asset, Department } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -86,6 +86,44 @@ export default function Team() {
   const { data: assets = [] } = useQuery<Asset[]>({
     queryKey: ["/api/assets"],
     queryFn: () => api.assets.getAll(),
+  });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+    queryFn: () => api.departments.getAll(),
+  });
+
+  const createDeptMutation = useMutation({
+    mutationFn: (name: string) => api.departments.create({ name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      toast({ title: "부서 등록 완료", description: "새 부서가 등록되었습니다." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "부서 등록 실패", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateDeptMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.departments.update(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      toast({ title: "부서 수정 완료" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "부서 수정 실패", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteDeptMutation = useMutation({
+    mutationFn: (id: string) => api.departments.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      toast({ title: "부서 삭제됨", variant: "destructive" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "부서 삭제 실패", description: error.message, variant: "destructive" });
+    },
   });
 
   const userAssetCategoryMap = useMemo(() => {
@@ -300,7 +338,10 @@ export default function Team() {
 
       <Tabs defaultValue={(isAdmin || isManager) ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto flex-wrap">
+            {isAdmin && (
+              <TabsTrigger value="departments" className="gap-2"><Building2 className="w-4 h-4"/> 부서</TabsTrigger>
+            )}
             {(isAdmin || isManager) && (
               <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
             )}
@@ -323,6 +364,17 @@ export default function Team() {
             />
           </div>
         </div>
+
+        {isAdmin && <TabsContent value="departments" className="space-y-4">
+          <DepartmentsTab
+            departments={departments}
+            teams={teams}
+            onCreate={(name) => createDeptMutation.mutate(name)}
+            onUpdate={(id, name) => updateDeptMutation.mutate({ id, name })}
+            onDelete={(id) => deleteDeptMutation.mutate(id)}
+            searchTerm={searchTerm}
+          />
+        </TabsContent>}
 
         {(isAdmin || isManager) && <TabsContent value="equipTypes" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -1914,10 +1966,11 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
   );
 }
 
-function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamType[], onEdit: (id: string, data: Partial<TeamType>) => void }) {
+function EditTeamDialog({ team, teams, onEdit, departments }: { team: TeamType, teams: TeamType[], onEdit: (id: string, data: Partial<TeamType>) => void, departments: Department[] }) {
   const [open, setOpen] = useState(false);
   const [teamNameOpen, setTeamNameOpen] = useState(false);
   const [teamNameSearch, setTeamNameSearch] = useState(team.name);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(team.departmentId || "");
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       name: team.name,
@@ -1935,12 +1988,20 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
   );
 
   const onSubmit = (data: any) => {
-    onEdit(team.id, data);
+    onEdit(team.id, { ...data, departmentId: selectedDeptId || null });
     setOpen(false);
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setSelectedDeptId(team.departmentId || "");
+      setTeamNameSearch(team.name);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
           <Pencil className="mr-2 h-4 w-4" />
@@ -1993,6 +2054,20 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
               )}
             </Popover>
           </div>
+          {departments.length > 0 && (
+            <div className="space-y-2">
+              <Label>소속 부서</Label>
+              <Select value={selectedDeptId} onValueChange={setSelectedDeptId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="부서 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">선택 안함</SelectItem>
+                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">팀장 연락처</Label>
             <div className="grid grid-cols-2 gap-4">
@@ -2025,6 +2100,124 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DepartmentsTab({ departments, teams, onCreate, onUpdate, onDelete, searchTerm }: {
+  departments: Department[];
+  teams: TeamType[];
+  onCreate: (name: string) => void;
+  onUpdate: (id: string, name: string) => void;
+  onDelete: (id: string) => void;
+  searchTerm: string;
+}) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const filtered = departments.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <p className="text-sm text-muted-foreground hidden sm:block">
+          부서를 등록하고 팀을 부서에 배정합니다.
+        </p>
+        <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) setNewName(""); }}>
+          <DialogTrigger asChild>
+            <Button className="gap-2" data-testid="button-add-department">
+              <Plus className="w-4 h-4" /> 부서 등록
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>부서 등록</DialogTitle>
+              <DialogDescription>새 부서를 등록합니다.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); if (newName.trim()) { onCreate(newName.trim()); setNewName(""); setAddOpen(false); } }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>부서명</Label>
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 검사본부" data-testid="input-department-name" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={!newName.trim()} data-testid="button-submit-department">등록</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+        <Table className="min-w-[400px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>부서명</TableHead>
+              <TableHead>소속 팀 수</TableHead>
+              <TableHead className="text-right">관리</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="h-24 text-center">등록된 부서가 없습니다.</TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((dept) => {
+                const teamCount = teams.filter(t => t.departmentId === dept.id).length;
+                const isEditing = editId === dept.id;
+                return (
+                  <TableRow key={dept.id} data-testid={`row-department-${dept.id}`}>
+                    <TableCell>
+                      {isEditing ? (
+                        <form onSubmit={(e) => { e.preventDefault(); if (editName.trim()) { onUpdate(dept.id, editName.trim()); setEditId(null); } }} className="flex gap-2">
+                          <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 w-40" autoFocus />
+                          <Button type="submit" size="sm" variant="outline">저장</Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setEditId(null)}>취소</Button>
+                        </form>
+                      ) : (
+                        <span className="font-medium">{dept.name}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{teamCount}개</TableCell>
+                    <TableCell className="text-right">
+                      {!isEditing && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-dept-menu-${dept.id}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>작업</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => { setEditId(dept.id); setEditName(dept.name); }}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              수정
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => {
+                                if (confirm(`"${dept.name}" 부서를 삭제하시겠습니까?`)) {
+                                  onDelete(dept.id);
+                                }
+                              }}
+                              data-testid={`button-delete-dept-${dept.id}`}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 

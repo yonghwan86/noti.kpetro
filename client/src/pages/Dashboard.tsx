@@ -51,13 +51,16 @@ export default function Dashboard() {
   const overdueAssets = assets.filter(a => a.status === 'overdue').length;
   const upcomingAssets = assets.filter(a => a.status === 'upcoming').length;
   const okAssets = assets.filter(a => a.status === 'ok').length;
+  const suspendedAssets = assets.filter(a => a.status === 'suspended').length;
 
-  const complianceRate = totalAssets > 0 ? Math.round(((totalAssets - overdueAssets) / totalAssets) * 100) : 100;
+  const activeTotal = totalAssets - suspendedAssets;
+  const complianceRate = activeTotal > 0 ? Math.round(((activeTotal - overdueAssets) / activeTotal) * 100) : 100;
 
   const statusData = [
     { name: '정상', value: okAssets, color: '#22c55e' },
     { name: '임박', value: upcomingAssets, color: '#eab308' },
     { name: '지연', value: overdueAssets, color: '#ef4444' },
+    ...(suspendedAssets > 0 ? [{ name: '중단', value: suspendedAssets, color: '#6b7280' }] : []),
   ];
 
   const getManagerIcon = (name: string) => {

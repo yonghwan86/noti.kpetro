@@ -13,9 +13,19 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+});
+
+export const insertDepartmentSchema = createInsertSchema(departments).omit({ id: true });
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
+
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  departmentId: varchar("department_id"),
   type: text("type").notNull().default("management"),
   contactEmail: text("contact_email"),
   phone: text("phone"),
@@ -26,6 +36,7 @@ export const teams = pgTable("teams", {
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
   type: z.enum(["management", "usage"]).default("management"),
   contactEmail: z.string().nullable().optional(),
+  departmentId: z.string().nullable().optional(),
 });
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
@@ -72,13 +83,15 @@ export const assets = pgTable("assets", {
   lastInspectedDate: text("last_inspected_date").notNull(),
   nextDueDate: text("next_due_date").notNull(),
   status: text("status").notNull(),
+  suspendedReason: text("suspended_reason"),
   notes: text("notes"),
 });
 
 export const insertAssetSchema = createInsertSchema(assets).omit({ 
   id: true,
   nextDueDate: true,
-  status: true
+  status: true,
+  suspendedReason: true
 });
 export type InsertAsset = z.infer<typeof insertAssetSchema>;
 export type Asset = typeof assets.$inferSelect;
@@ -96,3 +109,19 @@ export const insertInspectionLogSchema = createInsertSchema(inspectionLogs).omit
 });
 export type InsertInspectionLog = z.infer<typeof insertInspectionLogSchema>;
 export type InspectionLog = typeof inspectionLogs.$inferSelect;
+
+export const assetHistory = pgTable("asset_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetId: varchar("asset_id").notNull(),
+  userId: varchar("user_id"),
+  changeType: text("change_type").notNull(),
+  fieldName: text("field_name"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  date: timestamp("date").notNull().defaultNow(),
+  notes: text("notes"),
+});
+
+export const insertAssetHistorySchema = createInsertSchema(assetHistory).omit({ id: true });
+export type InsertAssetHistory = z.infer<typeof insertAssetHistorySchema>;
+export type AssetHistory = typeof assetHistory.$inferSelect;
