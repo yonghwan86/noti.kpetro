@@ -1132,6 +1132,10 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
               </div>
             )}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes">추가정보</Label>
+            <Input id="edit-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-edit-asset-notes" />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당 부서</Label>
@@ -1203,11 +1207,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories, departments 
           {watchedLastDate && effectiveCycleDays > 0 && (
             <InspectionCyclePreview lastDate={watchedLastDate} cycleDays={effectiveCycleDays} />
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-notes">추가정보</Label>
-            <Input id="edit-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-edit-asset-notes" />
-          </div>
 
           <DialogFooter>
             <Button type="submit">저장</Button>
@@ -1387,6 +1386,11 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="add-notes">추가정보</Label>
+            <Input id="add-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-asset-notes" />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당 부서</Label>
@@ -1467,11 +1471,6 @@ function AddAssetDialog({ teams, users, categories, currentUser, departments }: 
           {lastDate && effectiveCycleDays > 0 && (
             <InspectionCyclePreview lastDate={lastDate} cycleDays={effectiveCycleDays} />
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="add-notes">추가정보</Label>
-            <Input id="add-notes" {...register("notes")} placeholder="추가정보를 입력하세요" data-testid="input-asset-notes" />
-          </div>
 
           <DialogFooter className="mt-4">
             <Button type="submit" data-testid="button-submit-asset">등록 완료</Button>
