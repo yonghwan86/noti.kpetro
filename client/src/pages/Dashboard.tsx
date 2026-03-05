@@ -195,7 +195,7 @@ export default function Dashboard() {
             <CardTitle>대상이 없습니다</CardTitle>
             <CardDescription>
               {currentUser?.role === 'admin' 
-                ? '시스템에 등록된 대상이 없습니다. 스케줄 관리 메뉴에서 새 대상을 등록하세요.'
+                ? '시스템에 등록된 대상이 없습니다. AI 업무 알림 서비스 메뉴에서 새 대상을 등록하세요.'
                 : currentUser?.role === 'manager'
                 ? '관리 중인 대상이 없습니다. 마스터에게 배정을 요청하세요.'
                 : '담당 대상이 없습니다. 구분 관리자에게 배정을 요청하세요.'}

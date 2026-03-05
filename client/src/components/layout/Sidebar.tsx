@@ -24,8 +24,8 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
 
   const navigation = [
     { name: '대시보드', href: '/', icon: LayoutDashboard, show: true },
-    { name: '스케줄 관리', href: '/assets', icon: Package, show: true },
-    { name: '대상 및 사용자 관리', href: '/team', icon: Users, show: auth.canAccessTeamPage(currentUser) },
+    { name: 'AI 업무 알림 서비스', href: '/assets', icon: Package, show: true },
+    { name: '구분 및 사용자 관리', href: '/team', icon: Users, show: auth.canAccessTeamPage(currentUser) },
     { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
   ].filter(item => item.show);
 
@@ -40,7 +40,7 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
       <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border/40">
         <div className="flex items-center">
           <ShieldCheck className="h-6 w-6 text-sidebar-primary mr-2" />
-          <span className="text-lg font-bold tracking-tight">스케줄 관리시스템</span>
+          <span className="text-lg font-bold tracking-tight">AI 업무 알림 서비스</span>
         </div>
         {isMobile && (
           <Button 

@@ -1052,7 +1052,7 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>구분 등록</DialogTitle>
-          <DialogDescription>구분을 등록한 뒤, 스케줄 관리 페이지에서 해당 구분에 대상을 등록할 수 있습니다.</DialogDescription>
+          <DialogDescription>구분을 등록한 뒤, AI 업무 알림 서비스 페이지에서 해당 구분에 대상을 등록할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -1068,7 +1068,7 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
           </div>
           <div className="space-y-2">
             <Label>기본 점검 주기</Label>
-            <p className="text-xs text-muted-foreground">스케줄 관리에서 이 구분을 선택하면 기본값으로 적용됩니다.</p>
+            <p className="text-xs text-muted-foreground">AI 업무 알림 서비스에서 이 구분을 선택하면 기본값으로 적용됩니다.</p>
             <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
               <SelectTrigger>
                 <SelectValue placeholder="주기 선택 (선택사항)" />

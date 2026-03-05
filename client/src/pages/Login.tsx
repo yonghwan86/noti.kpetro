@@ -152,7 +152,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">스케줄 관리시스템</CardTitle>
+          <CardTitle className="text-2xl">AI 업무 알림 서비스</CardTitle>
           <CardDescription>
             {step === "email" && "이메일을 입력하여 로그인하세요"}
             {step === "password" && `${username}님, 비밀번호를 입력하세요`}
