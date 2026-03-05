@@ -298,6 +298,8 @@ export default function Assets() {
     return team?.department || "-";
   };
 
+  const departments = Array.from(new Set(teams.map(t => t.department).filter(Boolean))) as string[];
+
   const getStatusBadge = (status: AssetStatus, suspendedReason?: string | null) => {
     switch (status) {
       case 'ok':
@@ -391,8 +393,8 @@ export default function Assets() {
               teams={teams} 
               users={users}
               categories={categories}
-              
               currentUser={currentUser}
+              departments={departments}
             />
           )}
         </div>
@@ -582,7 +584,7 @@ export default function Assets() {
                                       teams={teams}
                                       users={users}
                                       categories={categories}
-                                      
+                                      departments={departments}
                                     />
                                     <SuspendAssetDialog asset={asset} onSuspend={(id, reason) => suspendMutation.mutate({ id, reason })} />
                                     {auth.canDeleteAsset(currentUser, asset) && (
@@ -1014,9 +1016,10 @@ function InspectDialog({ asset, onInspect }: { asset: Asset, onInspect: (id: str
   );
 }
 
-function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[] }) {
+function EditAssetDialog({ asset, onEdit, teams, users, categories, departments }: { asset: Asset, onEdit: (id: string, data: Partial<Asset>) => void, teams: Team[], users: User[], categories: Category[], departments: string[] }) {
   const [open, setOpen] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState<string>(asset.categoryId || "");
+  const [selectedDept, setSelectedDept] = useState<string>("");
 
   const currentDays = asset.inspectionCycleDays;
   const presetMatch = CYCLE_OPTIONS.find(o => o.value !== "custom" && parseInt(o.value) === currentDays);
@@ -1043,6 +1046,8 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
   const effectiveCycleDays = cycleSelectValue === "custom" ? parseInt(customCycleDays) || 0 : parseInt(cycleSelectValue) || 0;
   const watchedLastDate = watch("lastInspectedDate");
 
+  const filteredTeams = selectedDept ? teams.filter(t => t.department === selectedDept) : [];
+
   const onSubmit = (data: any) => {
     if (effectiveCycleDays <= 0) return;
     onEdit(asset.id, {
@@ -1061,6 +1066,9 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
       setEditCategoryId(asset.categoryId || "");
       setValue("lastInspectedDate", asset.lastInspectedDate);
       const team = teams.find(t => t.id === asset.teamId);
+      if (team?.department) {
+        setSelectedDept(team.department);
+      }
     }
   };
 
@@ -1125,6 +1133,21 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label>담당 부서</Label>
+              <Select value={selectedDept} onValueChange={(v) => {
+                setSelectedDept(v);
+                setValue("teamId", "");
+                setValue("staffId", "");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="부서 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>담당팀</Label>
               <Select value={watch("teamId")} onValueChange={(v) => {
                 setValue("teamId", v);
@@ -1134,18 +1157,20 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                 } else {
                   setValue("staffId", "");
                 }
-              }}>
+              }} disabled={!selectedDept}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="팀 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
+                  {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>담당자</Label>
-              <Select value={watch("staffId")} onValueChange={(v) => setValue("staffId", v)}>
+              <Select value={watch("staffId")} onValueChange={(v) => setValue("staffId", v)} disabled={!watch("teamId")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1156,14 +1181,6 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <CycleSelector
-              value={cycleSelectValue}
-              onChange={setCycleSelectValue}
-              customValue={customCycleDays}
-              onCustomChange={setCustomCycleDays}
-            />
             <div className="space-y-2">
               <Label>최근 점검일</Label>
               <Input
@@ -1172,6 +1189,14 @@ function EditAssetDialog({ asset, onEdit, teams, users, categories }: { asset: A
                 onChange={(e) => setValue("lastInspectedDate", e.target.value)}
               />
             </div>
+          </div>
+          <div className="grid grid-cols-1">
+            <CycleSelector
+              value={cycleSelectValue}
+              onChange={setCycleSelectValue}
+              customValue={customCycleDays}
+              onCustomChange={setCustomCycleDays}
+            />
           </div>
 
           {watchedLastDate && effectiveCycleDays > 0 && (
@@ -1217,18 +1242,20 @@ function DeleteAssetDialog({ asset, onDelete }: { asset: Asset, onDelete: (id: s
   );
 }
 
-function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null }) {
+function AddAssetDialog({ teams, users, categories, currentUser, departments }: { teams: Team[], users: User[], categories: Category[], currentUser: User | null, departments: string[] }) {
   const [open, setOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [cycleSelectValue, setCycleSelectValue] = useState<string>("");
   const [customCycleDays, setCustomCycleDays] = useState<string>("");
   const [lastDate, setLastDate] = useState<string>("");
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const managers = users.filter(u => u.role === 'manager');
+  const filteredTeams = selectedDept ? teams.filter(t => t.department === selectedDept) : [];
   const staffMembers = selectedTeamId ? users.filter(u => u.role === 'staff' && u.teamId === selectedTeamId) : [];
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
   const categoryManagers = (selectedCategory?.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
@@ -1258,8 +1285,8 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
       setCycleSelectValue("");
       setCustomCycleDays("");
       setLastDate("");
+      setSelectedDept("");
       setSelectedTeamId("");
-      setSelectedDeptId("");
       toast({ title: "장비 등록 완료", description: "새로운 장비가 성공적으로 등록되었습니다." });
     },
   });
@@ -1277,7 +1304,7 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
     if (!isOpen) {
       reset();
       setSelectedCategoryId("");
-      setSelectedDeptId("");
+      setSelectedDept("");
       setSelectedTeamId("");
       setCycleSelectValue("");
       setCustomCycleDays("");
@@ -1355,23 +1382,47 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>담당팀</Label>
-              <Select onValueChange={(v) => {
-                setValue("teamId", v);
-                setSelectedTeamId(v);
+              <Label>담당 부서</Label>
+              <Select value={selectedDept} onValueChange={(v) => {
+                setSelectedDept(v);
+                setSelectedTeamId("");
+                setValue("teamId", "");
                 setValue("staffId", "");
               }}>
-                <SelectTrigger data-testid="select-asset-team">
-                  <SelectValue placeholder="담당팀 선택" />
+                <SelectTrigger data-testid="select-asset-dept">
+                  <SelectValue placeholder="부서 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
+                  {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>담당팀</Label>
+              <Select value={selectedTeamId} onValueChange={(v) => {
+                setSelectedTeamId(v);
+                setValue("teamId", v);
+                const teamStaff = users.filter(u => u.role === 'staff' && u.teamId === v);
+                if (teamStaff.length > 0) {
+                  setValue("staffId", teamStaff[0].id);
+                } else {
+                  setValue("staffId", "");
+                }
+              }} disabled={!selectedDept}>
+                <SelectTrigger data-testid="select-asset-team">
+                  <SelectValue placeholder="팀 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label>담당자</Label>
-              <Select onValueChange={(v) => setValue("staffId", v)} disabled={!selectedTeamId}>
+              <Select value={watch("staffId")} onValueChange={(v) => setValue("staffId", v)} disabled={!selectedTeamId}>
                 <SelectTrigger data-testid="select-asset-staff">
                   <SelectValue placeholder={selectedTeamId ? "담당자 선택" : "담당팀을 먼저 선택하세요"} />
                 </SelectTrigger>
@@ -1382,6 +1433,28 @@ function AddAssetDialog({ teams, users, categories, currentUser }: { teams: Team
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastDate">최근 점검일</Label>
+              <Input
+                id="lastDate"
+                type="date"
+                {...register("lastInspectedDate", { required: true })}
+                onChange={(e) => {
+                  setValue("lastInspectedDate", e.target.value);
+                  setLastDate(e.target.value);
+                }}
+                data-testid="input-asset-last-date"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1">
+            <CycleSelector
+              value={cycleSelectValue}
+              onChange={setCycleSelectValue}
+              customValue={customCycleDays}
+              onCustomChange={setCustomCycleDays}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -818,7 +818,25 @@ export default function Team() {
 
 function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
   const [open, setOpen] = useState(false);
+  const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>(user.teamId || "");
+  const [isNewTeam, setIsNewTeam] = useState(false);
+  const [newDept, setNewDept] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+
+  const departments = useMemo(() => {
+    const depts = new Set<string>();
+    teams.forEach(t => {
+      if (t.department) depts.add(t.department);
+    });
+    return Array.from(depts).sort();
+  }, [teams]);
+
+  const filteredTeams = useMemo(() => {
+    if (!selectedDept) return [];
+    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+  }, [teams, selectedDept]);
+
   const { register, handleSubmit, reset } = useForm({
     defaultValues: {
       username: user.username,
@@ -830,19 +848,40 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   });
   const isStaffUser = user.role === 'staff';
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const onSubmit = async (data: any) => {
-    if (!selectedTeamId) {
+    let finalTeamId = selectedTeamId;
+
+    if (isNewTeam) {
+      if (!newDept.trim() || !newTeamName.trim()) {
+        toast({ title: "새 부서와 팀명을 입력해주세요.", variant: "destructive" });
+        return;
+      }
+      try {
+        const team = await api.teams.create({
+          department: newDept.trim(),
+          name: newTeamName.trim(),
+          isNew: true
+        } as any);
+        finalTeamId = team.id;
+        queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      } catch (err: any) {
+        toast({ title: "팀 생성 실패", description: err.message, variant: "destructive" });
+        return;
+      }
+    } else if (!finalTeamId) {
       toast({ title: "소속팀을 선택해주세요.", variant: "destructive" });
       return;
     }
+
     onEdit(user.id, {
       username: data.username,
       fullName: data.fullName || undefined,
       position: data.position || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
-      teamId: selectedTeamId,
+      teamId: finalTeamId,
     });
     setOpen(false);
   };
@@ -850,7 +889,17 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      setSelectedTeamId(user.teamId || "");
+      const currentTeam = teams.find(t => t.id === user.teamId);
+      if (currentTeam) {
+        setSelectedDept(currentTeam.department || "");
+        setSelectedTeamId(user.teamId);
+      } else {
+        setSelectedDept("");
+        setSelectedTeamId("");
+      }
+      setIsNewTeam(false);
+      setNewDept("");
+      setNewTeamName("");
       reset({
         username: user.username,
         fullName: user.fullName || "",
@@ -896,17 +945,74 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               </div>
             )}
           </div>
-          <div className="space-y-2">
-            <Label>소속 팀</Label>
-            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-              <SelectTrigger data-testid="select-edit-team">
-                <SelectValue placeholder="팀 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+
+          <div className="space-y-4 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <Label>소속 정보</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setIsNewTeam(!isNewTeam)}
+              >
+                {isNewTeam ? "기존 팀 선택" : "새 팀 등록"}
+              </Button>
+            </div>
+
+            {isNewTeam ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서명</Label>
+                  <Input
+                    placeholder="부서 직접 입력"
+                    value={newDept}
+                    onChange={e => setNewDept(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀명</Label>
+                  <Input
+                    placeholder="팀 직접 입력"
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서</Label>
+                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="부서 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀</Label>
+                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
+                    <SelectTrigger className="h-9" data-testid="select-edit-team">
+                      <SelectValue placeholder="팀 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredTeams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-email">이메일</Label>
@@ -1548,16 +1654,47 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
 
 function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [isNewTeam, setIsNewTeam] = useState(false);
+  const [newDept, setNewDept] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+
+  const departments = useMemo(() => {
+    const depts = new Set<string>();
+    teams.forEach(t => {
+      if (t.department) depts.add(t.department);
+    });
+    return Array.from(depts).sort();
+  }, [teams]);
+
+  const filteredTeams = useMemo(() => {
+    if (!selectedDept) return [];
+    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+  }, [teams, selectedDept]);
+
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (!selectedTeamId) {
+      let finalTeamId = selectedTeamId;
+      if (isNewTeam) {
+        if (!newDept.trim() || !newTeamName.trim()) {
+          throw new Error("새 부서와 팀명을 입력해주세요.");
+        }
+        const team = await api.teams.create({
+          department: newDept.trim(),
+          name: newTeamName.trim(),
+          isNew: true
+        } as any);
+        finalTeamId = team.id;
+        queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      } else if (!finalTeamId) {
         throw new Error("소속팀을 선택해주세요.");
       }
+
       return api.users.create({
         username: data.username,
         fullName: data.fullName || undefined,
@@ -1565,7 +1702,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
         email: data.email || undefined,
         phone: data.phone || undefined,
         role: 'staff',
-        teamId: selectedTeamId,
+        teamId: finalTeamId,
       });
     },
     onSuccess: (created: any) => {
@@ -1573,7 +1710,11 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
+      setSelectedDept("");
       setSelectedTeamId("");
+      setIsNewTeam(false);
+      setNewDept("");
+      setNewTeamName("");
       toast({
         title: "사용자 추가 완료",
         description: "새로운 사용자 계정이 생성되었습니다.",
@@ -1589,14 +1730,6 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   });
 
   const onSubmit = (data: any) => {
-    if (!selectedTeamId) {
-      toast({
-        title: "팀 선택 필요",
-        description: "소속팀을 선택해주세요.",
-        variant: "destructive",
-      });
-      return;
-    }
     createMutation.mutate(data);
   };
 
@@ -1604,7 +1737,11 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
     setOpen(isOpen);
     if (!isOpen) {
       reset();
+      setSelectedDept("");
       setSelectedTeamId("");
+      setIsNewTeam(false);
+      setNewDept("");
+      setNewTeamName("");
     }
   };
 
@@ -1641,17 +1778,74 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>소속 팀</Label>
-            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-              <SelectTrigger data-testid="select-staff-team">
-                <SelectValue placeholder="팀 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+
+          <div className="space-y-4 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <Label>소속 정보</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setIsNewTeam(!isNewTeam)}
+              >
+                {isNewTeam ? "기존 팀 선택" : "새 팀 등록"}
+              </Button>
+            </div>
+
+            {isNewTeam ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서명</Label>
+                  <Input
+                    placeholder="부서 직접 입력"
+                    value={newDept}
+                    onChange={e => setNewDept(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀명</Label>
+                  <Input
+                    placeholder="팀 직접 입력"
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서</Label>
+                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="부서 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀</Label>
+                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
+                    <SelectTrigger className="h-9" data-testid="select-staff-team">
+                      <SelectValue placeholder="팀 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredTeams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="staff-email">이메일 (로그인용)</Label>
@@ -1682,22 +1876,53 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
 
 function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [isNewTeam, setIsNewTeam] = useState(false);
+  const [newDept, setNewDept] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+
+  const departments = useMemo(() => {
+    const depts = new Set<string>();
+    teams.forEach(t => {
+      if (t.department) depts.add(t.department);
+    });
+    return Array.from(depts).sort();
+  }, [teams]);
+
+  const filteredTeams = useMemo(() => {
+    if (!selectedDept) return [];
+    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+  }, [teams, selectedDept]);
+
   const { register, handleSubmit, reset } = useForm();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (!selectedTeamId) {
+      let finalTeamId = selectedTeamId;
+      if (isNewTeam) {
+        if (!newDept.trim() || !newTeamName.trim()) {
+          throw new Error("새 부서와 팀명을 입력해주세요.");
+        }
+        const team = await api.teams.create({
+          department: newDept.trim(),
+          name: newTeamName.trim(),
+          isNew: true
+        } as any);
+        finalTeamId = team.id;
+        queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      } else if (!finalTeamId) {
         throw new Error("소속팀을 선택해주세요.");
       }
+
       return api.users.create({
         username: data.username,
         email: data.email || undefined,
         phone: data.phone || undefined,
         role: 'admin',
-        teamId: selectedTeamId,
+        teamId: finalTeamId,
       });
     },
     onSuccess: (created: any) => {
@@ -1705,7 +1930,11 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       reset();
+      setSelectedDept("");
       setSelectedTeamId("");
+      setIsNewTeam(false);
+      setNewDept("");
+      setNewTeamName("");
       toast({ title: "마스터 추가 완료", description: "새로운 마스터 계정이 생성되었습니다." });
     },
     onError: (error: Error) => {
@@ -1714,10 +1943,6 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
   });
 
   const onSubmit = (data: any) => {
-    if (!selectedTeamId) {
-      toast({ title: "팀 선택 필요", description: "소속팀을 선택해주세요.", variant: "destructive" });
-      return;
-    }
     createMutation.mutate(data);
   };
 
@@ -1725,7 +1950,11 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
     setOpen(isOpen);
     if (!isOpen) {
       reset();
+      setSelectedDept("");
       setSelectedTeamId("");
+      setIsNewTeam(false);
+      setNewDept("");
+      setNewTeamName("");
     }
   };
 
@@ -1751,17 +1980,74 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
               data-testid="input-master-username"
             />
           </div>
-          <div className="space-y-2">
-            <Label>소속 팀</Label>
-            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-              <SelectTrigger data-testid="select-master-team">
-                <SelectValue placeholder="팀 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.department ? `${t.department} / ${t.name}` : t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+
+          <div className="space-y-4 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <Label>소속 정보</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setIsNewTeam(!isNewTeam)}
+              >
+                {isNewTeam ? "기존 팀 선택" : "새 팀 등록"}
+              </Button>
+            </div>
+
+            {isNewTeam ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서명</Label>
+                  <Input
+                    placeholder="부서 직접 입력"
+                    value={newDept}
+                    onChange={e => setNewDept(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀명</Label>
+                  <Input
+                    placeholder="팀 직접 입력"
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">부서</Label>
+                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="부서 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀</Label>
+                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
+                    <SelectTrigger className="h-9" data-testid="select-master-team">
+                      <SelectValue placeholder="팀 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredTeams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="master-email">이메일 (로그인용)</Label>

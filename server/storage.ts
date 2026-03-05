@@ -94,9 +94,30 @@ export interface IStorage {
   getAssetHistoryByCategory(categoryId: string): Promise<AssetHistory[]>;
   getAllAssetHistory(): Promise<AssetHistory[]>;
   createAssetHistory(entry: InsertAssetHistory): Promise<AssetHistory>;
+  getOrCreateTeam(department: string, name: string): Promise<Team>;
 }
 
 export class PostgresStorage implements IStorage {
+  async getOrCreateTeam(department: string, name: string): Promise<Team> {
+    const existing = await db.select().from(teams).where(
+      or(
+        eq(teams.department, department),
+        eq(teams.department, null)
+      )
+    );
+    // filter manually because or logic above is a bit loose
+    const exactMatch = existing.find(t => t.department === department && t.name === name);
+    if (exactMatch) return exactMatch;
+
+    const [created] = await db.insert(teams).values({
+      department,
+      name,
+      type: 'usage', // Default type
+      contactEmail: 'pending@example.com', // Placeholder
+    }).returning();
+    return created;
+  }
+
   async getTeams(): Promise<Team[]> {
     return await db.select().from(teams);
   }

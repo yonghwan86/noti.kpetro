@@ -36,6 +36,11 @@ export async function registerRoutes(
 
   app.post("/api/teams", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
+      const { department, name, isNew } = req.body;
+      if (isNew && department && name) {
+        const team = await storage.getOrCreateTeam(department, name);
+        return res.status(201).json(team);
+      }
       const team = insertTeamSchema.parse(req.body);
       const created = await storage.createTeam(team);
       res.status(201).json(created);

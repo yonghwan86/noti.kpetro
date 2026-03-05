@@ -475,6 +475,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
 
     const username = row["이름"]?.toString().trim();
     const position = row["직책"]?.toString().trim() || null;
+    const departmentName = row["부서"]?.toString().trim() || null;
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
@@ -489,10 +490,20 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
       continue;
     }
 
-    const team = teams.find(t => t.name === teamName);
+    let team = teams.find(t => t.name === teamName && (!departmentName || t.department === departmentName));
     if (!team) {
-      errors.push({ row: rowNum, field: "소속팀", message: `'${teamName}' 팀을 찾을 수 없습니다` });
-      continue;
+      try {
+        team = await storage.createTeam({
+          name: teamName,
+          department: departmentName,
+          type: 'usage',
+        });
+        // Update teams list so subsequent rows can find it
+        teams.push(team);
+      } catch (e: any) {
+        errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
+        continue;
+      }
     }
 
     let assignCategoryId: string | null = null;
@@ -546,7 +557,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
 }
 
 export function getStaffUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "직책": "팀장", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678", "배정 구분": "계량기" }];
+  const data = [{ "이름": "홍길동", "부서": "부서명", "소속팀": "팀명", "직책": "팀장", "이메일": "email@example.com", "전화번호": "010-1234-5678", "배정 구분": "계량기" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");
