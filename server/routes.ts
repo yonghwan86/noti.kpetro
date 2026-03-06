@@ -670,7 +670,15 @@ export async function registerRoutes(
   app.get("/api/staff/export", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const currentUser = (req as any).currentUser;
-      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
+      let managerId: string | undefined;
+      if (currentUser.role === 'manager') {
+        managerId = currentUser.id;
+      } else if (currentUser.role === 'admin' && req.query.asManagerId) {
+        const targetUser = await storage.getUser(req.query.asManagerId as string);
+        if (targetUser?.role === 'manager') {
+          managerId = targetUser.id;
+        }
+      }
       const buffer = await excel.exportStaffUsersToExcel(managerId);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=staff_users.xlsx");
@@ -683,7 +691,13 @@ export async function registerRoutes(
   app.get("/api/staff/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
       const currentUser = (req as any).currentUser;
-      const isManager = currentUser.role === 'manager';
+      let isManager = currentUser.role === 'manager';
+      if (currentUser.role === 'admin' && req.query.asManagerId) {
+        const targetUser = await storage.getUser(req.query.asManagerId as string);
+        if (targetUser?.role === 'manager') {
+          isManager = true;
+        }
+      }
       const buffer = excel.getStaffUserTemplate(isManager);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=staff_template.xlsx");
@@ -699,7 +713,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "파일을 업로드해주세요" });
       }
       const currentUser = (req as any).currentUser;
-      const managerId = currentUser.role === 'manager' ? currentUser.id : undefined;
+      let managerId: string | undefined;
+      if (currentUser.role === 'manager') {
+        managerId = currentUser.id;
+      } else if (currentUser.role === 'admin' && req.query.asManagerId) {
+        const targetUser = await storage.getUser(req.query.asManagerId as string);
+        if (targetUser?.role === 'manager') {
+          managerId = targetUser.id;
+        }
+      }
       const result = await excel.importStaffUsersFromExcel(req.file.buffer, managerId);
       res.json(result);
     } catch (error) {

@@ -551,10 +551,10 @@ export default function Team() {
                   <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
                 </>
               )}
-              {isManager && (
+              {isManager && currentUser && (
                 <>
                   <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
-                    <a href="/api/staff/export" download>
+                    <a href={`/api/staff/export?asManagerId=${currentUser.id}`} download>
                       <Download className="h-4 w-4" />
                       다운로드
                     </a>
@@ -562,9 +562,12 @@ export default function Team() {
                   <ExcelImportDialog
                     title="배정 담당자 엑셀 업로드"
                     description="엑셀에 있는 담당자만 해당 구분에 배정됩니다. 엑셀에 없는 기존 담당자는 해당 구분에서 자동 해제됩니다."
-                    templateUrl="/api/staff/template"
-                    importUrl="/api/staff/import"
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                    templateUrl={`/api/staff/template?asManagerId=${currentUser.id}`}
+                    importUrl={`/api/staff/import?asManagerId=${currentUser.id}`}
+                    onSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+                    }}
                   />
                   <AssignStaffDialog users={users} categories={myCategories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} teams={teams} />
                 </>
