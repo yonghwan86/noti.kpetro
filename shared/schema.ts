@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, index, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -55,9 +55,12 @@ export const users = pgTable("users", {
   email: text("email"),
   phone: text("phone"),
   passwordHash: text("password_hash"),
+  privacyConsentAt: text("privacy_consent_at"),
+  optionalConsentAt: text("optional_consent_at"),
+  optionalConsentGiven: boolean("optional_consent_given").default(false),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true, privacyConsentAt: true, optionalConsentAt: true, optionalConsentGiven: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 

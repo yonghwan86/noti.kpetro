@@ -113,7 +113,7 @@ export function registerEmailAuthRoutes(app: Express) {
 
   app.post("/api/auth/set-password", async (req: Request, res: Response) => {
     try {
-      const { email, password } = req.body;
+      const { email, password, privacyConsent, optionalConsent } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ error: "이메일과 비밀번호를 입력해주세요." });
@@ -121,6 +121,10 @@ export function registerEmailAuthRoutes(app: Express) {
 
       if (password.length < 4) {
         return res.status(400).json({ error: "비밀번호는 4자리 이상이어야 합니다." });
+      }
+
+      if (!privacyConsent) {
+        return res.status(400).json({ error: "필수 개인정보 수집에 동의해야 합니다." });
       }
 
       const user = await findUserByEmail(email);
@@ -132,10 +136,31 @@ export function registerEmailAuthRoutes(app: Express) {
         return res.status(400).json({ error: "이미 비밀번호가 설정되어 있습니다. 로그인해주세요." });
       }
 
-      const updated = await setUserPassword(user.id, password);
+      const now = new Date().toISOString();
+      const hash = await hashPassword(password);
+      const consentData: any = {
+        passwordHash: hash,
+        privacyConsentAt: now,
+      };
+      if (optionalConsent) {
+        consentData.optionalConsentAt = now;
+        consentData.optionalConsentGiven = true;
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set(consentData)
+        .where(eq(users.id, user.id))
+        .returning();
+
+      if (!updated) {
+        return res.status(500).json({ error: "비밀번호 설정에 실패했습니다." });
+      }
+
       (req.session as any).userId = updated.id;
-      
-      const { passwordHash, ...safeUser } = updated;
+
+      const decryptedUser = { ...updated, username: decrypt(updated.username) };
+      const { passwordHash: _ph, ...safeUser } = decryptedUser;
       res.json({ success: true, user: safeUser });
     } catch (error) {
       console.error("Set password error:", error);
