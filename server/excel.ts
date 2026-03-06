@@ -448,10 +448,34 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
   const users = await storage.getUsers();
   const teams = await storage.getTeams();
   const categories = await storage.getCategories();
-  let staffUsers = users.filter(u => u.role === 'staff');
+
   if (managerId) {
-    staffUsers = staffUsers.filter(u => u.managerId === managerId);
+    const allAssets = await storage.getAssets();
+    const managerCategories = categories.filter(c => (c.managerIds || []).includes(managerId));
+    const managerCategoryIds = managerCategories.map(c => c.id);
+    const categoryAssets = allAssets.filter(a => a.categoryId && managerCategoryIds.includes(a.categoryId));
+
+    const data = categoryAssets.map(asset => {
+      const staff = users.find(u => u.id === asset.staffId);
+      const staffTeam = staff ? teams.find(t => t.id === staff.teamId) : null;
+      return {
+        "대상": asset.name,
+        "담당자": staff?.username || "",
+        "직책": staff?.position || "",
+        "부서": staffTeam?.department || "",
+        "소속팀": staffTeam?.name || "",
+        "이메일": staff?.email || "",
+        "전화번호": staff?.phone || "",
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "대상": "", "담당자": "", "직책": "", "부서": "", "소속팀": "", "이메일": "", "전화번호": "" }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "배정 담당자");
+    return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
   }
+
+  let staffUsers = users.filter(u => u.role === 'staff');
 
   const data = staffUsers.map(u => {
     const team = teams.find(t => t.id === u.teamId);
@@ -486,18 +510,121 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
   let managerUpdateCount = 0;
   let removedCount = 0;
 
-  let syncCategoryId: string | null = null;
   if (managerId) {
     const managerCategories = categories.filter(c => (c.managerIds || []).includes(managerId));
-    if (managerCategories.length === 1) {
-      syncCategoryId = managerCategories[0].id;
-    } else if (managerCategories.length > 1) {
-      syncCategoryId = managerCategories[0].id;
+    if (managerCategories.length === 0) {
+      return { success: false, successCount: 0, errorCount: 1, errors: [{ row: 0, field: "구분", message: "담당하는 구분이 없습니다" }] };
     }
+    const managerCategoryIds = managerCategories.map(c => c.id);
+
+    const allAssets = await storage.getAssets();
+    const categoryAssets = allAssets.filter(a => a.categoryId && managerCategoryIds.includes(a.categoryId));
+
+    const processedUserIds: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+
+      const assetName = (row["대상"] || row["장비명"])?.toString().trim();
+      const username = (row["담당자"] || row["이름"])?.toString().trim();
+      const position = row["직책"]?.toString().trim() || null;
+      const departmentName = row["부서"]?.toString().trim() || null;
+      const teamName = row["소속팀"]?.toString().trim();
+      const email = row["이메일"]?.toString().trim() || null;
+      const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
+
+      if (!assetName) {
+        errors.push({ row: rowNum, field: "대상", message: "필수 항목입니다" });
+        continue;
+      }
+      if (!username) {
+        errors.push({ row: rowNum, field: "담당자", message: "필수 항목입니다" });
+        continue;
+      }
+      if (!teamName) {
+        errors.push({ row: rowNum, field: "소속팀", message: "필수 항목입니다" });
+        continue;
+      }
+
+      const matchedAsset = categoryAssets.find(a => a.name === assetName);
+      if (!matchedAsset) {
+        errors.push({ row: rowNum, field: "대상", message: `'${assetName}' 대상을 찾을 수 없습니다` });
+        continue;
+      }
+
+      let team = teams.find(t => t.name === teamName && (!departmentName || t.department === departmentName));
+      if (!team) {
+        try {
+          team = await storage.createTeam({ name: teamName, department: departmentName, type: 'usage' });
+          teams.push(team);
+        } catch (e: any) {
+          errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
+          continue;
+        }
+      }
+
+      try {
+        const existingUser = email
+          ? (await storage.getUserByEmail(email)) || (await storage.getUserByUsername(username))
+          : await storage.getUserByUsername(username);
+
+        let userId: string;
+        if (existingUser) {
+          const updateData: any = { username, teamId: team.id, email, phone, position, managerId };
+          const existing = existingUser.assignedCategoryIds || [];
+          if (!existing.includes(matchedAsset.categoryId!)) {
+            updateData.assignedCategoryIds = [...existing, matchedAsset.categoryId!];
+          }
+          await storage.updateUser(existingUser.id, updateData);
+          if (existingUser.role === 'manager') {
+            managerUpdateCount++;
+          }
+          userId = existingUser.id;
+        } else {
+          const newUser = await storage.createUser({
+            username, fullName: null, role: 'staff', teamId: team.id, email, phone,
+            managerId, position,
+            assignedCategoryIds: [matchedAsset.categoryId!],
+          });
+          userId = newUser.id;
+        }
+
+        if (matchedAsset.staffId !== userId) {
+          await storage.updateAsset(matchedAsset.id, { staffId: userId, usageTeamId: team.id });
+        }
+
+        if (!processedUserIds.includes(userId)) {
+          processedUserIds.push(userId);
+        }
+        successCount++;
+      } catch (e: any) {
+        errors.push({ row: rowNum, field: "담당자", message: e.message || "등록 실패" });
+      }
+    }
+
+    const allUsers = await storage.getUsers();
+    for (const catId of managerCategoryIds) {
+      const currentCategoryStaff = allUsers.filter(u =>
+        u.role === 'staff' &&
+        (u.assignedCategoryIds || []).includes(catId) &&
+        !processedUserIds.includes(u.id)
+      );
+      for (const user of currentCategoryStaff) {
+        try {
+          const newCategoryIds = (user.assignedCategoryIds || []).filter(id => id !== catId);
+          await storage.updateUser(user.id, { assignedCategoryIds: newCategoryIds });
+          removedCount++;
+        } catch (e: any) {
+          errors.push({ row: 0, field: "동기화", message: `${user.username} 배정 해제 실패: ${e.message}` });
+        }
+      }
+    }
+
+    return { success: errors.length === 0, successCount, errorCount: errors.length, errors, managerUpdateCount, removedCount };
   }
 
   const processedUserIds: string[] = [];
-
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 2;
@@ -521,11 +648,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     let team = teams.find(t => t.name === teamName && (!departmentName || t.department === departmentName));
     if (!team) {
       try {
-        team = await storage.createTeam({
-          name: teamName,
-          department: departmentName,
-          type: 'usage',
-        });
+        team = await storage.createTeam({ name: teamName, department: departmentName, type: 'usage' });
         teams.push(team);
       } catch (e: any) {
         errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
@@ -539,28 +662,17 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
         : await storage.getUserByUsername(username);
       if (existingUser) {
         const updateData: any = { username, teamId: team.id, email, phone, position };
-        if (managerId) {
-          updateData.managerId = managerId;
-          if (syncCategoryId) {
-            const existing = existingUser.assignedCategoryIds || [];
-            if (!existing.includes(syncCategoryId)) {
-              updateData.assignedCategoryIds = [...existing, syncCategoryId];
-            }
-          }
-        }
         await storage.updateUser(existingUser.id, updateData);
         if (existingUser.role === 'manager') {
           managerUpdateCount++;
         }
-        processedUserIds.push(existingUser.id);
         successCount++;
       } else {
-        const newUser = await storage.createUser({
+        await storage.createUser({
           username, fullName: null, role: 'staff', teamId: team.id, email, phone,
-          managerId: managerId || null, position,
-          assignedCategoryIds: (managerId && syncCategoryId) ? [syncCategoryId] : [],
+          managerId: null, position,
+          assignedCategoryIds: [],
         });
-        processedUserIds.push(newUser.id);
         successCount++;
       }
     } catch (e: any) {
@@ -568,41 +680,16 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     }
   }
 
-  if (managerId && syncCategoryId) {
-    const allUsers = await storage.getUsers();
-    const currentCategoryStaff = allUsers.filter(u =>
-      u.role === 'staff' &&
-      (u.assignedCategoryIds || []).includes(syncCategoryId!) &&
-      !processedUserIds.includes(u.id)
-    );
-    for (const user of currentCategoryStaff) {
-      try {
-        const newCategoryIds = (user.assignedCategoryIds || []).filter(id => id !== syncCategoryId);
-        await storage.updateUser(user.id, { assignedCategoryIds: newCategoryIds });
-        removedCount++;
-      } catch (e: any) {
-        errors.push({ row: 0, field: "동기화", message: `${user.username} 배정 해제 실패: ${e.message}` });
-      }
-    }
-  }
-
-  return {
-    success: errors.length === 0,
-    successCount,
-    errorCount: errors.length,
-    errors,
-    managerUpdateCount,
-    removedCount
-  };
+  return { success: errors.length === 0, successCount, errorCount: errors.length, errors, managerUpdateCount, removedCount };
 }
 
 export function getStaffUserTemplate(isManager?: boolean): Buffer {
   const data = isManager
-    ? [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }]
+    ? [{ "대상": "장비명", "담당자": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }]
     : [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "사용자");
+  XLSX.utils.book_append_sheet(wb, ws, isManager ? "배정 담당자" : "사용자");
   return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
 }
 
