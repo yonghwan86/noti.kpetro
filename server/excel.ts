@@ -107,6 +107,7 @@ interface ImportResult {
   errors: { row: number; field: string; message: string }[];
   managerUpdateCount?: number;
   updateCount?: number;
+  removedCount?: number;
 }
 
 export async function importTeamsFromExcel(buffer: Buffer): Promise<ImportResult> {
@@ -483,6 +484,19 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
   const errors: ImportResult["errors"] = [];
   let successCount = 0;
   let managerUpdateCount = 0;
+  let removedCount = 0;
+
+  let syncCategoryId: string | null = null;
+  if (managerId) {
+    const managerCategories = categories.filter(c => (c.managerIds || []).includes(managerId));
+    if (managerCategories.length === 1) {
+      syncCategoryId = managerCategories[0].id;
+    } else if (managerCategories.length > 1) {
+      syncCategoryId = managerCategories[0].id;
+    }
+  }
+
+  const processedUserIds: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -494,7 +508,6 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     const teamName = row["소속팀"]?.toString().trim();
     const email = row["이메일"]?.toString().trim() || null;
     const phone = (row["전화번호"] || row["연락처"])?.toString().trim() || null;
-    const categoryName = (row["구분"] || row["배정 구분"] || row["배정 대상"])?.toString().trim() || null;
 
     if (!username) {
       errors.push({ row: rowNum, field: "이름", message: "필수 항목입니다" });
@@ -513,22 +526,11 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
           department: departmentName,
           type: 'usage',
         });
-        // Update teams list so subsequent rows can find it
         teams.push(team);
       } catch (e: any) {
         errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
         continue;
       }
-    }
-
-    let assignCategoryId: string | null = null;
-    if (categoryName) {
-      const cat = categories.find(c => c.name === categoryName);
-      if (!cat) {
-        errors.push({ row: rowNum, field: "배정 구분", message: `'${categoryName}' 구분을 찾을 수 없습니다` });
-        continue;
-      }
-      assignCategoryId = cat.id;
     }
 
     try {
@@ -539,28 +541,48 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
         const updateData: any = { username, teamId: team.id, email, phone, position };
         if (managerId) {
           updateData.managerId = managerId;
-        }
-        if (assignCategoryId) {
-          const existing = existingUser.assignedCategoryIds || [];
-          if (!existing.includes(assignCategoryId)) {
-            updateData.assignedCategoryIds = [...existing, assignCategoryId];
+          if (syncCategoryId) {
+            const existing = existingUser.assignedCategoryIds || [];
+            if (!existing.includes(syncCategoryId)) {
+              updateData.assignedCategoryIds = [...existing, syncCategoryId];
+            }
           }
         }
         await storage.updateUser(existingUser.id, updateData);
         if (existingUser.role === 'manager') {
           managerUpdateCount++;
         }
+        processedUserIds.push(existingUser.id);
         successCount++;
       } else {
         const newUser = await storage.createUser({
           username, fullName: null, role: 'staff', teamId: team.id, email, phone,
           managerId: managerId || null, position,
-          assignedCategoryIds: assignCategoryId ? [assignCategoryId] : [],
+          assignedCategoryIds: (managerId && syncCategoryId) ? [syncCategoryId] : [],
         });
+        processedUserIds.push(newUser.id);
         successCount++;
       }
     } catch (e: any) {
       errors.push({ row: rowNum, field: "이름", message: e.message || "등록 실패" });
+    }
+  }
+
+  if (managerId && syncCategoryId) {
+    const allUsers = await storage.getUsers();
+    const currentCategoryStaff = allUsers.filter(u =>
+      u.role === 'staff' &&
+      (u.assignedCategoryIds || []).includes(syncCategoryId!) &&
+      !processedUserIds.includes(u.id)
+    );
+    for (const user of currentCategoryStaff) {
+      try {
+        const newCategoryIds = (user.assignedCategoryIds || []).filter(id => id !== syncCategoryId);
+        await storage.updateUser(user.id, { assignedCategoryIds: newCategoryIds });
+        removedCount++;
+      } catch (e: any) {
+        errors.push({ row: 0, field: "동기화", message: `${user.username} 배정 해제 실패: ${e.message}` });
+      }
     }
   }
 
@@ -569,12 +591,15 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
     successCount,
     errorCount: errors.length,
     errors,
-    managerUpdateCount
+    managerUpdateCount,
+    removedCount
   };
 }
 
-export function getStaffUserTemplate(): Buffer {
-  const data = [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "구분": "계량기", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
+export function getStaffUserTemplate(isManager?: boolean): Buffer {
+  const data = isManager
+    ? [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }]
+    : [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사용자");

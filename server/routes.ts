@@ -147,13 +147,36 @@ export async function registerRoutes(
     try {
       const currentUser = (req as any).currentUser;
       if (currentUser.role === 'manager') {
-        const existing = await storage.getCategory(req.params.id);
-        if (!existing || !(existing.managerIds || []).includes(currentUser.id)) {
+        const existingCat = await storage.getCategory(req.params.id);
+        if (!existingCat || !(existingCat.managerIds || []).includes(currentUser.id)) {
           return res.status(403).json({ error: "본인이 담당하는 대상만 수정할 수 있습니다." });
         }
       }
+      const previousCategory = currentUser.role === 'admin' ? await storage.getCategory(req.params.id) : null;
       const updated = await storage.updateCategory(req.params.id, req.body);
       if (!updated) return res.status(404).json({ error: "Category not found" });
+
+      if (currentUser.role === 'admin' && req.body.managerIds && previousCategory) {
+        const oldManagerIds = previousCategory.managerIds || [];
+        const newManagerIds = req.body.managerIds || [];
+        const addedManagers = newManagerIds.filter((id: string) => !oldManagerIds.includes(id));
+        const removedManagers = oldManagerIds.filter((id: string) => !newManagerIds.includes(id));
+
+        if (addedManagers.length > 0 || removedManagers.length > 0) {
+          const allAssets = await storage.getAssets();
+          const categoryAssets = allAssets.filter(a => a.categoryId === req.params.id);
+          const newPrimaryManagerId = newManagerIds.length > 0 ? newManagerIds[0] : null;
+
+          for (const asset of categoryAssets) {
+            if (removedManagers.includes(asset.managerId) || addedManagers.length > 0) {
+              if (newPrimaryManagerId) {
+                await storage.updateAsset(asset.id, { managerId: newPrimaryManagerId });
+              }
+            }
+          }
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       res.status(400).json({ error: "Failed to update category" });
@@ -659,7 +682,9 @@ export async function registerRoutes(
 
   app.get("/api/staff/template", requireAuth(['admin', 'manager']), async (req: Request, res: Response) => {
     try {
-      const buffer = excel.getStaffUserTemplate();
+      const currentUser = (req as any).currentUser;
+      const isManager = currentUser.role === 'manager';
+      const buffer = excel.getStaffUserTemplate(isManager);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", "attachment; filename=staff_template.xlsx");
       res.send(buffer);

@@ -542,8 +542,8 @@ export default function Team() {
                     </a>
                   </Button>
                   <ExcelImportDialog
-                    title="사용자 엑셀 업로드"
-                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다."
+                    title="조직도 엑셀 업로드"
+                    description="조직도를 업로드합니다. 이름, 직책, 부서, 소속팀, 이메일, 전화번호만 등록/업데이트되며, 기존 구분 및 장비 배정은 변경되지 않습니다."
                     templateUrl="/api/staff/template"
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
@@ -560,8 +560,8 @@ export default function Team() {
                     </a>
                   </Button>
                   <ExcelImportDialog
-                    title="사용자 엑셀 업로드"
-                    description="엑셀 파일에서 사용자(담당자) 목록을 일괄 등록합니다. '배정 구분' 컬럼으로 구분을 지정할 수 있습니다."
+                    title="배정 담당자 엑셀 업로드"
+                    description="엑셀에 있는 담당자만 해당 구분에 배정됩니다. 엑셀에 없는 기존 담당자는 해당 구분에서 자동 해제됩니다."
                     templateUrl="/api/staff/template"
                     importUrl="/api/staff/import"
                     onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}

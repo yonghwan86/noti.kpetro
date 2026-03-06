@@ -20,6 +20,7 @@ interface ImportResult {
   errors: { row: number; field: string; message: string }[];
   managerUpdateCount?: number;
   updateCount?: number;
+  removedCount?: number;
 }
 
 interface ExcelImportDialogProps {
@@ -82,6 +83,7 @@ export default function ExcelImportDialog({
         errorCount: data.errorCount ?? (data.errors?.length ?? 0),
         errors: Array.isArray(data.errors) ? data.errors : [],
         managerUpdateCount: data.managerUpdateCount ?? 0,
+        removedCount: data.removedCount ?? 0,
       };
       
       setResult(normalizedResult);
@@ -170,6 +172,11 @@ export default function ExcelImportDialog({
                     {(result.managerUpdateCount ?? 0) > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground">
                         (이 중 구분 관리자 {result.managerUpdateCount}명의 정보가 업데이트되었습니다. 역할은 유지됩니다.)
+                      </div>
+                    )}
+                    {(result.removedCount ?? 0) > 0 && (
+                      <div className="text-xs mt-1 text-muted-foreground">
+                        (엑셀에 없는 기존 담당자 {result.removedCount}명이 해당 구분에서 배정 해제되었습니다.)
                       </div>
                     )}
                   </AlertDescription>
