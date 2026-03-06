@@ -458,7 +458,9 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
     const data = categoryAssets.map(asset => {
       const staff = users.find(u => u.id === asset.staffId);
       const staffTeam = staff ? teams.find(t => t.id === staff.teamId) : null;
+      const category = categories.find(c => c.id === asset.categoryId);
       return {
+        "구분": category?.name || "",
         "대상": asset.name,
         "담당자": staff?.username || "",
         "직책": staff?.position || "",
@@ -469,7 +471,7 @@ export async function exportStaffUsersToExcel(managerId?: string): Promise<Buffe
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "대상": "", "담당자": "", "직책": "", "부서": "", "소속팀": "", "이메일": "", "전화번호": "" }]);
+    const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ "구분": "", "대상": "", "담당자": "", "직책": "", "부서": "", "소속팀": "", "이메일": "", "전화번호": "" }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "배정 담당자");
     return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
@@ -526,6 +528,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
       const row = rows[i];
       const rowNum = i + 2;
 
+      const categoryName = row["구분"]?.toString().trim() || null;
       const assetName = (row["대상"] || row["장비명"])?.toString().trim();
       const username = (row["담당자"] || row["이름"])?.toString().trim();
       const position = row["직책"]?.toString().trim() || null;
@@ -547,7 +550,17 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
         continue;
       }
 
-      const matchedAsset = categoryAssets.find(a => a.name === assetName);
+      let matchedAsset;
+      if (categoryName) {
+        const cat = categories.find(c => c.name === categoryName);
+        if (cat && managerCategoryIds.includes(cat.id)) {
+          matchedAsset = categoryAssets.find(a => a.name === assetName && a.categoryId === cat.id);
+        } else {
+          matchedAsset = categoryAssets.find(a => a.name === assetName);
+        }
+      } else {
+        matchedAsset = categoryAssets.find(a => a.name === assetName);
+      }
       if (!matchedAsset) {
         errors.push({ row: rowNum, field: "대상", message: `'${assetName}' 대상을 찾을 수 없습니다` });
         continue;
@@ -685,7 +698,7 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
 
 export function getStaffUserTemplate(isManager?: boolean): Buffer {
   const data = isManager
-    ? [{ "대상": "장비명", "담당자": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }]
+    ? [{ "구분": "계량기", "대상": "장비명", "담당자": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }]
     : [{ "이름": "홍길동", "직책": "팀장", "부서": "부서명", "소속팀": "팀명", "이메일": "email@example.com", "전화번호": "010-1234-5678" }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
