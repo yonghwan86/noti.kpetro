@@ -253,6 +253,13 @@ export async function importUsersFromExcel(buffer: Buffer): Promise<ImportResult
         errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
         continue;
       }
+    } else if (departmentName && !team.department) {
+      try {
+        await storage.updateTeam(team.id, { department: departmentName });
+        team.department = departmentName;
+      } catch (e: any) {
+        // ignore department update failure
+      }
     }
     
     try {
@@ -574,6 +581,13 @@ export async function importStaffUsersFromExcel(buffer: Buffer, managerId?: stri
         } catch (e: any) {
           errors.push({ row: rowNum, field: "소속팀", message: `팀 생성 실패: ${e.message}` });
           continue;
+        }
+      } else if (departmentName && !team.department) {
+        try {
+          await storage.updateTeam(team.id, { department: departmentName });
+          team.department = departmentName;
+        } catch (e: any) {
+          // ignore department update failure
         }
       }
 
