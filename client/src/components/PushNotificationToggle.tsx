@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { BellRing, BellOff, Bell } from "lucide-react";
+import { Smartphone, SmartphoneNfc, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -133,8 +133,8 @@ export function PushNotificationToggle() {
   const getTooltipText = () => {
     switch (state) {
       case "denied": return "브라우저에서 알림이 차단됨";
-      case "subscribed": return "푸시 알림 켜짐 (클릭하여 해제)";
-      case "unsubscribed": return "푸시 알림 켜기";
+      case "subscribed": return "모바일 푸시 알림 켜짐 (클릭하여 해제)";
+      case "unsubscribed": return "모바일 푸시 알림 켜기";
       default: return "";
     }
   };
@@ -142,9 +142,9 @@ export function PushNotificationToggle() {
   const getIcon = () => {
     switch (state) {
       case "denied": return <BellOff className="h-5 w-5" />;
-      case "subscribed": return <BellRing className="h-5 w-5" />;
-      case "unsubscribed": return <Bell className="h-5 w-5" />;
-      default: return <Bell className="h-5 w-5" />;
+      case "subscribed": return <SmartphoneNfc className="h-5 w-5" />;
+      case "unsubscribed": return <Smartphone className="h-5 w-5" />;
+      default: return <Smartphone className="h-5 w-5" />;
     }
   };
 
@@ -206,9 +206,9 @@ export function PushNotificationBanner() {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between gap-3" data-testid="banner-push-notification">
       <div className="flex items-center gap-2">
-        <BellRing className="h-5 w-5 text-blue-500 shrink-0" />
+        <Smartphone className="h-5 w-5 text-blue-500 shrink-0" />
         <p className="text-sm text-blue-700">
-          푸시 알림을 켜면 점검 일정을 놓치지 않을 수 있습니다. 상단 🔔 아이콘을 눌러 활성화하세요.
+          모바일 푸시 알림을 켜면 점검 일정을 놓치지 않을 수 있습니다. 상단 📱 아이콘을 눌러 활성화하세요.
         </p>
       </div>
       <Button variant="ghost" size="sm" onClick={dismiss} className="text-blue-500 shrink-0" data-testid="button-dismiss-push-banner">
