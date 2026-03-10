@@ -94,6 +94,7 @@ Preferred communication style: Simple, everyday language.
   - Computed status field
   - Optional notes
 - **inspectionLogs**: Historical record of inspections performed
+- **pushSubscriptions**: Web Push notification subscription data (endpoint, p256dh, auth keys per user)
 
 **Key Relationships**:
 - Assets have two team relationships: managing team (teamId) and usage team (usageTeamId)
@@ -113,6 +114,7 @@ Preferred communication style: Simple, everyday language.
 - `vite` - Build tool and dev server
 - `drizzle-orm` - Database ORM
 - `pg` - PostgreSQL client
+- `web-push` - Web Push notification delivery (VAPID protocol)
 
 **UI Component Libraries**:
 - `@radix-ui/*` - Headless UI primitives (35+ components)

@@ -12,12 +12,15 @@ import {
   type InsertInspectionLog,
   type AssetHistory,
   type InsertAssetHistory,
+  type PushSubscription,
+  type InsertPushSubscription,
   users,
   teams,
   categories,
   assets,
   inspectionLogs,
-  assetHistory
+  assetHistory,
+  pushSubscriptions
 } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { addDays, parseISO, differenceInDays, isWeekend, nextMonday } from "date-fns";
@@ -96,6 +99,11 @@ export interface IStorage {
   getAllAssetHistory(): Promise<AssetHistory[]>;
   createAssetHistory(entry: InsertAssetHistory): Promise<AssetHistory>;
   getOrCreateTeam(department: string, name: string): Promise<Team>;
+
+  savePushSubscription(sub: InsertPushSubscription): Promise<PushSubscription>;
+  getPushSubscriptionsByUserId(userId: string): Promise<PushSubscription[]>;
+  deletePushSubscription(endpoint: string): Promise<void>;
+  getAllPushSubscriptions(): Promise<PushSubscription[]>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -378,6 +386,32 @@ export class PostgresStorage implements IStorage {
   async createAssetHistory(entry: InsertAssetHistory): Promise<AssetHistory> {
     const result = await db.insert(assetHistory).values(entry).returning();
     return result[0];
+  }
+
+  async savePushSubscription(sub: InsertPushSubscription): Promise<PushSubscription> {
+    const existing = await db.select().from(pushSubscriptions)
+      .where(eq(pushSubscriptions.endpoint, sub.endpoint));
+    if (existing.length > 0) {
+      const [updated] = await db.update(pushSubscriptions)
+        .set({ userId: sub.userId, p256dh: sub.p256dh, auth: sub.auth })
+        .where(eq(pushSubscriptions.endpoint, sub.endpoint))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(pushSubscriptions).values(sub).returning();
+    return created;
+  }
+
+  async getPushSubscriptionsByUserId(userId: string): Promise<PushSubscription[]> {
+    return await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getAllPushSubscriptions(): Promise<PushSubscription[]> {
+    return await db.select().from(pushSubscriptions);
   }
 }
 

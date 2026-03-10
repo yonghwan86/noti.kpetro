@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PushNotificationBanner } from "@/components/PushNotificationToggle";
 import { 
   BarChart, 
   Bar, 
@@ -118,6 +119,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <PushNotificationBanner />
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-3">
           {roleInfo.icon}

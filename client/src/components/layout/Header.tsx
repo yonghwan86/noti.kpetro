@@ -47,6 +47,7 @@ import { api } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import { Asset, InspectionLog } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -140,6 +141,8 @@ export function Header({ onMenuClick, showMenuButton }: HeaderProps) {
             <Button variant="ghost" size="icon" className="text-muted-foreground hidden sm:flex" onClick={() => setOpenSearch(true)}>
               <Search className="h-5 w-5" />
             </Button>
+
+            <PushNotificationToggle />
             
             <Popover>
               <PopoverTrigger asChild>

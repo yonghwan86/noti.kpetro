@@ -104,6 +104,19 @@ export const insertInspectionLogSchema = createInsertSchema(inspectionLogs).omit
 export type InsertInspectionLog = z.infer<typeof insertInspectionLogSchema>;
 export type InspectionLog = typeof inspectionLogs.$inferSelect;
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true });
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
 export const assetHistory = pgTable("asset_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   assetId: varchar("asset_id").notNull(),

@@ -1,7 +1,8 @@
 import cron from 'node-cron';
 import { storage } from './storage';
 import { sendInspectionReminder, sendOverdueAlert } from './emailService';
-import { addDays, parseISO, isAfter, isBefore, format } from 'date-fns';
+import { sendPushToUser } from './pushService';
+import { addDays, parseISO, isAfter, isBefore, format, differenceInDays } from 'date-fns';
 
 async function checkUpcomingInspections() {
   console.log('[SCHEDULER] Checking for upcoming and overdue inspections...');
@@ -49,6 +50,19 @@ async function checkUpcomingInspections() {
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
+
+      const daysLeft = differenceInDays(parseISO(asset.nextDueDate!), today);
+      const pushRecipientIds = new Set<string>();
+      if (asset.staffId) pushRecipientIds.add(asset.staffId);
+      if (asset.managerId) pushRecipientIds.add(asset.managerId);
+      for (const uid of pushRecipientIds) {
+        await sendPushToUser(
+          uid,
+          `🔔 ${asset.name} 점검 예정`,
+          `점검일: ${dueDate} (D-${daysLeft}일) | 담당: ${staffName} | 팀: ${teamName}`,
+          '/'
+        );
+      }
     }
 
     for (const asset of overdueAssets) {
@@ -68,6 +82,19 @@ async function checkUpcomingInspections() {
           console.error(`[SCHEDULER] Failed to send overdue alert for ${asset.name} to ${email}: ${result.error}`);
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      const overdueDays = differenceInDays(today, parseISO(asset.nextDueDate!));
+      const pushRecipientIds = new Set<string>();
+      if (asset.staffId) pushRecipientIds.add(asset.staffId);
+      if (asset.managerId) pushRecipientIds.add(asset.managerId);
+      for (const uid of pushRecipientIds) {
+        await sendPushToUser(
+          uid,
+          `🚨 ${asset.name} 점검 지연!`,
+          `점검 예정일: ${dueDate} (${overdueDays}일 초과) | 담당: ${staffName} | 즉시 확인하세요`,
+          '/'
+        );
       }
     }
     

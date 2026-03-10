@@ -14,6 +14,7 @@ import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
 import { sendTestEmail } from "./emailService";
 import { checkUpcomingInspections } from "./scheduler";
+import { getVapidPublicKey } from "./pushService";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -780,6 +781,53 @@ export async function registerRoutes(
       res.json({ message: "점검 알림 확인이 완료되었습니다. 서버 로그를 확인하세요." });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "점검 확인 중 오류가 발생했습니다" });
+    }
+  });
+
+  app.get("/api/push/vapid-key", (_req: Request, res: Response) => {
+    const key = getVapidPublicKey();
+    if (!key) {
+      return res.status(500).json({ error: "VAPID key not configured" });
+    }
+    res.json({ publicKey: key });
+  });
+
+  app.post("/api/push/subscribe", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const user = getCurrentUser(req);
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const { endpoint, keys } = req.body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) {
+        return res.status(400).json({ error: "Invalid subscription data" });
+      }
+
+      await storage.savePushSubscription({
+        userId: user.id,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        createdAt: new Date().toISOString(),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[PUSH] Subscribe error:", error);
+      res.status(500).json({ error: "Failed to save subscription" });
+    }
+  });
+
+  app.delete("/api/push/unsubscribe", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) {
+        return res.status(400).json({ error: "Endpoint required" });
+      }
+      await storage.deletePushSubscription(endpoint);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[PUSH] Unsubscribe error:", error);
+      res.status(500).json({ error: "Failed to remove subscription" });
     }
   });
 
