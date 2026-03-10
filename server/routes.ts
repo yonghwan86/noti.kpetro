@@ -255,6 +255,18 @@ export async function registerRoutes(
   app.post("/api/users", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      if (userData.email) {
+        const existingByEmail = await storage.getUserByEmail(userData.email);
+        if (existingByEmail) {
+          return res.status(400).json({ error: `이미 동일한 이메일(${userData.email})로 등록된 사용자가 있습니다: ${existingByEmail.username}` });
+        }
+      }
+      if (userData.username) {
+        const existingByName = await storage.getUserByUsername(userData.username);
+        if (existingByName) {
+          return res.status(400).json({ error: `이미 동일한 이름(${userData.username})으로 등록된 사용자가 있습니다.` });
+        }
+      }
       const created = await storage.createUser(userData);
       const { passwordHash, ...safeCreated } = created;
       res.status(201).json({ ...safeCreated, hasPassword: !!passwordHash });
