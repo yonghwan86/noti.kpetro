@@ -12,14 +12,15 @@ import {
   Pie,
   Cell
 } from "recharts";
-import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck } from "lucide-react";
-import { Asset, InspectionLog, User, Category } from "@/lib/types";
+import { AlertTriangle, CheckCircle, Clock, Activity, Shield, Wrench, UserCheck, Gauge, FlaskConical, Truck, Package, Microscope, ClipboardCheck, Calendar } from "lucide-react";
+import { Asset, InspectionLog, User, Category, PersonalTask } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import { auth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, parseISO, isToday, isThisWeek } from "date-fns";
+import { ko } from "date-fns/locale";
 import { useLocation } from "wouter";
 
 export default function Dashboard() {
@@ -45,6 +46,15 @@ export default function Dashboard() {
     queryKey: ["/api/categories"],
     queryFn: () => api.categories.getAll(),
   });
+
+  type TaskWithShared = PersonalTask & { isShared?: boolean };
+  const { data: personalTasksRaw = [] } = useQuery<TaskWithShared[]>({
+    queryKey: ["/api/personal-tasks"],
+    queryFn: () => api.personalTasks.getAll(),
+  });
+
+  const todayTasks = personalTasksRaw.filter(t => !t.completed && isToday(parseISO(t.scheduledAt)));
+  const thisWeekTasks = personalTasksRaw.filter(t => !t.completed && isThisWeek(parseISO(t.scheduledAt)) && !isToday(parseISO(t.scheduledAt)));
 
   const currentDept = currentTeam?.department || null;
 
@@ -324,6 +334,67 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {(todayTasks.length > 0 || thisWeekTasks.length > 0) && (
+        <Card className="cursor-pointer hover:bg-accent/30 transition-colors" onClick={() => setLocation('/schedule')}>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              내 일정
+            </CardTitle>
+            <CardDescription>오늘 및 이번 주 예정 일정</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {todayTasks.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="default" className="text-xs">오늘 {todayTasks.length}건</Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {todayTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className="flex items-center gap-2 text-sm">
+                        <Clock className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                        <span className="truncate">{task.title}</span>
+                        <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">
+                          {format(parseISO(task.scheduledAt), 'HH:mm')}
+                        </span>
+                        {task.isShared && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">공유</Badge>
+                        )}
+                      </div>
+                    ))}
+                    {todayTasks.length > 3 && (
+                      <p className="text-xs text-muted-foreground">외 {todayTasks.length - 3}건</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {thisWeekTasks.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-xs">이번 주 {thisWeekTasks.length}건</Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {thisWeekTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                        <span className="truncate">{task.title}</span>
+                        <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">
+                          {format(parseISO(task.scheduledAt), 'MM/dd HH:mm')}
+                        </span>
+                      </div>
+                    ))}
+                    {thisWeekTasks.length > 3 && (
+                      <p className="text-xs text-muted-foreground">외 {thisWeekTasks.length - 3}건</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card>

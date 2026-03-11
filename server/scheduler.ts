@@ -1,8 +1,8 @@
 import cron from 'node-cron';
 import { storage } from './storage';
-import { sendInspectionReminder, sendOverdueAlert } from './emailService';
+import { sendInspectionReminder, sendOverdueAlert, sendEmail } from './emailService';
 import { sendPushToUser } from './pushService';
-import { addDays, parseISO, isAfter, isBefore, format, differenceInDays } from 'date-fns';
+import { addDays, parseISO, isAfter, isBefore, format, differenceInDays, isToday, subMinutes } from 'date-fns';
 
 async function checkUpcomingInspections() {
   console.log('[SCHEDULER] Checking for upcoming and overdue inspections...');
@@ -175,15 +175,225 @@ async function runDailyCheckIfNeeded() {
   await checkUpcomingInspections();
 }
 
+async function checkPersonalTasksMorning() {
+  console.log('[SCHEDULER] Checking personal tasks for morning push...');
+  try {
+    const tasks = await storage.getAllPersonalTasksForScheduler();
+    const users = await storage.getUsers();
+    const teams = await storage.getTeams();
+    const now = new Date();
+
+    for (const task of tasks) {
+      if (task.morningNotified) continue;
+      const scheduledDate = parseISO(task.scheduledAt);
+      if (!isToday(scheduledDate)) continue;
+
+      const owner = users.find(u => u.id === task.userId);
+      const ownerName = owner?.username || '알 수 없음';
+      const timeStr = format(scheduledDate, 'HH:mm');
+
+      await sendPushToUser(
+        task.userId,
+        `📅 오늘 일정: ${task.title}`,
+        `${timeStr}에 예정된 일정이 있습니다.`,
+        '/schedule'
+      );
+
+      if (task.shareScope !== 'private' && task.shareTeamIds && task.shareTeamIds.length > 0) {
+        const targetUsers = users.filter(u =>
+          u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
+        );
+        for (const target of targetUsers) {
+          await sendPushToUser(
+            target.id,
+            `📅 공유 일정: ${task.title}`,
+            `${ownerName}님의 일정 | ${timeStr} 예정`,
+            '/schedule'
+          );
+        }
+      }
+
+      await storage.updatePersonalTask(task.id, { morningNotified: true });
+    }
+    console.log('[SCHEDULER] Personal tasks morning check completed');
+  } catch (error) {
+    console.error('[SCHEDULER] Error in personal tasks morning check:', error);
+  }
+}
+
+async function checkPersonalTasksReminder() {
+  try {
+    const tasks = await storage.getAllPersonalTasksForScheduler();
+    const users = await storage.getUsers();
+    const now = new Date();
+
+    for (const task of tasks) {
+      if (task.reminderNotified) continue;
+      const scheduledDate = parseISO(task.scheduledAt);
+      const tenMinsBefore = subMinutes(scheduledDate, 10);
+      
+      if (now >= tenMinsBefore && now < scheduledDate) {
+        const ownerName = users.find(u => u.id === task.userId)?.username || '알 수 없음';
+
+        await sendPushToUser(
+          task.userId,
+          `⏰ 10분 후 일정: ${task.title}`,
+          `곧 시작되는 일정이 있습니다.`,
+          '/schedule'
+        );
+
+        if (task.shareScope !== 'private' && task.shareTeamIds && task.shareTeamIds.length > 0) {
+          const targetUsers = users.filter(u =>
+            u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
+          );
+          for (const target of targetUsers) {
+            await sendPushToUser(
+              target.id,
+              `⏰ 10분 후 공유 일정: ${task.title}`,
+              `${ownerName}님의 일정이 곧 시작됩니다.`,
+              '/schedule'
+            );
+          }
+        }
+
+        await storage.updatePersonalTask(task.id, { reminderNotified: true });
+      }
+    }
+  } catch (error) {
+    console.error('[SCHEDULER] Error in personal tasks reminder:', error);
+  }
+}
+
+async function sendSharedTasksEmailDigest() {
+  console.log('[SCHEDULER] Sending shared tasks email digest...');
+  try {
+    const tasks = await storage.getAllPersonalTasksForScheduler();
+    const allTasks = await (async () => {
+      const { db } = await import('../db');
+      const { personalTasks } = await import('@shared/schema');
+      return await db.select().from(personalTasks);
+    })();
+    
+    const users = await storage.getUsers();
+    const teams = await storage.getTeams();
+
+    const todaySharedTasks = allTasks.filter(t =>
+      t.shareScope !== 'private' &&
+      t.shareTeamIds && t.shareTeamIds.length > 0 &&
+      !t.emailDigestSent &&
+      isToday(parseISO(t.createdAt))
+    );
+
+    if (todaySharedTasks.length === 0) {
+      console.log('[SCHEDULER] No new shared tasks for email digest');
+      return;
+    }
+
+    const recipientTasks = new Map<string, typeof todaySharedTasks>();
+
+    for (const task of todaySharedTasks) {
+      const targetUsers = users.filter(u =>
+        u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
+      );
+      for (const target of targetUsers) {
+        if (!target.email) continue;
+        if (!recipientTasks.has(target.id)) {
+          recipientTasks.set(target.id, []);
+        }
+        recipientTasks.get(target.id)!.push(task);
+      }
+    }
+
+    for (const [userId, sharedTasks] of recipientTasks) {
+      const user = users.find(u => u.id === userId);
+      if (!user?.email) continue;
+
+      const taskRows = sharedTasks.map(task => {
+        const owner = users.find(u => u.id === task.userId);
+        const ownerName = owner?.username || '알 수 없음';
+        const scheduledTime = format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm');
+        return `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${task.title}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${scheduledTime}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${ownerName}</td>
+          </tr>`;
+      }).join('');
+
+      const body = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #2563eb;">📅 오늘의 공유 일정 알림</h2>
+    <p>${user.username}님, 오늘 새로 공유된 일정 ${sharedTasks.length}건을 알려드립니다.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <thead>
+        <tr style="background: #f3f4f6;">
+          <th style="padding: 8px; text-align: left;">일정</th>
+          <th style="padding: 8px; text-align: left;">예정일시</th>
+          <th style="padding: 8px; text-align: left;">작성자</th>
+        </tr>
+      </thead>
+      <tbody>${taskRows}</tbody>
+    </table>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+    <p style="font-size: 12px; color: #6b7280;">이 메일은 AI 업무 알림 서비스에서 자동 발송되었습니다.</p>
+  </div>
+</body>
+</html>`;
+
+      await sendEmail({
+        to: user.email,
+        subject: `[AI 업무 알림] 오늘의 공유 일정 ${sharedTasks.length}건`,
+        body,
+        isHtml: true,
+      });
+      console.log(`[SCHEDULER] Sent shared tasks digest to ${user.email}`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    for (const task of todaySharedTasks) {
+      await storage.updatePersonalTask(task.id, { emailDigestSent: true });
+    }
+
+    console.log('[SCHEDULER] Shared tasks email digest completed');
+  } catch (error) {
+    console.error('[SCHEDULER] Error in shared tasks email digest:', error);
+  }
+}
+
 export function startScheduler() {
   cron.schedule('0 9 * * *', () => {
     console.log('[SCHEDULER] 9 AM KST - running scheduled check');
     runDailyCheckIfNeeded();
+    checkPersonalTasksMorning();
+  }, {
+    timezone: 'Asia/Seoul'
+  });
+
+  cron.schedule('* * * * *', () => {
+    checkPersonalTasksReminder();
+  }, {
+    timezone: 'Asia/Seoul'
+  });
+
+  cron.schedule('0 18 * * *', () => {
+    console.log('[SCHEDULER] 6 PM KST - sending shared tasks email digest');
+    sendSharedTasksEmailDigest();
+  }, {
+    timezone: 'Asia/Seoul'
+  });
+
+  cron.schedule('0 0 * * *', () => {
+    console.log('[SCHEDULER] Midnight KST - resetting daily notification flags');
+    storage.resetDailyNotificationFlags();
   }, {
     timezone: 'Asia/Seoul'
   });
   
-  console.log('[SCHEDULER] Scheduler started - Daily check at 9:00 AM KST');
+  console.log('[SCHEDULER] Scheduler started - Daily check at 9:00 AM KST, reminders every minute, digest at 6:00 PM KST');
 
   const now = new Date();
   const kstHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));

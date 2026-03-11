@@ -132,3 +132,23 @@ export const assetHistory = pgTable("asset_history", {
 export const insertAssetHistorySchema = createInsertSchema(assetHistory).omit({ id: true });
 export type InsertAssetHistory = z.infer<typeof insertAssetHistorySchema>;
 export type AssetHistory = typeof assetHistory.$inferSelect;
+
+export const personalTasks = pgTable("personal_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  scheduledAt: text("scheduled_at").notNull(),
+  repeatType: text("repeat_type").notNull().default("none"),
+  completed: boolean("completed").notNull().default(false),
+  shareScope: text("share_scope").notNull().default("private"),
+  shareTeamIds: text("share_team_ids").array().default(sql`'{}'::text[]`),
+  morningNotified: boolean("morning_notified").notNull().default(false),
+  reminderNotified: boolean("reminder_notified").notNull().default(false),
+  emailDigestSent: boolean("email_digest_sent").notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});
+
+export const insertPersonalTaskSchema = createInsertSchema(personalTasks).omit({ id: true, morningNotified: true, reminderNotified: true, emailDigestSent: true });
+export type InsertPersonalTask = z.infer<typeof insertPersonalTaskSchema>;
+export type PersonalTask = typeof personalTasks.$inferSelect;

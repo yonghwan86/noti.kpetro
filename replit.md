@@ -237,3 +237,16 @@ Preferred communication style: Simple, everyday language.
 ### March 2026 - Terminology Updates
 - "장비 관리" → "구분 관리" across UI and server error messages
 - "장비관리자" → "구분관리자" in server error messages
+
+### March 2026 - Personal Schedule Management
+- Added personal task/schedule management feature with sharing capability
+- New `personal_tasks` DB table with fields: title, description, scheduledAt, repeatType, completed, shareScope, shareTeamIds, notification flags
+- Sidebar: "내 일정" menu added (accessible to all authenticated users)
+- MySchedule page (`/schedule`): task list with create/edit/delete/complete toggle, filter tabs (전체/내 일정/공유받은/오늘/완료)
+- Share scope options: 나만 보기 (private), 같은 팀 (team), 같은 부서 (department), 특정 팀 선택 (custom)
+- Notification rules:
+  - Own tasks: push only (9AM morning summary + 10min before reminder)
+  - Shared tasks: push on share creation (immediate), 9AM morning push, 10min before push, 6PM daily email digest
+- Scheduler: 3 new cron jobs (9AM morning push, per-minute 10-min-before check, 6PM email digest), midnight flag reset
+- Dashboard: today/this-week schedule summary card
+- API endpoints: GET/POST/PATCH/DELETE `/api/personal-tasks`, POST `/api/personal-tasks/:id/toggle`

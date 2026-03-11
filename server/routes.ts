@@ -9,12 +9,13 @@ import {
   insertAssetSchema,
   insertInspectionLogSchema,
   insertCategorySchema,
+  insertPersonalTaskSchema,
 } from "@shared/schema";
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
 import { sendTestEmail } from "./emailService";
 import { checkUpcomingInspections } from "./scheduler";
-import { getVapidPublicKey } from "./pushService";
+import { getVapidPublicKey, sendPushToUser } from "./pushService";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -840,6 +841,155 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("[PUSH] Unsubscribe error:", error);
       res.status(500).json({ error: "Failed to remove subscription" });
+    }
+  });
+
+  app.get("/api/personal-tasks", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const myTasks = await storage.getPersonalTasksByUser(currentUser.id);
+      const user = await storage.getUser(currentUser.id);
+      const team = user?.teamId ? await storage.getTeam(user.teamId) : null;
+      const sharedTasks = await storage.getPersonalTasksSharedWithUser(
+        currentUser.id,
+        currentUser.teamId,
+        team?.department || null
+      );
+      const allTasks = [
+        ...myTasks.map(t => ({ ...t, isShared: false })),
+        ...sharedTasks.map(t => ({ ...t, isShared: true })),
+      ];
+      res.json(allTasks);
+    } catch (error) {
+      res.status(500).json({ error: "일정 조회에 실패했습니다." });
+    }
+  });
+
+  app.post("/api/personal-tasks", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const { title, description, scheduledAt, repeatType, shareScope } = req.body;
+
+      if (!title || typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({ error: "제목을 입력해주세요." });
+      }
+      if (!scheduledAt || typeof scheduledAt !== 'string') {
+        return res.status(400).json({ error: "일정 시간을 입력해주세요." });
+      }
+      const validRepeatTypes = ['none', 'daily', 'weekly', 'monthly'];
+      const validShareScopes = ['private', 'team', 'department', 'custom'];
+      const safeRepeatType = validRepeatTypes.includes(repeatType) ? repeatType : 'none';
+      const safeShareScope = validShareScopes.includes(shareScope) ? shareScope : 'private';
+
+      const user = await storage.getUser(currentUser.id);
+      const team = user?.teamId ? await storage.getTeam(user.teamId) : null;
+
+      let shareTeamIds: string[] = [];
+      if (safeShareScope === 'team' && user?.teamId) {
+        shareTeamIds = [user.teamId];
+      } else if (safeShareScope === 'department' && team?.department) {
+        const allTeams = await storage.getTeams();
+        shareTeamIds = allTeams.filter(t => t.department === team.department).map(t => t.id);
+      } else if (safeShareScope === 'custom') {
+        shareTeamIds = Array.isArray(req.body.shareTeamIds) ? req.body.shareTeamIds.filter((id: any) => typeof id === 'string') : [];
+      }
+
+      const taskData = {
+        userId: currentUser.id,
+        title: title.trim(),
+        description: description || null,
+        scheduledAt,
+        repeatType: safeRepeatType,
+        completed: false,
+        shareScope: safeShareScope,
+        shareTeamIds,
+        createdAt: new Date().toISOString(),
+      };
+
+      const created = await storage.createPersonalTask(taskData);
+
+      if (created.shareScope !== 'private' && shareTeamIds.length > 0) {
+        const allUsers = await storage.getUsers();
+        const targetUsers = allUsers.filter(u => 
+          u.id !== currentUser.id && shareTeamIds.includes(u.teamId)
+        );
+        for (const targetUser of targetUsers) {
+          await sendPushToUser(
+            targetUser.id,
+            `📅 새 공유 일정: ${created.title}`,
+            `${currentUser.username}님이 일정을 공유했습니다: ${created.scheduledAt.split('T')[0]}`,
+            '/schedule'
+          );
+        }
+      }
+
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error("[PERSONAL-TASK] Create error:", error);
+      res.status(400).json({ error: "일정 생성에 실패했습니다." });
+    }
+  });
+
+  app.patch("/api/personal-tasks/:id", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const task = await storage.getPersonalTask(req.params.id);
+      if (!task) return res.status(404).json({ error: "일정을 찾을 수 없습니다." });
+      if (task.userId !== currentUser.id) return res.status(403).json({ error: "본인 일정만 수정할 수 있습니다." });
+
+      const user = await storage.getUser(currentUser.id);
+      const team = user?.teamId ? await storage.getTeam(user.teamId) : null;
+
+      let shareTeamIds = req.body.shareTeamIds;
+      if (req.body.shareScope === 'team' && user?.teamId) {
+        shareTeamIds = [user.teamId];
+      } else if (req.body.shareScope === 'department' && team?.department) {
+        const allTeams = await storage.getTeams();
+        shareTeamIds = allTeams.filter(t => t.department === team.department).map(t => t.id);
+      } else if (req.body.shareScope === 'private') {
+        shareTeamIds = [];
+      }
+
+      const updates: any = {};
+      if (req.body.title !== undefined) updates.title = req.body.title;
+      if (req.body.description !== undefined) updates.description = req.body.description;
+      if (req.body.scheduledAt !== undefined) updates.scheduledAt = req.body.scheduledAt;
+      if (req.body.repeatType !== undefined) updates.repeatType = req.body.repeatType;
+      if (req.body.shareScope !== undefined) updates.shareScope = req.body.shareScope;
+      if (shareTeamIds !== undefined) updates.shareTeamIds = shareTeamIds;
+
+      const updated = await storage.updatePersonalTask(req.params.id, updates);
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "일정 수정에 실패했습니다." });
+    }
+  });
+
+  app.post("/api/personal-tasks/:id/toggle", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const task = await storage.getPersonalTask(req.params.id);
+      if (!task) return res.status(404).json({ error: "일정을 찾을 수 없습니다." });
+      if (task.userId !== currentUser.id) return res.status(403).json({ error: "본인 일정만 변경할 수 있습니다." });
+
+      const updated = await storage.updatePersonalTask(req.params.id, { completed: !task.completed });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "상태 변경에 실패했습니다." });
+    }
+  });
+
+  app.delete("/api/personal-tasks/:id", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      const task = await storage.getPersonalTask(req.params.id);
+      if (!task) return res.status(404).json({ error: "일정을 찾을 수 없습니다." });
+      if (task.userId !== currentUser.id) return res.status(403).json({ error: "본인 일정만 삭제할 수 있습니다." });
+
+      await storage.deletePersonalTask(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "일정 삭제에 실패했습니다." });
     }
   });
 

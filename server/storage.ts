@@ -14,15 +14,18 @@ import {
   type InsertAssetHistory,
   type PushSubscription,
   type InsertPushSubscription,
+  type PersonalTask,
+  type InsertPersonalTask,
   users,
   teams,
   categories,
   assets,
   inspectionLogs,
   assetHistory,
-  pushSubscriptions
+  pushSubscriptions,
+  personalTasks
 } from "@shared/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { eq, or, desc, and, inArray } from "drizzle-orm";
 import { addDays, parseISO, differenceInDays, isWeekend, nextMonday } from "date-fns";
 import { encrypt, decrypt } from "./encryption";
 
@@ -104,6 +107,15 @@ export interface IStorage {
   getPushSubscriptionsByUserId(userId: string): Promise<PushSubscription[]>;
   deletePushSubscription(endpoint: string): Promise<void>;
   getAllPushSubscriptions(): Promise<PushSubscription[]>;
+
+  getPersonalTasksByUser(userId: string): Promise<PersonalTask[]>;
+  getPersonalTasksSharedWithUser(userId: string, teamId: string, department: string | null): Promise<PersonalTask[]>;
+  getPersonalTask(id: string): Promise<PersonalTask | undefined>;
+  createPersonalTask(task: InsertPersonalTask): Promise<PersonalTask>;
+  updatePersonalTask(id: string, updates: Partial<PersonalTask>): Promise<PersonalTask | undefined>;
+  deletePersonalTask(id: string): Promise<void>;
+  getAllPersonalTasksForScheduler(): Promise<PersonalTask[]>;
+  resetDailyNotificationFlags(): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -412,6 +424,68 @@ export class PostgresStorage implements IStorage {
 
   async getAllPushSubscriptions(): Promise<PushSubscription[]> {
     return await db.select().from(pushSubscriptions);
+  }
+
+  async getPersonalTasksByUser(userId: string): Promise<PersonalTask[]> {
+    return await db.select().from(personalTasks)
+      .where(eq(personalTasks.userId, userId))
+      .orderBy(desc(personalTasks.scheduledAt));
+  }
+
+  async getPersonalTasksSharedWithUser(userId: string, teamId: string, department: string | null): Promise<PersonalTask[]> {
+    const allTasks = await db.select().from(personalTasks).orderBy(desc(personalTasks.scheduledAt));
+    const allTeams = await db.select().from(teams);
+    
+    const sameDeptTeamIds = department 
+      ? allTeams.filter(t => t.department === department).map(t => t.id)
+      : [];
+
+    return allTasks.filter(task => {
+      if (task.userId === userId) return false;
+      if (task.shareScope === 'private') return false;
+      if (task.shareScope === 'team') {
+        return task.shareTeamIds?.includes(teamId) || false;
+      }
+      if (task.shareScope === 'department') {
+        return sameDeptTeamIds.some(tid => task.shareTeamIds?.includes(tid));
+      }
+      if (task.shareScope === 'custom') {
+        return task.shareTeamIds?.includes(teamId) || false;
+      }
+      return false;
+    });
+  }
+
+  async getPersonalTask(id: string): Promise<PersonalTask | undefined> {
+    const result = await db.select().from(personalTasks).where(eq(personalTasks.id, id));
+    return result[0];
+  }
+
+  async createPersonalTask(task: InsertPersonalTask): Promise<PersonalTask> {
+    const [created] = await db.insert(personalTasks).values(task).returning();
+    return created;
+  }
+
+  async updatePersonalTask(id: string, updates: Partial<PersonalTask>): Promise<PersonalTask | undefined> {
+    const [updated] = await db.update(personalTasks).set(updates).where(eq(personalTasks.id, id)).returning();
+    return updated;
+  }
+
+  async deletePersonalTask(id: string): Promise<void> {
+    await db.delete(personalTasks).where(eq(personalTasks.id, id));
+  }
+
+  async getAllPersonalTasksForScheduler(): Promise<PersonalTask[]> {
+    return await db.select().from(personalTasks)
+      .where(eq(personalTasks.completed, false));
+  }
+
+  async resetDailyNotificationFlags(): Promise<void> {
+    await db.update(personalTasks).set({
+      morningNotified: false,
+      reminderNotified: false,
+      emailDigestSent: false,
+    });
   }
 }
 

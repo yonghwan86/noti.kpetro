@@ -1,4 +1,4 @@
-import { Asset, Team, User, InspectionLog, Category, AssetHistory } from "./types";
+import { Asset, Team, User, InspectionLog, Category, AssetHistory, PersonalTask } from "./types";
 
 const API_BASE = "/api";
 
@@ -217,6 +217,50 @@ export const api = {
     getAll: async (): Promise<InspectionLog[]> => {
       const res = await fetch(`${API_BASE}/logs`, fetchOptions);
       return handleResponse(res, "Failed to fetch logs");
+    },
+  },
+
+  personalTasks: {
+    getAll: async (): Promise<PersonalTask[]> => {
+      const res = await fetch(`${API_BASE}/personal-tasks`, fetchOptions);
+      return handleResponse(res, "Failed to fetch personal tasks");
+    },
+    create: async (task: Omit<PersonalTask, "id" | "createdAt">): Promise<PersonalTask> => {
+      const res = await fetch(`${API_BASE}/personal-tasks`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(task),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to create personal task");
+    },
+    update: async (id: string, updates: Partial<PersonalTask>): Promise<PersonalTask> => {
+      const res = await fetch(`${API_BASE}/personal-tasks/${id}`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to update personal task");
+    },
+    delete: async (id: string): Promise<void> => {
+      const res = await fetch(`${API_BASE}/personal-tasks/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        ...fetchOptions,
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Failed to delete" }));
+        throw new Error(error.error || "Failed to delete");
+      }
+    },
+    toggleComplete: async (id: string): Promise<PersonalTask> => {
+      const res = await fetch(`${API_BASE}/personal-tasks/${id}/toggle`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        ...fetchOptions,
+      });
+      return handleResponse(res, "Failed to toggle task");
     },
   },
 };

@@ -6,6 +6,7 @@ import {
   Settings, 
   ShieldCheck,
   Activity,
+  Calendar,
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
   const navigation = [
     { name: '대시보드', href: '/', icon: LayoutDashboard, show: true },
     { name: 'AI 업무 알림 서비스', href: '/assets', icon: Package, show: true },
+    { name: '내 일정', href: '/schedule', icon: Calendar, show: true },
     { name: '구분 및 사용자 관리', href: '/team', icon: Users, show: auth.canAccessTeamPage(currentUser) },
     { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
   ].filter(item => item.show);

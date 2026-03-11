@@ -9,6 +9,7 @@ import Assets from "@/pages/Assets";
 import Team from "@/pages/Team";
 import Settings from "@/pages/Settings";
 import Logs from "@/pages/Logs";
+import MySchedule from "@/pages/MySchedule";
 import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserProvider, useUser } from "@/contexts/UserContext";
@@ -33,6 +34,7 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/assets" component={Assets} />
+        <Route path="/schedule" component={MySchedule} />
         <Route path="/team" component={Team} />
         <Route path="/settings" component={Settings} />
         <Route path="/logs" component={Logs} />

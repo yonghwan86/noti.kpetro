@@ -1,0 +1,470 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { PersonalTask, Team, User, ShareScope, RepeatType } from "@/lib/types";
+import { useUser } from "@/contexts/UserContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { format, parseISO, isToday, isThisWeek, isPast, isFuture } from "date-fns";
+import { ko } from "date-fns/locale";
+import {
+  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat
+} from "lucide-react";
+
+type TaskWithShared = PersonalTask & { isShared?: boolean };
+
+export default function MySchedule() {
+  const { currentUser } = useUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithShared | null>(null);
+  const [filter, setFilter] = useState<'all' | 'mine' | 'shared' | 'today' | 'completed'>('all');
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [repeatType, setRepeatType] = useState<RepeatType>("none");
+  const [shareScope, setShareScope] = useState<ShareScope>("private");
+  const [shareTeamIds, setShareTeamIds] = useState<string[]>([]);
+
+  const { data: tasks = [], isLoading } = useQuery<TaskWithShared[]>({
+    queryKey: ["/api/personal-tasks"],
+    queryFn: () => api.personalTasks.getAll(),
+  });
+
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams"],
+    queryFn: () => api.teams.getAll(),
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: () => api.users.getAll(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.personalTasks.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
+      toast({ title: "일정이 등록되었습니다." });
+      closeDialog();
+    },
+    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.personalTasks.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
+      toast({ title: "일정이 수정되었습니다." });
+      closeDialog();
+    },
+    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => api.personalTasks.toggleComplete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] }),
+    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.personalTasks.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
+      toast({ title: "일정이 삭제되었습니다." });
+    },
+    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+  });
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingTask(null);
+    setTitle("");
+    setDescription("");
+    setScheduledAt("");
+    setRepeatType("none");
+    setShareScope("private");
+    setShareTeamIds([]);
+  };
+
+  const openCreate = () => {
+    closeDialog();
+    setDialogOpen(true);
+  };
+
+  const openEdit = (task: TaskWithShared) => {
+    setEditingTask(task);
+    setTitle(task.title);
+    setDescription(task.description || "");
+    setScheduledAt(task.scheduledAt);
+    setRepeatType(task.repeatType as RepeatType);
+    setShareScope(task.shareScope as ShareScope);
+    setShareTeamIds(task.shareTeamIds || []);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!title.trim() || !scheduledAt) {
+      toast({ title: "제목과 일정 시간을 입력해주세요.", variant: "destructive" });
+      return;
+    }
+    const data: any = {
+      title: title.trim(),
+      description: description.trim() || null,
+      scheduledAt,
+      repeatType,
+      shareScope,
+      shareTeamIds: shareScope === 'custom' ? shareTeamIds : [],
+    };
+
+    if (editingTask) {
+      updateMutation.mutate({ id: editingTask.id, data });
+    } else {
+      data.userId = currentUser?.id || '';
+      data.completed = false;
+      createMutation.mutate(data);
+    }
+  };
+
+  const filteredTasks = tasks.filter(t => {
+    if (filter === 'mine') return !t.isShared;
+    if (filter === 'shared') return t.isShared;
+    if (filter === 'today') return isToday(parseISO(t.scheduledAt));
+    if (filter === 'completed') return t.completed;
+    return true;
+  });
+
+  const incompleteTasks = filteredTasks.filter(t => !t.completed);
+  const completedTasks = filteredTasks.filter(t => t.completed);
+
+  const getShareIcon = (scope: string) => {
+    switch (scope) {
+      case 'private': return <Lock className="h-3 w-3" />;
+      case 'team': return <Users className="h-3 w-3" />;
+      case 'department': return <Building className="h-3 w-3" />;
+      case 'custom': return <Share2 className="h-3 w-3" />;
+      default: return <Lock className="h-3 w-3" />;
+    }
+  };
+
+  const getShareLabel = (scope: string) => {
+    switch (scope) {
+      case 'private': return '나만 보기';
+      case 'team': return '팀 공유';
+      case 'department': return '부서 공유';
+      case 'custom': return '선택 공유';
+      default: return '나만 보기';
+    }
+  };
+
+  const getRepeatLabel = (type: string) => {
+    switch (type) {
+      case 'daily': return '매일';
+      case 'weekly': return '매주';
+      case 'monthly': return '매월';
+      default: return null;
+    }
+  };
+
+  const getUserName = (userId: string) => users.find(u => u.id === userId)?.username || '알 수 없음';
+
+  const getScheduleStatus = (task: TaskWithShared) => {
+    if (task.completed) return { label: '완료', color: 'bg-green-100 text-green-800' };
+    const date = parseISO(task.scheduledAt);
+    if (isPast(date)) return { label: '지남', color: 'bg-red-100 text-red-800' };
+    if (isToday(date)) return { label: '오늘', color: 'bg-blue-100 text-blue-800' };
+    if (isThisWeek(date)) return { label: '이번주', color: 'bg-yellow-100 text-yellow-800' };
+    return { label: '예정', color: 'bg-gray-100 text-gray-800' };
+  };
+
+  const renderTask = (task: TaskWithShared) => {
+    const status = getScheduleStatus(task);
+    const isOwner = task.userId === currentUser?.id;
+
+    return (
+      <div
+        key={task.id}
+        data-testid={`task-item-${task.id}`}
+        className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+          task.completed ? 'bg-muted/50 opacity-60' : 'hover:bg-accent/50'
+        }`}
+      >
+        {isOwner && (
+          <button
+            data-testid={`toggle-task-${task.id}`}
+            onClick={() => toggleMutation.mutate(task.id)}
+            className={`mt-0.5 flex-shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              task.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-primary'
+            }`}
+          >
+            {task.completed && <Check className="h-3 w-3" />}
+          </button>
+        )}
+        {!isOwner && (
+          <div className="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center">
+            <Share2 className="h-3 w-3 text-blue-500" />
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+              {task.title}
+            </span>
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${status.color}`}>
+              {status.label}
+            </Badge>
+            {task.isShared && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700">
+                공유받음
+              </Badge>
+            )}
+            {!task.isShared && task.shareScope !== 'private' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                {getShareIcon(task.shareScope)}
+                {getShareLabel(task.shareScope)}
+              </Badge>
+            )}
+            {getRepeatLabel(task.repeatType) && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                <Repeat className="h-3 w-3" />
+                {getRepeatLabel(task.repeatType)}
+              </Badge>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-xs text-muted-foreground mt-1 truncate">{task.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+            </span>
+            {task.isShared && (
+              <span>작성자: {getUserName(task.userId)}</span>
+            )}
+          </div>
+        </div>
+
+        {isOwner && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              data-testid={`edit-task-${task.id}`}
+              onClick={() => openEdit(task)}
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              data-testid={`delete-task-${task.id}`}
+              onClick={() => {
+                if (confirm('이 일정을 삭제할까요?')) {
+                  deleteMutation.mutate(task.id);
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Calendar className="h-6 w-6 text-primary" />
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">내 일정</h2>
+            <p className="text-sm text-muted-foreground hidden sm:block">개인 업무 일정을 관리하고 알림을 받으세요</p>
+          </div>
+        </div>
+        <Button onClick={openCreate} data-testid="button-create-task">
+          <Plus className="h-4 w-4 mr-2" />
+          일정 등록
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          { key: 'all', label: '전체', icon: CalendarCheck },
+          { key: 'mine', label: '내 일정', icon: Lock },
+          { key: 'shared', label: '공유받은', icon: Share2 },
+          { key: 'today', label: '오늘', icon: Calendar },
+          { key: 'completed', label: '완료', icon: Check },
+        ].map(f => (
+          <Button
+            key={f.key}
+            variant={filter === f.key ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter(f.key as any)}
+            data-testid={`filter-${f.key}`}
+          >
+            <f.icon className="h-3.5 w-3.5 mr-1" />
+            {f.label}
+            {f.key === 'all' && <span className="ml-1 text-xs">({tasks.length})</span>}
+            {f.key === 'mine' && <span className="ml-1 text-xs">({tasks.filter(t => !t.isShared).length})</span>}
+            {f.key === 'shared' && <span className="ml-1 text-xs">({tasks.filter(t => t.isShared).length})</span>}
+          </Button>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            진행 중 ({incompleteTasks.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : incompleteTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {filter === 'shared' ? '공유받은 일정이 없습니다.' : '등록된 일정이 없습니다.'}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {incompleteTasks.map(renderTask)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {completedTasks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
+              <Check className="h-4 w-4" />
+              완료됨 ({completedTasks.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {completedTasks.map(renderTask)}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? '일정 수정' : '새 일정 등록'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">제목 *</label>
+              <Input
+                data-testid="input-task-title"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="일정 제목을 입력하세요"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">설명</label>
+              <Textarea
+                data-testid="input-task-description"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="일정 설명 (선택)"
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">일정 날짜/시간 *</label>
+              <Input
+                data-testid="input-task-datetime"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={e => setScheduledAt(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">반복</label>
+              <Select value={repeatType} onValueChange={v => setRepeatType(v as RepeatType)}>
+                <SelectTrigger data-testid="select-repeat-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">반복 없음</SelectItem>
+                  <SelectItem value="daily">매일</SelectItem>
+                  <SelectItem value="weekly">매주</SelectItem>
+                  <SelectItem value="monthly">매월</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">공유 범위</label>
+              <Select value={shareScope} onValueChange={v => setShareScope(v as ShareScope)}>
+                <SelectTrigger data-testid="select-share-scope">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">나만 보기</SelectItem>
+                  <SelectItem value="team">같은 팀 공유</SelectItem>
+                  <SelectItem value="department">같은 부서 공유</SelectItem>
+                  <SelectItem value="custom">특정 팀 선택</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {shareScope === 'custom' && (
+              <div>
+                <label className="text-sm font-medium">공유할 팀 선택</label>
+                <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto">
+                  {teams.map(team => (
+                    <Badge
+                      key={team.id}
+                      variant={shareTeamIds.includes(team.id) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setShareTeamIds(prev =>
+                          prev.includes(team.id)
+                            ? prev.filter(id => id !== team.id)
+                            : [...prev, team.id]
+                        );
+                      }}
+                    >
+                      {team.department ? `${team.department} / ` : ''}{team.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog} data-testid="button-cancel-task">
+              취소
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              data-testid="button-submit-task"
+            >
+              {editingTask ? '수정' : '등록'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
