@@ -267,13 +267,7 @@ async function checkPersonalTasksReminder() {
 async function sendSharedTasksEmailDigest() {
   console.log('[SCHEDULER] Sending shared tasks email digest...');
   try {
-    const tasks = await storage.getAllPersonalTasksForScheduler();
-    const allTasks = await (async () => {
-      const { db } = await import('../db');
-      const { personalTasks } = await import('@shared/schema');
-      return await db.select().from(personalTasks);
-    })();
-    
+    const allTasks = await storage.getAllPersonalTasksForScheduler();
     const users = await storage.getUsers();
     const teams = await storage.getTeams();
 
