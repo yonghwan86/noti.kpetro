@@ -105,8 +105,10 @@ export default function ShareTargetSelector({
     );
   };
 
-  const toggleDepartment = (deptTeams: Team[]) => {
-    const deptTeamIds = deptTeams.map(t => t.id);
+  const toggleDepartment = (department: string) => {
+    const fullDeptGroup = tree.groups.find(g => g.department === department);
+    if (!fullDeptGroup) return;
+    const deptTeamIds = fullDeptGroup.teams.map(t => t.id);
     const allSelected = deptTeamIds.every(id => selectedTeamIds.includes(id));
     if (allSelected) {
       onTeamIdsChange(selectedTeamIds.filter(id => !deptTeamIds.includes(id)));
@@ -216,15 +218,16 @@ export default function ShareTargetSelector({
           <ScrollArea className="max-h-64">
             <div className="p-2 pt-0 space-y-1">
               {filteredTree.groups.map(group => {
-                const deptTeamIds = group.teams.map(t => t.id);
-                const allTeamsSelected = deptTeamIds.every(id => selectedTeamIds.includes(id));
-                const someTeamsSelected = deptTeamIds.some(id => selectedTeamIds.includes(id));
+                const fullDeptGroup = tree.groups.find(g => g.department === group.department);
+                const fullDeptTeamIds = fullDeptGroup ? fullDeptGroup.teams.map(t => t.id) : [];
+                const allTeamsSelected = fullDeptTeamIds.length > 0 && fullDeptTeamIds.every(id => selectedTeamIds.includes(id));
+                const someTeamsSelected = fullDeptTeamIds.some(id => selectedTeamIds.includes(id));
 
                 return (
                   <div key={group.department} className="space-y-0.5">
                     <div
                       className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-accent cursor-pointer"
-                      onClick={() => toggleDepartment(group.teams)}
+                      onClick={() => toggleDepartment(group.department)}
                       data-testid={`dept-${group.department}`}
                     >
                       <Checkbox

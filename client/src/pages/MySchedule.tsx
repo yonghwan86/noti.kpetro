@@ -110,7 +110,9 @@ export default function MySchedule() {
     setDescription(task.description || "");
     setScheduledAt(task.scheduledAt);
     setRepeatType(task.repeatType as RepeatType);
-    setShareScope(task.shareScope as ShareScope);
+    const scope = task.shareScope;
+    const mappedScope: ShareScope = (scope === 'team' || scope === 'department' || scope === 'custom') ? 'selected' : (scope as ShareScope);
+    setShareScope(mappedScope);
     setShareTeamIds(task.shareTeamIds || []);
     setShareUserIds(task.shareUserIds || []);
     setDialogOpen(true);
@@ -152,19 +154,13 @@ export default function MySchedule() {
   const completedTasks = filteredTasks.filter(t => t.completed);
 
   const getShareIcon = (scope: string) => {
-    switch (scope) {
-      case 'private': return <Lock className="h-3 w-3" />;
-      case 'selected': return <Share2 className="h-3 w-3" />;
-      default: return <Lock className="h-3 w-3" />;
-    }
+    if (scope === 'private') return <Lock className="h-3 w-3" />;
+    return <Share2 className="h-3 w-3" />;
   };
 
   const getShareLabel = (scope: string) => {
-    switch (scope) {
-      case 'private': return '나만 보기';
-      case 'selected': return '공유';
-      default: return '나만 보기';
-    }
+    if (scope === 'private') return '나만 보기';
+    return '공유';
   };
 
   const getRepeatLabel = (type: string) => {

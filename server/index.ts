@@ -99,6 +99,18 @@ app.use((req, res, next) => {
 
       await initializeDatabase();
       await migrateEncryption();
+      
+      try {
+        const { db } = await import("../db");
+        const { personalTasks } = await import("@shared/schema");
+        const { sql } = await import("drizzle-orm");
+        const result = await db.execute(sql`UPDATE personal_tasks SET share_scope = 'selected' WHERE share_scope IN ('team', 'department', 'custom')`);
+        const count = (result as any).rowCount || 0;
+        if (count > 0) {
+          console.log(`[MIGRATION] Migrated ${count} personal_tasks shareScope to 'selected'`);
+        }
+      } catch (e) {}
+      
       startScheduler();
     },
   );
