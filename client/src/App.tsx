@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -13,6 +14,22 @@ import MySchedule from "@/pages/MySchedule";
 import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserProvider, useUser } from "@/contexts/UserContext";
+
+function useClearAppBadge() {
+  useEffect(() => {
+    const clear = () => {
+      if ('clearAppBadge' in navigator) {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
+    };
+    clear();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') clear();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+}
 
 function AuthenticatedRouter() {
   const { currentUser, isLoading, isAuthenticated } = useUser();
@@ -45,6 +62,7 @@ function AuthenticatedRouter() {
 }
 
 function App() {
+  useClearAppBadge();
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>

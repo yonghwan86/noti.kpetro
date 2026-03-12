@@ -21,7 +21,13 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title, options).then(function() {
+      return self.registration.getNotifications();
+    }).then(function(notifications) {
+      if (navigator.setAppBadge) {
+        return navigator.setAppBadge(notifications.length);
+      }
+    }).catch(function() {})
   );
 });
 
@@ -31,7 +37,15 @@ self.addEventListener('notificationclick', function(event) {
   const url = event.notification.data?.url || '/';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+    self.registration.getNotifications().then(function(notifications) {
+      if (notifications.length === 0 && navigator.clearAppBadge) {
+        return navigator.clearAppBadge();
+      } else if (navigator.setAppBadge) {
+        return navigator.setAppBadge(notifications.length);
+      }
+    }).catch(function() {}).then(function() {
+      return clients.matchAll({ type: 'window', includeUncontrolled: true });
+    }).then(function(clientList) {
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
         if (client.url.includes(self.location.origin) && 'focus' in client) {
