@@ -15,19 +15,25 @@ import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 
+function clearAppBadge() {
+  if ('clearAppBadge' in navigator && typeof navigator.clearAppBadge === 'function') {
+    navigator.clearAppBadge().catch(() => {});
+  }
+}
+
 function useClearAppBadge() {
   useEffect(() => {
-    const clear = () => {
-      if ('clearAppBadge' in navigator) {
-        (navigator as any).clearAppBadge().catch(() => {});
-      }
-    };
-    clear();
+    clearAppBadge();
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') clear();
+      if (document.visibilityState === 'visible') clearAppBadge();
     };
+    const onFocus = () => clearAppBadge();
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 }
 
