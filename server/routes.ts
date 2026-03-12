@@ -877,21 +877,19 @@ export async function registerRoutes(
         return res.status(400).json({ error: "일정 시간을 입력해주세요." });
       }
       const validRepeatTypes = ['none', 'daily', 'weekly', 'monthly'];
-      const validShareScopes = ['private', 'team', 'department', 'custom'];
+      const validShareScopes = ['private', 'selected'];
       const safeRepeatType = validRepeatTypes.includes(repeatType) ? repeatType : 'none';
       const safeShareScope = validShareScopes.includes(shareScope) ? shareScope : 'private';
 
-      const user = await storage.getUser(currentUser.id);
-      const team = user?.teamId ? await storage.getTeam(user.teamId) : null;
-
       let shareTeamIds: string[] = [];
-      if (safeShareScope === 'team' && user?.teamId) {
-        shareTeamIds = [user.teamId];
-      } else if (safeShareScope === 'department' && team?.department) {
-        const allTeams = await storage.getTeams();
-        shareTeamIds = allTeams.filter(t => t.department === team.department).map(t => t.id);
-      } else if (safeShareScope === 'custom') {
+      let shareUserIds: string[] = [];
+      let finalShareScope = safeShareScope;
+      if (safeShareScope === 'selected') {
         shareTeamIds = Array.isArray(req.body.shareTeamIds) ? req.body.shareTeamIds.filter((id: any) => typeof id === 'string') : [];
+        shareUserIds = Array.isArray(req.body.shareUserIds) ? req.body.shareUserIds.filter((id: any) => typeof id === 'string') : [];
+        if (shareTeamIds.length === 0 && shareUserIds.length === 0) {
+          finalShareScope = 'private';
+        }
       }
 
       const taskData = {
@@ -901,21 +899,25 @@ export async function registerRoutes(
         scheduledAt,
         repeatType: safeRepeatType,
         completed: false,
-        shareScope: safeShareScope,
+        shareScope: finalShareScope,
         shareTeamIds,
+        shareUserIds,
         createdAt: new Date().toISOString(),
       };
 
       const created = await storage.createPersonalTask(taskData);
 
-      if (created.shareScope !== 'private' && shareTeamIds.length > 0) {
+      if (finalShareScope === 'selected' && (shareTeamIds.length > 0 || shareUserIds.length > 0)) {
         const allUsers = await storage.getUsers();
-        const targetUsers = allUsers.filter(u => 
-          u.id !== currentUser.id && shareTeamIds.includes(u.teamId)
-        );
-        for (const targetUser of targetUsers) {
+        const targetUserSet = new Set<string>();
+        for (const u of allUsers) {
+          if (u.id === currentUser.id) continue;
+          if (shareTeamIds.includes(u.teamId)) targetUserSet.add(u.id);
+          if (shareUserIds.includes(u.id)) targetUserSet.add(u.id);
+        }
+        for (const targetUserId of targetUserSet) {
           await sendPushToUser(
-            targetUser.id,
+            targetUserId,
             `📅 새 공유 일정: ${created.title}`,
             `${currentUser.username}님이 일정을 공유했습니다: ${created.scheduledAt.split('T')[0]}`,
             '/schedule'
@@ -937,26 +939,36 @@ export async function registerRoutes(
       if (!task) return res.status(404).json({ error: "일정을 찾을 수 없습니다." });
       if (task.userId !== currentUser.id) return res.status(403).json({ error: "본인 일정만 수정할 수 있습니다." });
 
-      const user = await storage.getUser(currentUser.id);
-      const team = user?.teamId ? await storage.getTeam(user.teamId) : null;
-
-      let shareTeamIds = req.body.shareTeamIds;
-      if (req.body.shareScope === 'team' && user?.teamId) {
-        shareTeamIds = [user.teamId];
-      } else if (req.body.shareScope === 'department' && team?.department) {
-        const allTeams = await storage.getTeams();
-        shareTeamIds = allTeams.filter(t => t.department === team.department).map(t => t.id);
-      } else if (req.body.shareScope === 'private') {
-        shareTeamIds = [];
-      }
+      const validRepeatTypesForPatch = ['none', 'daily', 'weekly', 'monthly'];
+      const validShareScopesForPatch = ['private', 'selected'];
 
       const updates: any = {};
-      if (req.body.title !== undefined) updates.title = req.body.title;
+      if (req.body.title !== undefined) updates.title = typeof req.body.title === 'string' ? req.body.title.trim() : req.body.title;
       if (req.body.description !== undefined) updates.description = req.body.description;
       if (req.body.scheduledAt !== undefined) updates.scheduledAt = req.body.scheduledAt;
-      if (req.body.repeatType !== undefined) updates.repeatType = req.body.repeatType;
-      if (req.body.shareScope !== undefined) updates.shareScope = req.body.shareScope;
-      if (shareTeamIds !== undefined) updates.shareTeamIds = shareTeamIds;
+      if (req.body.repeatType !== undefined) {
+        updates.repeatType = validRepeatTypesForPatch.includes(req.body.repeatType) ? req.body.repeatType : 'none';
+      }
+      if (req.body.shareScope !== undefined) {
+        updates.shareScope = validShareScopesForPatch.includes(req.body.shareScope) ? req.body.shareScope : 'private';
+      }
+      const effectiveScope = updates.shareScope || task.shareScope;
+      if (effectiveScope === 'private') {
+        updates.shareTeamIds = [];
+        updates.shareUserIds = [];
+      } else if (effectiveScope === 'selected') {
+        const teamIds = Array.isArray(req.body.shareTeamIds) ? req.body.shareTeamIds.filter((id: any) => typeof id === 'string') : (req.body.shareTeamIds !== undefined ? [] : undefined);
+        const userIds = Array.isArray(req.body.shareUserIds) ? req.body.shareUserIds.filter((id: any) => typeof id === 'string') : (req.body.shareUserIds !== undefined ? [] : undefined);
+        if (teamIds !== undefined) updates.shareTeamIds = teamIds;
+        if (userIds !== undefined) updates.shareUserIds = userIds;
+        const finalTeamIds = updates.shareTeamIds ?? task.shareTeamIds ?? [];
+        const finalUserIds = updates.shareUserIds ?? task.shareUserIds ?? [];
+        if (finalTeamIds.length === 0 && finalUserIds.length === 0) {
+          updates.shareScope = 'private';
+          updates.shareTeamIds = [];
+          updates.shareUserIds = [];
+        }
+      }
 
       const updated = await storage.updatePersonalTask(req.params.id, updates);
       res.json(updated);

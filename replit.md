@@ -243,7 +243,9 @@ Preferred communication style: Simple, everyday language.
 - New `personal_tasks` DB table with fields: title, description, scheduledAt, repeatType, completed, shareScope, shareTeamIds, notification flags
 - Sidebar: "내 일정" menu added (accessible to all authenticated users)
 - MySchedule page (`/schedule`): task list with create/edit/delete/complete toggle, filter tabs (전체/내 일정/공유받은/오늘/완료)
-- Share scope options: 나만 보기 (private), 같은 팀 (team), 같은 부서 (department), 특정 팀 선택 (custom)
+- Share scope simplified to: 나만 보기 (private), 직접 선택 (selected) - unified tree multi-select
+- `share_user_ids` column added for user-level sharing
+- Tree-structured ShareTargetSelector component: dept→team→user hierarchy with search, "내 팀"/"내 부서" quick buttons, tags with X remove
 - Notification rules:
   - Own tasks: push only (9AM morning summary + 10min before reminder)
   - Shared tasks: push on share creation (immediate), 9AM morning push, 10min before push, 6PM daily email digest

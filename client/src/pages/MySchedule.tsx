@@ -16,6 +16,7 @@ import { ko } from "date-fns/locale";
 import {
   Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat
 } from "lucide-react";
+import ShareTargetSelector from "@/components/ShareTargetSelector";
 
 type TaskWithShared = PersonalTask & { isShared?: boolean };
 
@@ -34,6 +35,7 @@ export default function MySchedule() {
   const [repeatType, setRepeatType] = useState<RepeatType>("none");
   const [shareScope, setShareScope] = useState<ShareScope>("private");
   const [shareTeamIds, setShareTeamIds] = useState<string[]>([]);
+  const [shareUserIds, setShareUserIds] = useState<string[]>([]);
 
   const { data: tasks = [], isLoading } = useQuery<TaskWithShared[]>({
     queryKey: ["/api/personal-tasks"],
@@ -94,6 +96,7 @@ export default function MySchedule() {
     setRepeatType("none");
     setShareScope("private");
     setShareTeamIds([]);
+    setShareUserIds([]);
   };
 
   const openCreate = () => {
@@ -109,6 +112,7 @@ export default function MySchedule() {
     setRepeatType(task.repeatType as RepeatType);
     setShareScope(task.shareScope as ShareScope);
     setShareTeamIds(task.shareTeamIds || []);
+    setShareUserIds(task.shareUserIds || []);
     setDialogOpen(true);
   };
 
@@ -123,7 +127,8 @@ export default function MySchedule() {
       scheduledAt,
       repeatType,
       shareScope,
-      shareTeamIds: shareScope === 'custom' ? shareTeamIds : [],
+      shareTeamIds: shareScope === 'selected' ? shareTeamIds : [],
+      shareUserIds: shareScope === 'selected' ? shareUserIds : [],
     };
 
     if (editingTask) {
@@ -149,9 +154,7 @@ export default function MySchedule() {
   const getShareIcon = (scope: string) => {
     switch (scope) {
       case 'private': return <Lock className="h-3 w-3" />;
-      case 'team': return <Users className="h-3 w-3" />;
-      case 'department': return <Building className="h-3 w-3" />;
-      case 'custom': return <Share2 className="h-3 w-3" />;
+      case 'selected': return <Share2 className="h-3 w-3" />;
       default: return <Lock className="h-3 w-3" />;
     }
   };
@@ -159,9 +162,7 @@ export default function MySchedule() {
   const getShareLabel = (scope: string) => {
     switch (scope) {
       case 'private': return '나만 보기';
-      case 'team': return '팀 공유';
-      case 'department': return '부서 공유';
-      case 'custom': return '선택 공유';
+      case 'selected': return '공유';
       default: return '나만 보기';
     }
   };
@@ -415,38 +416,36 @@ export default function MySchedule() {
             </div>
             <div>
               <label className="text-sm font-medium">공유 범위</label>
-              <Select value={shareScope} onValueChange={v => setShareScope(v as ShareScope)}>
+              <Select value={shareScope} onValueChange={v => {
+                setShareScope(v as ShareScope);
+                if (v === 'private') {
+                  setShareTeamIds([]);
+                  setShareUserIds([]);
+                }
+              }}>
                 <SelectTrigger data-testid="select-share-scope">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="private">나만 보기</SelectItem>
-                  <SelectItem value="team">같은 팀 공유</SelectItem>
-                  <SelectItem value="department">같은 부서 공유</SelectItem>
-                  <SelectItem value="custom">특정 팀 선택</SelectItem>
+                  <SelectItem value="selected">직접 선택</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {shareScope === 'custom' && (
+            {shareScope === 'selected' && (
               <div>
-                <label className="text-sm font-medium">공유할 팀 선택</label>
-                <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto">
-                  {teams.map(team => (
-                    <Badge
-                      key={team.id}
-                      variant={shareTeamIds.includes(team.id) ? 'default' : 'outline'}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setShareTeamIds(prev =>
-                          prev.includes(team.id)
-                            ? prev.filter(id => id !== team.id)
-                            : [...prev, team.id]
-                        );
-                      }}
-                    >
-                      {team.department ? `${team.department} / ` : ''}{team.name}
-                    </Badge>
-                  ))}
+                <label className="text-sm font-medium">공유 대상</label>
+                <div className="mt-1">
+                  <ShareTargetSelector
+                    teams={teams}
+                    users={users.filter(u => u.id !== currentUser?.id)}
+                    selectedTeamIds={shareTeamIds}
+                    selectedUserIds={shareUserIds}
+                    onTeamIdsChange={setShareTeamIds}
+                    onUserIdsChange={setShareUserIds}
+                    currentUserTeamId={currentUser?.teamId}
+                    currentUserDepartment={teams.find(t => t.id === currentUser?.teamId)?.department}
+                  />
                 </div>
               </div>
             )}

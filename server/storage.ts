@@ -443,6 +443,11 @@ export class PostgresStorage implements IStorage {
     return allTasks.filter(task => {
       if (task.userId === userId) return false;
       if (task.shareScope === 'private') return false;
+      if (task.shareScope === 'selected') {
+        const inTeam = task.shareTeamIds?.includes(teamId) || false;
+        const inUser = task.shareUserIds?.includes(userId) || false;
+        return inTeam || inUser;
+      }
       if (task.shareScope === 'team') {
         return task.shareTeamIds?.includes(teamId) || false;
       }

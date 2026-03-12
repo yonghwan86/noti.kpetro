@@ -143,6 +143,7 @@ export const personalTasks = pgTable("personal_tasks", {
   completed: boolean("completed").notNull().default(false),
   shareScope: text("share_scope").notNull().default("private"),
   shareTeamIds: text("share_team_ids").array().default(sql`'{}'::text[]`),
+  shareUserIds: text("share_user_ids").array().default(sql`'{}'::text[]`),
   morningNotified: boolean("morning_notified").notNull().default(false),
   reminderNotified: boolean("reminder_notified").notNull().default(false),
   emailDigestSent: boolean("email_digest_sent").notNull().default(false),

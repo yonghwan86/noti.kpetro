@@ -74,7 +74,7 @@ export interface AssetHistory {
   notes?: string | null;
 }
 
-export type ShareScope = 'private' | 'team' | 'department' | 'custom';
+export type ShareScope = 'private' | 'selected';
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
 
 export interface PersonalTask {
@@ -87,5 +87,6 @@ export interface PersonalTask {
   completed: boolean;
   shareScope: ShareScope;
   shareTeamIds?: string[] | null;
+  shareUserIds?: string[] | null;
   createdAt: string;
 }

@@ -4,6 +4,26 @@ import { sendInspectionReminder, sendOverdueAlert, sendEmail } from './emailServ
 import { sendPushToUser } from './pushService';
 import { addDays, parseISO, isAfter, isBefore, format, differenceInDays, isToday, subMinutes } from 'date-fns';
 
+interface TaskWithShare {
+  userId: string;
+  shareScope: string;
+  shareTeamIds: string[] | null;
+  shareUserIds: string[] | null;
+}
+
+function getSharedTargetUserIds(task: TaskWithShare, allUsers: { id: string; teamId: string }[]): string[] {
+  if (task.shareScope === 'private') return [];
+  const targetSet = new Set<string>();
+  const teamIds = task.shareTeamIds || [];
+  const userIds = task.shareUserIds || [];
+  for (const u of allUsers) {
+    if (u.id === task.userId) continue;
+    if (teamIds.includes(u.teamId)) targetSet.add(u.id);
+    if (userIds.includes(u.id)) targetSet.add(u.id);
+  }
+  return Array.from(targetSet);
+}
+
 async function checkUpcomingInspections() {
   console.log('[SCHEDULER] Checking for upcoming and overdue inspections...');
   
@@ -199,18 +219,14 @@ async function checkPersonalTasksMorning() {
         '/schedule'
       );
 
-      if (task.shareScope !== 'private' && task.shareTeamIds && task.shareTeamIds.length > 0) {
-        const targetUsers = users.filter(u =>
-          u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
+      const targetIds = getSharedTargetUserIds(task, users);
+      for (const targetId of targetIds) {
+        await sendPushToUser(
+          targetId,
+          `📅 공유 일정: ${task.title}`,
+          `${ownerName}님의 일정 | ${timeStr} 예정`,
+          '/schedule'
         );
-        for (const target of targetUsers) {
-          await sendPushToUser(
-            target.id,
-            `📅 공유 일정: ${task.title}`,
-            `${ownerName}님의 일정 | ${timeStr} 예정`,
-            '/schedule'
-          );
-        }
       }
 
       await storage.updatePersonalTask(task.id, { morningNotified: true });
@@ -242,18 +258,14 @@ async function checkPersonalTasksReminder() {
           '/schedule'
         );
 
-        if (task.shareScope !== 'private' && task.shareTeamIds && task.shareTeamIds.length > 0) {
-          const targetUsers = users.filter(u =>
-            u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
+        const targetIds = getSharedTargetUserIds(task, users);
+        for (const targetId of targetIds) {
+          await sendPushToUser(
+            targetId,
+            `⏰ 10분 후 공유 일정: ${task.title}`,
+            `${ownerName}님의 일정이 곧 시작됩니다.`,
+            '/schedule'
           );
-          for (const target of targetUsers) {
-            await sendPushToUser(
-              target.id,
-              `⏰ 10분 후 공유 일정: ${task.title}`,
-              `${ownerName}님의 일정이 곧 시작됩니다.`,
-              '/schedule'
-            );
-          }
         }
 
         await storage.updatePersonalTask(task.id, { reminderNotified: true });
@@ -273,7 +285,7 @@ async function sendSharedTasksEmailDigest() {
 
     const todaySharedTasks = allTasks.filter(t =>
       t.shareScope !== 'private' &&
-      t.shareTeamIds && t.shareTeamIds.length > 0 &&
+      ((t.shareTeamIds && t.shareTeamIds.length > 0) || (t.shareUserIds && t.shareUserIds.length > 0)) &&
       !t.emailDigestSent &&
       isToday(parseISO(t.createdAt))
     );
@@ -286,11 +298,10 @@ async function sendSharedTasksEmailDigest() {
     const recipientTasks = new Map<string, typeof todaySharedTasks>();
 
     for (const task of todaySharedTasks) {
-      const targetUsers = users.filter(u =>
-        u.id !== task.userId && task.shareTeamIds!.includes(u.teamId)
-      );
-      for (const target of targetUsers) {
-        if (!target.email) continue;
+      const targetIds = getSharedTargetUserIds(task, users);
+      for (const targetId of targetIds) {
+        const target = users.find(u => u.id === targetId);
+        if (!target?.email) continue;
         if (!recipientTasks.has(target.id)) {
           recipientTasks.set(target.id, []);
         }
