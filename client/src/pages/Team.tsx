@@ -307,18 +307,20 @@ export default function Team() {
 
       <Tabs defaultValue={(isAdmin || isManager) ? "equipTypes" : "staff"} className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <TabsList className="w-full sm:w-auto flex-wrap">
-            {(isAdmin || isManager) && (
-              <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
-            )}
-            {isAdmin && (
-              <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 구분 관리자 (역할)</TabsTrigger>
-            )}
-            <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
-            )}
-          </TabsList>
+          <div className="w-full sm:w-auto overflow-x-auto">
+            <TabsList className="w-max sm:w-auto">
+              {(isAdmin || isManager) && (
+                <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
+              )}
+              {isAdmin && (
+                <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 구분 관리자 (역할)</TabsTrigger>
+              )}
+              <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
+              )}
+            </TabsList>
+          </div>
           
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
