@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
@@ -202,6 +202,7 @@ export default function Team() {
   const [categoryPage, setCategoryPage] = useState(1);
   const [managerPage, setManagerPage] = useState(1);
   const [staffPage, setStaffPage] = useState(1);
+  const [assignedStaffPage, setAssignedStaffPage] = useState(1);
   const [adminPage, setAdminPage] = useState(1);
   const [managerCategoryFilter, setManagerCategoryFilter] = useState<string>("all");
 
@@ -262,6 +263,19 @@ export default function Team() {
     ? categories.filter(c => (c.managerIds || []).includes(currentUser.id))
     : [];
 
+  const allAssignedStaff = users.filter(u => u.role === 'staff' && u.managerId);
+  const filteredAssignedStaff = allAssignedStaff.filter(u => {
+    const search = searchTerm.toLowerCase();
+    const manager = users.find(m => m.id === u.managerId);
+    return (
+      u.username.toLowerCase().includes(search) ||
+      (u.email || '').toLowerCase().includes(search) ||
+      (manager?.username || '').toLowerCase().includes(search) ||
+      teams.find(t => t.id === u.teamId)?.name.toLowerCase().includes(search) ||
+      (u.assignedCategoryIds || []).some(cid => categories.find(c => c.id === cid)?.name.toLowerCase().includes(search))
+    );
+  });
+
   const filteredStaffUsers = sortRecent(users.filter(
     (user) => {
       if (user.role !== 'staff') return false;
@@ -315,6 +329,9 @@ export default function Team() {
               {isAdmin && (
                 <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 구분 관리자 (역할)</TabsTrigger>
               )}
+              {isAdmin && (
+                <TabsTrigger value="adminAssignedStaff" className="gap-2"><UserCheck className="w-4 h-4"/> 배정 담당자</TabsTrigger>
+              )}
               <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
               {isAdmin && (
                 <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
@@ -328,7 +345,7 @@ export default function Team() {
               placeholder="검색..."
               className="pl-8 h-9"
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCategoryPage(1); setManagerPage(1); setStaffPage(1); }}
+              onChange={(e) => { setSearchTerm(e.target.value); setCategoryPage(1); setManagerPage(1); setStaffPage(1); setAssignedStaffPage(1); }}
             />
           </div>
         </div>
@@ -526,6 +543,85 @@ export default function Team() {
           </div>
           <Pagination currentPage={managerPage} totalItems={filteredManagerUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setManagerPage} />
         </TabsContent>}
+
+        {isAdmin && (
+          <TabsContent value="adminAssignedStaff" className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                구분관리자에게 배정된 담당자 내역입니다. 구분관리자를 선택하여 담당자를 추가하거나 해제할 수 있습니다.
+              </p>
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <AdminAssignStaffDialog users={users} categories={categories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} teams={teams} />
+              </div>
+            </div>
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이름</TableHead>
+                    <TableHead className="hidden sm:table-cell">직책</TableHead>
+                    <TableHead className="hidden md:table-cell">부서 / 팀</TableHead>
+                    <TableHead>담당 구분관리자</TableHead>
+                    <TableHead>배정 구분</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAssignedStaff.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        {searchTerm ? "검색 결과가 없습니다." : "배정된 담당자가 없습니다."}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredAssignedStaff
+                      .slice((assignedStaffPage - 1) * ITEMS_PER_PAGE, assignedStaffPage * ITEMS_PER_PAGE)
+                      .map((user) => {
+                        const manager = users.find(m => m.id === user.managerId);
+                        const assignedCats = (user.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean);
+                        const team = teams.find(t => t.id === user.teamId);
+                        return (
+                          <TableRow key={user.id} data-testid={`row-assigned-staff-${user.id}`}>
+                            <TableCell className="font-medium">
+                              <div>{user.username}</div>
+                              <div className="text-xs text-muted-foreground sm:hidden">{user.position}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell text-muted-foreground">{user.position || "-"}</TableCell>
+                            <TableCell className="hidden md:table-cell text-muted-foreground">
+                              {team ? `${team.department} / ${team.name}` : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {manager ? (
+                                <Badge variant="secondary">{manager.username}</Badge>
+                              ) : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {assignedCats.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {assignedCats.map((name, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">{name}</Badge>
+                                  ))}
+                                </div>
+                              ) : <span className="text-muted-foreground text-sm">-</span>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <AdminUnassignStaffButton
+                                user={user}
+                                users={users}
+                                categories={categories}
+                                onUnassigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <Pagination currentPage={assignedStaffPage} totalItems={filteredAssignedStaff.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setAssignedStaffPage} />
+          </TabsContent>
+        )}
 
         <TabsContent value="staff" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -2272,5 +2368,196 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
         </Button>
       </div>
     </div>
+  );
+}
+
+function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { users: User[], categories: Category[], onAssigned: () => void, teams?: TeamType[] }) {
+  const [open, setOpen] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState<string>("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  const managerUsers = users.filter(u => u.role === 'manager');
+  const managerCategories = selectedManagerId
+    ? categories.filter(c => (c.managerIds || []).includes(selectedManagerId))
+    : [];
+
+  const candidateStaff = users.filter(u => {
+    if (u.role !== 'staff') return false;
+    if (!selectedManagerId) return false;
+    if (u.managerId && u.managerId !== selectedManagerId) return false;
+    if (selectedCategoryId) {
+      if (u.managerId === selectedManagerId && (u.assignedCategoryIds || []).includes(selectedCategoryId)) return false;
+    }
+    const search = searchTerm.toLowerCase();
+    return u.username.toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search);
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const assignMutation = useMutation({
+    mutationFn: async () => {
+      const promises = Array.from(selectedIds).map(id => {
+        const user = users.find(u => u.id === id);
+        const existingCats = user?.assignedCategoryIds || [];
+        const newCats = selectedCategoryId && !existingCats.includes(selectedCategoryId)
+          ? [...existingCats, selectedCategoryId]
+          : existingCats;
+        return api.users.update(id, { managerId: selectedManagerId, assignedCategoryIds: newCats });
+      });
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      onAssigned();
+      setOpen(false);
+      setSelectedIds(new Set());
+      setSearchTerm("");
+      setSelectedCategoryId("");
+      setSelectedManagerId("");
+      toast({ title: "배정 완료", description: `${selectedIds.size}명의 담당자가 배정되었습니다.` });
+    },
+    onError: () => {
+      toast({ title: "배정 실패", description: "담당자 배정 중 오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) { setSelectedIds(new Set()); setSearchTerm(""); setSelectedCategoryId(""); setSelectedManagerId(""); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="gap-2" data-testid="button-admin-assign-staff">
+          <UserPlus className="w-4 h-4" /> 담당자 배정
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>담당자 배정</DialogTitle>
+          <DialogDescription>구분관리자와 구분을 선택 후 담당자를 배정합니다.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>구분관리자 선택</Label>
+            <Select value={selectedManagerId} onValueChange={v => { setSelectedManagerId(v); setSelectedCategoryId(""); setSelectedIds(new Set()); }}>
+              <SelectTrigger data-testid="select-admin-assign-manager">
+                <SelectValue placeholder="구분관리자를 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {managerUsers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedManagerId && (
+            <div className="space-y-2">
+              <Label>배정 구분</Label>
+              <Select value={selectedCategoryId} onValueChange={v => { setSelectedCategoryId(v); setSelectedIds(new Set()); }}>
+                <SelectTrigger data-testid="select-admin-assign-category">
+                  <SelectValue placeholder="구분을 선택하세요 (선택사항)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managerCategories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {selectedManagerId && (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="이름 또는 이메일로 검색"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-admin-assign-search"
+                />
+              </div>
+              <div className="border rounded-md max-h-[280px] overflow-auto">
+                {candidateStaff.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">배정 가능한 담당자가 없습니다.</div>
+                ) : (
+                  candidateStaff.map(u => {
+                    const team = teams?.find(t => t.id === u.teamId);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? 'bg-accent' : ''}`}
+                        onClick={() => toggleSelect(u.id)}
+                        data-testid={`admin-assign-user-${u.id}`}
+                      >
+                        <input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)} className="rounded" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{u.username}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {[u.position, team ? `${team.department} / ${team.name}` : null].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                        {u.managerId === selectedManagerId && (
+                          <Badge variant="secondary" className="text-xs shrink-0">이미 배정</Badge>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>취소</Button>
+          <Button
+            onClick={() => assignMutation.mutate()}
+            disabled={selectedIds.size === 0 || assignMutation.isPending}
+            data-testid="button-admin-assign-confirm"
+          >
+            {assignMutation.isPending ? "배정 중..." : `${selectedIds.size}명 배정`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AdminUnassignStaffButton({ user, users, categories, onUnassigned }: { user: User, users: User[], categories: Category[], onUnassigned: () => void }) {
+  const { toast } = useToast();
+  const unassignMutation = useMutation({
+    mutationFn: async () => {
+      await api.users.update(user.id, { managerId: null, assignedCategoryIds: [] });
+    },
+    onSuccess: () => {
+      onUnassigned();
+      toast({ title: "배정 해제 완료", description: `${user.username} 님의 배정이 해제되었습니다.` });
+    },
+    onError: () => {
+      toast({ title: "배정 해제 실패", description: "오류가 발생했습니다.", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+      onClick={() => unassignMutation.mutate()}
+      disabled={unassignMutation.isPending}
+      data-testid={`button-admin-unassign-${user.id}`}
+    >
+      {unassignMutation.isPending ? "해제 중..." : "배정 해제"}
+    </Button>
   );
 }
