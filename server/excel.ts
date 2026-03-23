@@ -79,7 +79,7 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
     const team = teams.find(t => t.id === a.teamId);
     return {
       "대상": a.name,
-      "시리얼번호": a.serialNumber,
+      "추가정보": a.serialNumber,
       "구분": categories.find(c => c.id === a.categoryId)?.name || "",
       "담당자": users.find(u => u.id === a.staffId)?.username || "",
       "부서": team?.department || "",
@@ -89,7 +89,7 @@ export async function exportAssetsToExcel(): Promise<Buffer> {
       "최근점검일": a.lastInspectedDate,
       "다음점검일": a.nextDueDate,
       "상태": statusMap[a.status] || a.status,
-      "추가정보": a.notes || "",
+      "추가정보2": a.notes || "",
     };
   });
   
@@ -304,22 +304,22 @@ export async function importAssetsFromExcel(buffer: Buffer): Promise<ImportResul
     const rowNum = i + 2;
     
     const name = (row["대상"] || row["장비명"])?.toString().trim();
-    const serialNumber = row["시리얼번호"]?.toString().trim();
+    const serialNumber = (row["시리얼번호"] || row["추가정보"])?.toString().trim();
     const categoryName = (row["구분"] || row["장비 구분"] || row["카테고리"])?.toString().trim();
     const staffName = row["담당자"]?.toString().trim();
     const departmentName = row["부서"]?.toString().trim() || null;
     const teamName = (row["담당팀"] || row["관리팀"])?.toString().trim();
     const usageTeamName = row["사용팀"]?.toString().trim();
-    const inspectionCycleDays = parseInt(row["점검주기(일)"]?.toString() || row["점검주기(개월)"]?.toString() || "0");
+    const inspectionCycleDays = parseInt(row["점검주기(일)"]?.toString() || "0");
     const lastInspectedDate = row["최근점검일"]?.toString().trim();
-    const notes = (row["추가정보"] || row["비고"])?.toString().trim() || null;
+    const notes = (row["추가정보2"] || (row["시리얼번호"] ? row["추가정보"] : null) || row["비고"])?.toString().trim() || null;
     
     if (!name) {
       errors.push({ row: rowNum, field: "대상", message: "필수 항목입니다" });
       continue;
     }
     if (!serialNumber) {
-      errors.push({ row: rowNum, field: "시리얼번호", message: "필수 항목입니다" });
+      errors.push({ row: rowNum, field: "추가정보", message: "필수 항목입니다" });
       continue;
     }
     if (!categoryName) {
@@ -723,15 +723,15 @@ export function getStaffUserTemplate(isManager?: boolean): Buffer {
 export function getAssetTemplate(): Buffer {
   const data = [{
     "대상": "예시대상",
-    "시리얼번호": "SN-001",
+    "추가정보": "SN-001",
     "구분": "구분명",
     "담당자": "담당자이름",
     "부서": "부서명",
     "담당팀": "담당팀명",
     "사용팀": "사용팀명",
-    "점검주기(개월)": 12,
+    "점검주기(일)": 365,
     "최근점검일": "2025-01-01",
-    "추가정보": ""
+    "추가정보2": ""
   }];
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
