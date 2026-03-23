@@ -276,6 +276,120 @@ async function checkPersonalTasksReminder() {
   }
 }
 
+async function getOwnerDigestDate(): Promise<string | null> {
+  try {
+    const { db } = await import('../db');
+    const result = await db.execute(`SELECT value FROM system_settings WHERE key = 'last_owner_digest_date' LIMIT 1`);
+    const rows = result.rows as any[];
+    return rows.length > 0 ? rows[0].value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function setOwnerDigestDate(date: string): Promise<void> {
+  try {
+    const { db } = await import('../db');
+    await db.execute(
+      `INSERT INTO system_settings (key, value) VALUES ('last_owner_digest_date', '${date}')
+       ON CONFLICT (key) DO UPDATE SET value = '${date}'`
+    );
+  } catch (error) {
+    console.error('[SCHEDULER] Failed to save owner digest date:', error);
+  }
+}
+
+async function sendOwnerTomorrowDigest() {
+  console.log('[SCHEDULER] Sending owner tomorrow tasks digest...');
+  try {
+    const today = getTodayKST();
+    const lastDate = await getOwnerDigestDate();
+    if (lastDate === today) {
+      console.log('[SCHEDULER] Owner tomorrow digest already sent today, skipping');
+      return;
+    }
+
+    const allTasks = await storage.getAllPersonalTasksForScheduler();
+    const users = await storage.getUsers();
+
+    const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const tomorrowKST = new Date(nowKST);
+    tomorrowKST.setDate(tomorrowKST.getDate() + 1);
+    const tomorrowStr = tomorrowKST.toLocaleDateString('en-CA');
+
+    const tomorrowTasks = allTasks.filter(t => {
+      if (t.completed) return false;
+      const taskDate = t.scheduledAt.substring(0, 10);
+      return taskDate === tomorrowStr;
+    });
+
+    if (tomorrowTasks.length === 0) {
+      console.log('[SCHEDULER] No personal tasks scheduled for tomorrow');
+      await setOwnerDigestDate(today);
+      return;
+    }
+
+    const ownerTasksMap = new Map<string, typeof tomorrowTasks>();
+    for (const task of tomorrowTasks) {
+      if (!ownerTasksMap.has(task.userId)) ownerTasksMap.set(task.userId, []);
+      ownerTasksMap.get(task.userId)!.push(task);
+    }
+
+    for (const [userId, tasks] of ownerTasksMap) {
+      const user = users.find(u => u.id === userId);
+      if (!user?.email) continue;
+
+      const taskRows = tasks.map(task => {
+        const timeStr = format(parseISO(task.scheduledAt), 'HH:mm');
+        return `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${task.title}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${timeStr}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${task.description || '-'}</td>
+          </tr>`;
+      }).join('');
+
+      const body = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #2563eb;">📅 내일 일정 알림</h2>
+    <p>${user.username}님, 내일(${tomorrowStr}) 예정된 일정 ${tasks.length}건을 알려드립니다.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <thead>
+        <tr style="background: #f3f4f6;">
+          <th style="padding: 8px; text-align: left;">일정 제목</th>
+          <th style="padding: 8px; text-align: left;">예정 시간</th>
+          <th style="padding: 8px; text-align: left;">내용</th>
+        </tr>
+      </thead>
+      <tbody>${taskRows}</tbody>
+    </table>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+    <p style="font-size: 12px; color: #6b7280;">이 메일은 AI 업무 알림 서비스에서 자동 발송되었습니다.</p>
+  </div>
+</body>
+</html>`;
+
+      await sendEmail({
+        to: user.email,
+        subject: `[AI 업무 알림] 내일 일정 ${tasks.length}건 (${tomorrowStr})`,
+        body,
+        isHtml: true,
+      });
+      console.log(`[SCHEDULER] Sent tomorrow digest to ${user.email} (${tasks.length} tasks)`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    await setOwnerDigestDate(today);
+    console.log('[SCHEDULER] Owner tomorrow digest completed');
+  } catch (error) {
+    console.error('[SCHEDULER] Error in owner tomorrow digest:', error);
+  }
+}
+
 async function sendSharedTasksEmailDigest() {
   console.log('[SCHEDULER] Sending shared tasks email digest...');
   try {
@@ -385,7 +499,8 @@ export function startScheduler() {
   });
 
   cron.schedule('0 18 * * *', () => {
-    console.log('[SCHEDULER] 6 PM KST - sending shared tasks email digest');
+    console.log('[SCHEDULER] 6 PM KST - sending email digests');
+    sendOwnerTomorrowDigest();
     sendSharedTasksEmailDigest();
   }, {
     timezone: 'Asia/Seoul'
