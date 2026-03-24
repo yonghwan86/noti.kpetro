@@ -271,7 +271,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async getAssets(): Promise<Asset[]> {
-    return await db.select().from(assets);
+    const rows = await db.select().from(assets);
+    // Bug Fix: status는 등록 시점에 저장되므로 시간이 지나면 stale해짐.
+    // 조회 시마다 실시간 재계산하여 UI와 스케줄러 모두 정확한 상태 반영.
+    return rows.map(asset => ({
+      ...asset,
+      status: asset.status === 'suspended' ? 'suspended' : calculateStatus(asset.nextDueDate),
+    }));
   }
 
   async getAsset(id: string): Promise<Asset | undefined> {

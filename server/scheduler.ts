@@ -31,6 +31,8 @@ async function checkUpcomingInspections() {
     const assets = await storage.getAssets();
     const users = await storage.getUsers();
     const teams = await storage.getTeams();
+    // Bug Fix #2: 카테고리 로드 - 구분관리자 전체(managerIds 배열) 수신자 포함
+    const cats = await storage.getCategories();
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -53,7 +55,7 @@ async function checkUpcomingInspections() {
     console.log(`[SCHEDULER] Found ${upcomingAssets.length} upcoming, ${overdueAssets.length} overdue assets`);
     
     for (const asset of upcomingAssets) {
-      const recipients = collectRecipients(asset, users, teams);
+      const recipients = collectRecipients(asset, users, teams, cats);
       const staff = users.find(u => u.id === asset.staffId);
       const staffName = staff?.username || '담당자';
       const team = teams.find(t => t.id === asset.teamId);
@@ -72,9 +74,8 @@ async function checkUpcomingInspections() {
       }
 
       const daysLeft = differenceInDays(parseISO(asset.nextDueDate!), today);
-      const pushRecipientIds = new Set<string>();
-      if (asset.staffId) pushRecipientIds.add(asset.staffId);
-      if (asset.managerId) pushRecipientIds.add(asset.managerId);
+      // Bug Fix #2: 카테고리 구분관리자 전체 푸시 수신
+      const pushRecipientIds = collectPushRecipientIds(asset, cats);
       for (const uid of pushRecipientIds) {
         await sendPushToUser(
           uid,
@@ -86,7 +87,7 @@ async function checkUpcomingInspections() {
     }
 
     for (const asset of overdueAssets) {
-      const recipients = collectRecipients(asset, users, teams);
+      const recipients = collectRecipients(asset, users, teams, cats);
       const staff = users.find(u => u.id === asset.staffId);
       const staffName = staff?.username || '담당자';
       const team = teams.find(t => t.id === asset.teamId);
@@ -105,9 +106,8 @@ async function checkUpcomingInspections() {
       }
 
       const overdueDays = differenceInDays(today, parseISO(asset.nextDueDate!));
-      const pushRecipientIds = new Set<string>();
-      if (asset.staffId) pushRecipientIds.add(asset.staffId);
-      if (asset.managerId) pushRecipientIds.add(asset.managerId);
+      // Bug Fix #2: 카테고리 구분관리자 전체 푸시 수신
+      const pushRecipientIds = collectPushRecipientIds(asset, cats);
       for (const uid of pushRecipientIds) {
         await sendPushToUser(
           uid,
@@ -124,34 +124,52 @@ async function checkUpcomingInspections() {
   }
 }
 
-function collectRecipients(asset: any, users: any[], teams: any[]): string[] {
+// Bug Fix #2: categories 파라미터 추가 → category.managerIds 배열 전체 포함
+function collectRecipients(asset: any, users: any[], teams: any[], cats: any[]): string[] {
   const recipients: string[] = [];
 
+  const addEmail = (email: string | null | undefined) => {
+    if (email && !recipients.includes(email)) recipients.push(email);
+  };
+
+  // 1) 담당자(staffId)
   const staff = users.find(u => u.id === asset.staffId);
-  if (staff?.email) {
-    recipients.push(staff.email);
-  }
+  addEmail(staff?.email);
 
-  const team = teams.find(t => t.id === asset.teamId);
+  // 2) 담당팀 팀장
   const teamLeaders = users.filter(
-    u => u.role === 'staff' && u.teamId === asset.teamId && u.position === '팀장' && u.email
+    u => u.role === 'staff' && u.teamId === asset.teamId && u.position === '팀장'
   );
-  for (const leader of teamLeaders) {
-    if (leader.email && !recipients.includes(leader.email)) {
-      recipients.push(leader.email);
-    }
-  }
+  for (const leader of teamLeaders) addEmail(leader.email);
 
-  if (team?.contactEmail && !recipients.includes(team.contactEmail)) {
-    recipients.push(team.contactEmail);
-  }
+  // 3) 팀 대표 이메일(contactEmail)
+  const team = teams.find(t => t.id === asset.teamId);
+  addEmail(team?.contactEmail);
 
-  const manager = users.find(u => u.id === asset.managerId);
-  if (manager?.email && !recipients.includes(manager.email)) {
-    recipients.push(manager.email);
+  // 4) Bug Fix #2: 구분(category)의 managerIds 배열 전원 포함
+  //    (기존: asset.managerId 1명만 → 수정: category.managerIds 전체)
+  const category = cats.find((c: any) => c.id === asset.categoryId);
+  const categoryManagerIds: string[] = category?.managerIds || [];
+  for (const mid of categoryManagerIds) {
+    const mgr = users.find(u => u.id === mid);
+    addEmail(mgr?.email);
   }
+  // asset.managerId 가 category.managerIds에 없는 경우를 대비해 추가 보장
+  const directManager = users.find(u => u.id === asset.managerId);
+  addEmail(directManager?.email);
 
   return recipients;
+}
+
+// Bug Fix #2: 푸시 수신자 ID 수집 (staff + 카테고리 구분관리자 전원)
+function collectPushRecipientIds(asset: any, cats: any[]): Set<string> {
+  const ids = new Set<string>();
+  if (asset.staffId) ids.add(asset.staffId);
+  // 카테고리 구분관리자 전원 (기존: asset.managerId 1명만)
+  const category = cats.find((c: any) => c.id === asset.categoryId);
+  for (const mid of category?.managerIds || []) ids.add(mid);
+  if (asset.managerId) ids.add(asset.managerId);
+  return ids;
 }
 
 function getTodayKST(): string {
@@ -188,9 +206,12 @@ async function runDailyCheckIfNeeded() {
     console.log('[SCHEDULER] Already sent inspection emails today, skipping');
     return;
   }
-  await setSystemSetting('last_email_date', today);
+  // Bug Fix #1: 날짜를 먼저 기록하면 이메일 발송 실패 시 당일 재시도 불가.
+  // 발송 완료 후 기록하여, 장애 시 다음 서버 재시작에서 자동 재시도 보장.
   console.log('[SCHEDULER] Running daily inspection check');
   await checkUpcomingInspections();
+  await setSystemSetting('last_email_date', today);
+  console.log('[SCHEDULER] Daily inspection check completed and date recorded');
 }
 
 // ── Bug Fix #1 & #2: 아침 개인일정 알림 (푸시 + 이메일 병행) ──────────────────
