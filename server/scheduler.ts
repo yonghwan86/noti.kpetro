@@ -158,12 +158,10 @@ function getTodayKST(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
-async function getLastEmailDate(): Promise<string | null> {
+async function getSystemSetting(key: string): Promise<string | null> {
   try {
     const { db } = await import('../db');
-    const result = await db.execute(
-      `SELECT value FROM system_settings WHERE key = 'last_email_date' LIMIT 1`
-    );
+    const result = await db.execute(`SELECT value FROM system_settings WHERE key = '${key}' LIMIT 1`);
     const rows = result.rows as any[];
     return rows.length > 0 ? rows[0].value : null;
   } catch {
@@ -171,62 +169,119 @@ async function getLastEmailDate(): Promise<string | null> {
   }
 }
 
-async function setLastEmailDate(date: string): Promise<void> {
+async function setSystemSetting(key: string, value: string): Promise<void> {
   try {
     const { db } = await import('../db');
     await db.execute(
-      `INSERT INTO system_settings (key, value) VALUES ('last_email_date', '${date}')
-       ON CONFLICT (key) DO UPDATE SET value = '${date}'`
+      `INSERT INTO system_settings (key, value) VALUES ('${key}', '${value}')
+       ON CONFLICT (key) DO UPDATE SET value = '${value}'`
     );
   } catch (error) {
-    console.error('[SCHEDULER] Failed to save last email date:', error);
+    console.error(`[SCHEDULER] Failed to save system setting ${key}:`, error);
   }
 }
 
 async function runDailyCheckIfNeeded() {
   const today = getTodayKST();
-  const lastEmailDate = await getLastEmailDate();
+  const lastEmailDate = await getSystemSetting('last_email_date');
   if (lastEmailDate === today) {
-    console.log('[SCHEDULER] Already sent emails today, skipping');
+    console.log('[SCHEDULER] Already sent inspection emails today, skipping');
     return;
   }
-  await setLastEmailDate(today);
+  await setSystemSetting('last_email_date', today);
   console.log('[SCHEDULER] Running daily inspection check');
   await checkUpcomingInspections();
 }
 
+// ── Bug Fix #1 & #2: 아침 개인일정 알림 (푸시 + 이메일 병행) ──────────────────
 async function checkPersonalTasksMorning() {
-  console.log('[SCHEDULER] Checking personal tasks for morning push...');
+  console.log('[SCHEDULER] Checking personal tasks for morning notification (push + email)...');
   try {
     const tasks = await storage.getAllPersonalTasksForScheduler();
     const users = await storage.getUsers();
-    const teams = await storage.getTeams();
-    const now = new Date();
+    const today = getTodayKST();
 
     for (const task of tasks) {
       if (task.morningNotified) continue;
+      if (task.completed) continue;
+
       const scheduledDate = parseISO(task.scheduledAt);
-      if (!isToday(scheduledDate)) continue;
+      const taskDateStr = task.scheduledAt.substring(0, 10);
+
+      // 오늘 일정이거나 오늘 이전 일정 중 아직 알림 안 간 것 (당일 catch-up 포함)
+      if (taskDateStr > today) continue;
 
       const owner = users.find(u => u.id === task.userId);
       const ownerName = owner?.username || '알 수 없음';
       const timeStr = format(scheduledDate, 'HH:mm');
+      const dateStr = task.scheduledAt.substring(0, 10);
+      const isOverdue = taskDateStr < today;
 
+      // 1) 푸시 알림 (구독 여부 상관없이 시도)
       await sendPushToUser(
         task.userId,
-        `📅 오늘 일정: ${task.title}`,
-        `${timeStr}에 예정된 일정이 있습니다.`,
+        isOverdue ? `📅 미발송 일정: ${task.title}` : `📅 오늘 일정: ${task.title}`,
+        `${dateStr} ${timeStr}에 예정된 일정입니다.`,
         '/schedule'
       );
 
+      // 공유 대상 푸시
       const targetIds = getSharedTargetUserIds(task, users);
       for (const targetId of targetIds) {
         await sendPushToUser(
           targetId,
           `📅 공유 일정: ${task.title}`,
-          `${ownerName}님의 일정 | ${timeStr} 예정`,
+          `${ownerName}님의 일정 | ${dateStr} ${timeStr} 예정`,
           '/schedule'
         );
+      }
+
+      // 2) 이메일 알림 (푸시 미구독 대비 이메일 병행 발송) ← Bug Fix #2
+      if (owner?.email) {
+        const body = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #2563eb;">📅 ${isOverdue ? '미발송 일정 알림' : '오늘 일정 알림'}</h2>
+    <p>${ownerName}님, ${isOverdue ? '발송이 누락된' : '오늘'} 일정을 알려드립니다.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #e5e7eb;">
+      <tr style="background: #f3f4f6;">
+        <th style="padding: 10px; text-align: left;">항목</th>
+        <th style="padding: 10px; text-align: left;">내용</th>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;">일정 제목</td>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;"><strong>${task.title}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;">예정 일시</td>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;">${dateStr} ${timeStr}</td>
+      </tr>
+      ${task.description ? `
+      <tr>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;">내용</td>
+        <td style="padding: 10px; border-top: 1px solid #e5e7eb;">${task.description}</td>
+      </tr>` : ''}
+    </table>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+    <p style="font-size: 12px; color: #6b7280;">이 메일은 AI 업무 알림 서비스에서 자동 발송되었습니다.</p>
+  </div>
+</body>
+</html>`;
+
+        const result = await sendEmail({
+          to: owner.email,
+          subject: `[AI 업무 알림] ${isOverdue ? '미발송' : '오늘'} 일정: ${task.title} (${dateStr} ${timeStr})`,
+          body,
+          isHtml: true,
+        });
+        if (result.success) {
+          console.log(`[SCHEDULER] Sent morning task email to ${owner.email}: ${task.title}`);
+        } else {
+          console.error(`[SCHEDULER] Failed morning task email to ${owner.email}: ${result.error}`);
+        }
       }
 
       await storage.updatePersonalTask(task.id, { morningNotified: true });
@@ -237,6 +292,7 @@ async function checkPersonalTasksMorning() {
   }
 }
 
+// ── 10분 전 reminder (푸시 전용, 당일 실시간) ────────────────────────────────
 async function checkPersonalTasksReminder() {
   try {
     const tasks = await storage.getAllPersonalTasksForScheduler();
@@ -245,6 +301,8 @@ async function checkPersonalTasksReminder() {
 
     for (const task of tasks) {
       if (task.reminderNotified) continue;
+      if (task.completed) continue;
+
       const scheduledDate = parseISO(task.scheduledAt);
       const tenMinsBefore = subMinutes(scheduledDate, 10);
       
@@ -276,34 +334,12 @@ async function checkPersonalTasksReminder() {
   }
 }
 
-async function getOwnerDigestDate(): Promise<string | null> {
-  try {
-    const { db } = await import('../db');
-    const result = await db.execute(`SELECT value FROM system_settings WHERE key = 'last_owner_digest_date' LIMIT 1`);
-    const rows = result.rows as any[];
-    return rows.length > 0 ? rows[0].value : null;
-  } catch {
-    return null;
-  }
-}
-
-async function setOwnerDigestDate(date: string): Promise<void> {
-  try {
-    const { db } = await import('../db');
-    await db.execute(
-      `INSERT INTO system_settings (key, value) VALUES ('last_owner_digest_date', '${date}')
-       ON CONFLICT (key) DO UPDATE SET value = '${date}'`
-    );
-  } catch (error) {
-    console.error('[SCHEDULER] Failed to save owner digest date:', error);
-  }
-}
-
+// ── 내일 일정 다이제스트 (소유자 이메일) ─────────────────────────────────────
 async function sendOwnerTomorrowDigest() {
   console.log('[SCHEDULER] Sending owner tomorrow tasks digest...');
   try {
     const today = getTodayKST();
-    const lastDate = await getOwnerDigestDate();
+    const lastDate = await getSystemSetting('last_owner_digest_date');
     if (lastDate === today) {
       console.log('[SCHEDULER] Owner tomorrow digest already sent today, skipping');
       return;
@@ -323,9 +359,10 @@ async function sendOwnerTomorrowDigest() {
       return taskDate === tomorrowStr;
     });
 
+    await setSystemSetting('last_owner_digest_date', today);
+
     if (tomorrowTasks.length === 0) {
       console.log('[SCHEDULER] No personal tasks scheduled for tomorrow');
-      await setOwnerDigestDate(today);
       return;
     }
 
@@ -373,29 +410,32 @@ async function sendOwnerTomorrowDigest() {
 </body>
 </html>`;
 
-      await sendEmail({
+      const result = await sendEmail({
         to: user.email,
         subject: `[AI 업무 알림] 내일 일정 ${tasks.length}건 (${tomorrowStr})`,
         body,
         isHtml: true,
       });
-      console.log(`[SCHEDULER] Sent tomorrow digest to ${user.email} (${tasks.length} tasks)`);
+      if (result.success) {
+        console.log(`[SCHEDULER] Sent tomorrow digest to ${user.email} (${tasks.length} tasks)`);
+      } else {
+        console.error(`[SCHEDULER] Failed tomorrow digest to ${user.email}: ${result.error}`);
+      }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    await setOwnerDigestDate(today);
     console.log('[SCHEDULER] Owner tomorrow digest completed');
   } catch (error) {
     console.error('[SCHEDULER] Error in owner tomorrow digest:', error);
   }
 }
 
+// ── 공유 일정 이메일 다이제스트 (공유 수신자용) ───────────────────────────────
 async function sendSharedTasksEmailDigest() {
   console.log('[SCHEDULER] Sending shared tasks email digest...');
   try {
     const allTasks = await storage.getAllPersonalTasksForScheduler();
     const users = await storage.getUsers();
-    const teams = await storage.getTeams();
 
     const todaySharedTasks = allTasks.filter(t =>
       t.shareScope !== 'private' &&
@@ -484,44 +524,53 @@ async function sendSharedTasksEmailDigest() {
 }
 
 export function startScheduler() {
+  // ── 오전 9시: 장비 점검 이메일 + 개인일정 아침 알림 ──────────────────────
   cron.schedule('0 9 * * *', () => {
     console.log('[SCHEDULER] 9 AM KST - running scheduled check');
     runDailyCheckIfNeeded();
     checkPersonalTasksMorning();
-  }, {
-    timezone: 'Asia/Seoul'
-  });
+  }, { timezone: 'Asia/Seoul' });
 
+  // ── 매 1분: 10분 전 reminder ─────────────────────────────────────────────
   cron.schedule('* * * * *', () => {
     checkPersonalTasksReminder();
-  }, {
-    timezone: 'Asia/Seoul'
-  });
+  }, { timezone: 'Asia/Seoul' });
 
+  // ── 오후 6시: 내일 일정 다이제스트 + 공유 일정 다이제스트 ─────────────────
   cron.schedule('0 18 * * *', () => {
     console.log('[SCHEDULER] 6 PM KST - sending email digests');
     sendOwnerTomorrowDigest();
     sendSharedTasksEmailDigest();
-  }, {
-    timezone: 'Asia/Seoul'
-  });
+  }, { timezone: 'Asia/Seoul' });
 
+  // ── 자정: 알림 플래그 초기화 ─────────────────────────────────────────────
   cron.schedule('0 0 * * *', () => {
     console.log('[SCHEDULER] Midnight KST - resetting daily notification flags');
     storage.resetDailyNotificationFlags();
-  }, {
-    timezone: 'Asia/Seoul'
-  });
-  
-  console.log('[SCHEDULER] Scheduler started - Daily check at 9:00 AM KST, reminders every minute, digest at 6:00 PM KST');
+  }, { timezone: 'Asia/Seoul' });
 
+  console.log('[SCHEDULER] Scheduler started - 9 AM inspection+personal check, every min reminder, 6 PM digest, midnight reset');
+
+  // ── Bug Fix #1 & #3: 서버 재시작 시 시간대별 catch-up ────────────────────
   const now = new Date();
   const kstHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
+
   if (kstHour >= 9) {
-    console.log('[SCHEDULER] Server started after 9 AM KST - checking if emails already sent today');
-    setTimeout(() => {
-      runDailyCheckIfNeeded();
+    console.log(`[SCHEDULER] Server started at KST hour ${kstHour} - running morning catch-up`);
+    setTimeout(async () => {
+      // Bug Fix #1: 개인일정 아침 알림 catch-up 추가 (기존에 누락됐던 핵심 버그)
+      await runDailyCheckIfNeeded();
+      await checkPersonalTasksMorning();
     }, 5000);
+  }
+
+  if (kstHour >= 18) {
+    // Bug Fix #3: 6 PM 이후 서버 재시작 시 다이제스트 catch-up
+    console.log(`[SCHEDULER] Server started at KST hour ${kstHour} - running 6PM digest catch-up`);
+    setTimeout(async () => {
+      await sendOwnerTomorrowDigest();
+      await sendSharedTasksEmailDigest();
+    }, 8000);
   }
 }
 
