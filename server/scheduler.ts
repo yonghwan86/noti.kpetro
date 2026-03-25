@@ -43,7 +43,7 @@ async function checkUpcomingInspections() {
     const upcomingAssets = activeAssets.filter(asset => {
       if (!asset.nextDueDate) return false;
       const dueDate = parseISO(asset.nextDueDate);
-      return isAfter(dueDate, today) && isBefore(dueDate, sevenDaysFromNow);
+      return isAfter(dueDate, today) && !isAfter(dueDate, sevenDaysFromNow);
     });
 
     const overdueAssets = activeAssets.filter(asset => {
