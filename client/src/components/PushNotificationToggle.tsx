@@ -75,7 +75,7 @@ export function PushNotificationToggle() {
       });
 
       const subJson = subscription.toJSON();
-      await fetch("/api/push/subscribe", {
+      const saveRes = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -84,6 +84,11 @@ export function PushNotificationToggle() {
           keys: subJson.keys,
         }),
       });
+
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => ({}));
+        throw new Error(errData.error || `서버 저장 실패 (${saveRes.status})`);
+      }
 
       setState("subscribed");
       toast({

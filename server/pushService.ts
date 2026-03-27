@@ -13,10 +13,17 @@ if (vapidPublicKey && vapidPrivateKey) {
 }
 
 export async function sendPushToUser(userId: string, title: string, body: string, url?: string) {
-  if (!vapidPublicKey || !vapidPrivateKey) return;
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.warn('[PUSH] VAPID keys not configured, skipping push');
+    return;
+  }
 
   const subs = await storage.getPushSubscriptionsByUserId(userId);
-  if (subs.length === 0) return;
+  if (subs.length === 0) {
+    console.log(`[PUSH] No subscriptions found for user ${userId}, skipping push: "${title}"`);
+    return;
+  }
+  console.log(`[PUSH] Sending push to user ${userId} (${subs.length} subscription(s)): "${title}"`);
 
   const payload = JSON.stringify({ title, body, url: url || '/' });
 

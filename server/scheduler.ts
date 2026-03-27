@@ -63,8 +63,10 @@ async function checkUpcomingInspections() {
       const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
 
       for (const email of recipients) {
-        console.log(`[SCHEDULER] Sending upcoming reminder for ${asset.name} to ${email}`);
-        const result = await sendInspectionReminder(email, asset.name, dueDate, staffName, teamName);
+        const recipientUser = users.find(u => u.email === email);
+        const recipientName = recipientUser?.username;
+        console.log(`[SCHEDULER] Sending upcoming reminder for ${asset.name} to ${email} (${recipientName || '팀 계정'})`);
+        const result = await sendInspectionReminder(email, asset.name, dueDate, staffName, teamName, recipientName);
         if (result.success) {
           console.log(`[SCHEDULER] Sent reminder for ${asset.name} to ${email} (ID: ${result.messageId})`);
         } else {
@@ -95,8 +97,10 @@ async function checkUpcomingInspections() {
       const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
 
       for (const email of recipients) {
-        console.log(`[SCHEDULER] Sending overdue alert for ${asset.name} to ${email}`);
-        const result = await sendOverdueAlert(email, asset.name, dueDate, staffName, teamName);
+        const recipientUser = users.find(u => u.email === email);
+        const recipientName = recipientUser?.username;
+        console.log(`[SCHEDULER] Sending overdue alert for ${asset.name} to ${email} (${recipientName || '팀 계정'})`);
+        const result = await sendOverdueAlert(email, asset.name, dueDate, staffName, teamName, recipientName);
         if (result.success) {
           console.log(`[SCHEDULER] Sent overdue alert for ${asset.name} to ${email} (ID: ${result.messageId})`);
         } else {

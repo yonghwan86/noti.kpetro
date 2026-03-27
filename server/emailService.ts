@@ -54,8 +54,10 @@ export async function sendInspectionReminder(
   assetName: string,
   dueDate: string,
   staffName: string,
-  teamName: string
+  teamName: string,
+  recipientName?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const greeting = recipientName || staffName;
   const subject = `[스케줄 관리시스템] ${assetName} 점검 예정 알림`;
   const body = `
 <!DOCTYPE html>
@@ -66,12 +68,13 @@ export async function sendInspectionReminder(
 <body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <h2 style="color: #2563eb;">점검 예정 알림</h2>
-    <p>${staffName}님, 안녕하세요.</p>
+    <p>${greeting}님, 안녕하세요.</p>
     <p>다음 대상의 점검 예정일이 다가왔습니다.</p>
     <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
       <p style="margin: 5px 0;"><strong>담당팀:</strong> ${teamName}</p>
       <p style="margin: 5px 0;"><strong>대상:</strong> ${assetName}</p>
       <p style="margin: 5px 0;"><strong>점검 예정일:</strong> ${dueDate}</p>
+      <p style="margin: 5px 0;"><strong>담당자:</strong> ${staffName}</p>
     </div>
     <p>예정일 전에 점검을 완료해 주세요.</p>
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -94,8 +97,10 @@ export async function sendOverdueAlert(
   assetName: string,
   dueDate: string,
   staffName: string,
-  teamName: string
+  teamName: string,
+  recipientName?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const greeting = recipientName || staffName;
   const subject = `[스케줄 관리시스템] ${assetName} 점검 지연 경고`;
   const body = `
 <!DOCTYPE html>
@@ -106,12 +111,13 @@ export async function sendOverdueAlert(
 <body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.6; color: #333;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <h2 style="color: #dc2626;">점검 지연 경고</h2>
-    <p>${staffName}님, 안녕하세요.</p>
+    <p>${greeting}님, 안녕하세요.</p>
     <p>다음 대상의 점검 예정일이 <strong style="color: #dc2626;">지연</strong>되었습니다. 즉시 점검을 완료해 주세요.</p>
     <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #fca5a5;">
       <p style="margin: 5px 0;"><strong>담당팀:</strong> ${teamName}</p>
       <p style="margin: 5px 0;"><strong>대상:</strong> ${assetName}</p>
       <p style="margin: 5px 0;"><strong>점검 예정일:</strong> ${dueDate}</p>
+      <p style="margin: 5px 0;"><strong>담당자:</strong> ${staffName}</p>
       <p style="margin: 5px 0; color: #dc2626;"><strong>상태: 지연</strong></p>
     </div>
     <p>점검이 지연되면 안전 및 규정 준수에 영향을 줄 수 있습니다. 빠른 시일 내에 점검을 완료해 주시기 바랍니다.</p>
