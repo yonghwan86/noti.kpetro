@@ -138,7 +138,7 @@ export async function sendOverdueAlert(
 
 // ── Task 2: 통합 다이제스트 이메일 ───────────────────────────────────────────
 export async function sendDailyDigestEmail(
-  user: { username: string; email: string },
+  user: { username: string; email: string | null },
   digest: {
     inspectionItems: { assetName: string; dueDate: string; status: 'upcoming' | 'overdue'; daysLeft?: number; daysOverdue?: number; staffName: string }[];
     todayTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string }[];
@@ -248,7 +248,7 @@ export async function sendDailyDigestEmail(
 </body>
 </html>`;
 
-  return sendEmail({ to: user.email, subject, body, isHtml: true });
+  return sendEmail({ to: user.email!, subject, body, isHtml: true });
 }
 
 export async function sendTestEmail(to: string): Promise<{ success: boolean; messageId?: string; error?: string }> {

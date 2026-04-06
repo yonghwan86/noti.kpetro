@@ -3,6 +3,7 @@ import { storage } from './storage';
 import { sendDailyDigestEmail } from './emailService';
 import { sendPushToUser } from './pushService';
 import { parseISO, format, subMinutes } from 'date-fns';
+import type { User, Asset, Team, Category, PersonalTask } from '../shared/schema';
 
 // ── 공유 일정 수신자 ID 목록 ─────────────────────────────────────────────────
 interface TaskWithShare {
@@ -26,13 +27,13 @@ function getSharedTargetUserIds(task: TaskWithShare, allUsers: { id: string; tea
 }
 
 // Bug Fix #2: 푸시 수신자 ID 수집 (staff + 카테고리 구분관리자 전원)
-function collectPushRecipientIds(asset: any, cats: any[]): Set<string> {
+function collectPushRecipientIds(asset: Asset, cats: Category[]): string[] {
   const ids = new Set<string>();
   if (asset.staffId) ids.add(asset.staffId);
-  const category = cats.find((c: any) => c.id === asset.categoryId);
+  const category = cats.find((c) => c.id === asset.categoryId);
   for (const mid of category?.managerIds || []) ids.add(mid);
   if (asset.managerId) ids.add(asset.managerId);
-  return ids;
+  return Array.from(ids);
 }
 
 // ── KST 날짜 유틸 ────────────────────────────────────────────────────────────
@@ -87,11 +88,11 @@ async function setSystemSetting(key: string, value: string): Promise<void> {
 
 // ── 프리로드 데이터 타입 ─────────────────────────────────────────────────────
 interface PreloadedData {
-  assets: any[];
-  users: any[];
-  teams: any[];
-  cats: any[];
-  personalTasks: any[];
+  assets: Asset[];
+  users: User[];
+  teams: Team[];
+  cats: Category[];
+  personalTasks: PersonalTask[];
 }
 
 // ── Task 4: 장비 점검 푸시 전용 (checkUpcomingInspections 리네이밍, 이메일 제거) ──
