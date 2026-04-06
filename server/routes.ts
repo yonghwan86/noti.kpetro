@@ -807,7 +807,7 @@ export async function registerRoutes(
 
   app.post("/api/push/subscribe", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
-      const user = getCurrentUser(req);
+      const user = (req as any).currentUser;
       if (!user) return res.status(401).json({ error: "Not authenticated" });
 
       const { endpoint, keys } = req.body;
