@@ -2,10 +2,10 @@ import cron from 'node-cron';
 import { storage } from './storage';
 import { sendDailyDigestEmail } from './emailService';
 import { sendPushToUser } from './pushService';
-import { parseISO, format, subMinutes } from 'date-fns';
+import { parseISO, subMinutes } from 'date-fns';
+import { sql } from 'drizzle-orm';
 import type { User, Asset, Team, Category, PersonalTask } from '../shared/schema';
 
-// ── 공유 일정 수신자 ID 목록 ─────────────────────────────────────────────────
 interface TaskWithShare {
   userId: string;
   shareScope: string;
@@ -13,7 +13,7 @@ interface TaskWithShare {
   shareUserIds: string[] | null;
 }
 
-function getSharedTargetUserIds(task: TaskWithShare, allUsers: { id: string; teamId: string }[]): string[] {
+function getSharedTargetUserIds(task: TaskWithShare, allUsers: Pick<User, 'id' | 'teamId'>[]): string[] {
   if (task.shareScope === 'private') return [];
   const targetSet = new Set<string>();
   const teamIds = task.shareTeamIds || [];
@@ -26,7 +26,6 @@ function getSharedTargetUserIds(task: TaskWithShare, allUsers: { id: string; tea
   return Array.from(targetSet);
 }
 
-// Bug Fix #2: 푸시 수신자 ID 수집 (staff + 카테고리 구분관리자 전원)
 function collectPushRecipientIds(asset: Asset, cats: Category[]): string[] {
   const ids = new Set<string>();
   if (asset.staffId) ids.add(asset.staffId);
@@ -36,37 +35,29 @@ function collectPushRecipientIds(asset: Asset, cats: Category[]): string[] {
   return Array.from(ids);
 }
 
-// ── KST 날짜 유틸 ────────────────────────────────────────────────────────────
+// Returns YYYY-MM-DD in KST regardless of server timezone
 function getTodayKST(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
-function getTomorrowKST(): string {
-  return getKSTDatePlusDays(1);
-}
-
-// KST 오늘로부터 n일 후 날짜 문자열 (YYYY-MM-DD) 반환
 function getKSTDatePlusDays(n: number): string {
   const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
   nowKST.setDate(nowKST.getDate() + n);
   return nowKST.toLocaleDateString('en-CA');
 }
 
-// KST 기준 두 날짜 사이의 일수 차 (d2 - d1, YYYY-MM-DD 문자열)
-// KST 자정 기준으로 +09:00 오프셋을 붙여 UTC 변환 후 계산
+// Returns number of days from dateStr1 to dateStr2 using KST midnight boundaries
 function daysDiffKST(dateStr1: string, dateStr2: string): number {
   const d1 = new Date(`${dateStr1}T00:00:00+09:00`);
   const d2 = new Date(`${dateStr2}T00:00:00+09:00`);
   return Math.round((d2.getTime() - d1.getTime()) / 86400000);
 }
 
-// ── 시스템 설정 (멱등성 키 등) ──────────────────────────────────────────────
 async function getSystemSetting(key: string): Promise<string | null> {
   try {
     const { db } = await import('../db');
-    const { sql } = await import('drizzle-orm');
     const result = await db.execute(sql`SELECT value FROM system_settings WHERE key = ${key} LIMIT 1`);
-    const rows = result.rows as any[];
+    const rows = result.rows as { value: string }[];
     return rows.length > 0 ? rows[0].value : null;
   } catch {
     return null;
@@ -76,7 +67,6 @@ async function getSystemSetting(key: string): Promise<string | null> {
 async function setSystemSetting(key: string, value: string): Promise<void> {
   try {
     const { db } = await import('../db');
-    const { sql } = await import('drizzle-orm');
     await db.execute(
       sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value})
           ON CONFLICT (key) DO UPDATE SET value = ${value}`
@@ -86,7 +76,6 @@ async function setSystemSetting(key: string, value: string): Promise<void> {
   }
 }
 
-// ── 프리로드 데이터 타입 ─────────────────────────────────────────────────────
 interface PreloadedData {
   assets: Asset[];
   users: User[];
@@ -95,23 +84,21 @@ interface PreloadedData {
   personalTasks: PersonalTask[];
 }
 
-// ── Task 4: 장비 점검 푸시 전용 (checkUpcomingInspections 리네이밍, 이메일 제거) ──
 async function sendInspectionPushNotifications(preloaded: PreloadedData) {
   console.log('[SCHEDULER] Sending inspection push notifications...');
   const { assets, users, teams, cats } = preloaded;
 
-  // KST 날짜 문자열 기반 비교 — 서버가 UTC여도 6AM KST에서 올바른 날짜 사용
   const todayStr = getTodayKST();
   const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
-  const activeAssets = assets.filter((a: any) => a.status !== 'suspended');
+  const activeAssets = assets.filter((a) => a.status !== 'suspended');
 
-  const upcomingAssets = activeAssets.filter((asset: any) => {
+  const upcomingAssets = activeAssets.filter((asset) => {
     if (!asset.nextDueDate) return false;
     return asset.nextDueDate > todayStr && asset.nextDueDate <= sevenDaysLaterStr;
   });
 
-  const overdueAssets = activeAssets.filter((asset: any) => {
+  const overdueAssets = activeAssets.filter((asset) => {
     if (!asset.nextDueDate) return false;
     return asset.nextDueDate < todayStr;
   });
@@ -119,27 +106,21 @@ async function sendInspectionPushNotifications(preloaded: PreloadedData) {
   console.log(`[SCHEDULER] Found ${upcomingAssets.length} upcoming, ${overdueAssets.length} overdue assets for push`);
 
   for (const asset of upcomingAssets) {
-    const staff = users.find((u: any) => u.id === asset.staffId);
-    const staffName = staff?.username || '담당자';
-    const team = teams.find((t: any) => t.id === asset.teamId);
-    const teamName = team?.name || '미지정';
+    const staffName = users.find((u) => u.id === asset.staffId)?.username || '담당자';
+    const teamName = teams.find((t) => t.id === asset.teamId)?.name || '미지정';
     const dueDate = asset.nextDueDate as string;
     const daysLeft = daysDiffKST(todayStr, dueDate);
-    const pushRecipientIds = collectPushRecipientIds(asset, cats);
-    for (const uid of pushRecipientIds) {
+    for (const uid of collectPushRecipientIds(asset, cats)) {
       await sendPushToUser(uid, `🔔 ${asset.name} 점검 예정`, `점검일: ${dueDate} (D-${daysLeft}일) | 담당: ${staffName} | 팀: ${teamName}`, '/');
     }
   }
 
   for (const asset of overdueAssets) {
-    const staff = users.find((u: any) => u.id === asset.staffId);
-    const staffName = staff?.username || '담당자';
-    const team = teams.find((t: any) => t.id === asset.teamId);
-    const teamName = team?.name || '미지정';
+    const staffName = users.find((u) => u.id === asset.staffId)?.username || '담당자';
+    const teamName = teams.find((t) => t.id === asset.teamId)?.name || '미지정';
     const dueDate = asset.nextDueDate as string;
     const overdueDays = daysDiffKST(dueDate, todayStr);
-    const pushRecipientIds = collectPushRecipientIds(asset, cats);
-    for (const uid of pushRecipientIds) {
+    for (const uid of collectPushRecipientIds(asset, cats)) {
       await sendPushToUser(uid, `🚨 ${asset.name} 점검 지연!`, `점검 예정일: ${dueDate} (${overdueDays}일 초과) | 담당: ${staffName} | 즉시 확인하세요`, '/');
     }
   }
@@ -147,7 +128,6 @@ async function sendInspectionPushNotifications(preloaded: PreloadedData) {
   console.log('[SCHEDULER] Inspection push notifications completed');
 }
 
-// ── Task 1: 사용자별 다이제스트 데이터 수집 ──────────────────────────────────
 interface InspectionItem {
   assetName: string;
   dueDate: string;
@@ -171,27 +151,33 @@ interface DigestData {
   tomorrowTasks: PersonalTaskItem[];
 }
 
+function toKSTDateStr(scheduledAt: string): string {
+  return new Date(scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+function toKSTTimeStr(scheduledAt: string): string {
+  return new Date(scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): DigestData | null {
-  const { assets, users, teams, cats, personalTasks } = preloaded;
-  const user = users.find((u: any) => u.id === userId);
+  const { assets, users, cats, personalTasks } = preloaded;
+  const user = users.find((u) => u.id === userId);
   if (!user) return null;
 
-  // KST 날짜 문자열 기반 비교 — 서버가 UTC여도 6AM KST에서 올바른 날짜 사용
   const today = getTodayKST();
-  const tomorrow = getTomorrowKST();
+  const tomorrow = getKSTDatePlusDays(1);
   const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
-  // 팀장 판별: role=staff(관리자·팀장 제외)이면서 position=팀장인 경우만 해당 팀 전체 수신
+  // Team leaders (role=staff) receive all alerts for their managing team
   const isLeader = user.role === 'staff' && user.position === '팀장';
 
-  // ── 장비 점검 알림 수집 ────────────────────────────────────────────────────
   const inspectionItems: InspectionItem[] = [];
 
   for (const asset of assets) {
     if (asset.status === 'suspended') continue;
     if (!asset.nextDueDate) continue;
 
-    const category = cats.find((c: any) => c.id === asset.categoryId);
+    const category = cats.find((c) => c.id === asset.categoryId);
     const categoryManagerIds: string[] = category?.managerIds || [];
 
     const isStaff = asset.staffId === userId;
@@ -201,9 +187,8 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
 
     if (!isStaff && !isDirectManager && !isCategoryManager && !isTeamLeader) continue;
 
-    const dueDateStr = asset.nextDueDate as string;
-    const staffUser = users.find((u: any) => u.id === asset.staffId);
-    const staffName = staffUser?.username || '담당자';
+    const dueDateStr = asset.nextDueDate;
+    const staffName = users.find((u) => u.id === asset.staffId)?.username || '담당자';
 
     if (dueDateStr > today && dueDateStr <= sevenDaysLaterStr) {
       const daysLeft = daysDiffKST(today, dueDateStr);
@@ -214,57 +199,47 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
     }
   }
 
-  // ── 오늘 일정 수집 ────────────────────────────────────────────────────────
   const todayTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    // KST 날짜로 변환하여 비교 — scheduledAt이 UTC 타임스탬프인 경우도 정확하게 처리
-    const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-    if (taskDateKST !== today) continue;
+    if (toKSTDateStr(task.scheduledAt) !== today) continue;
 
     const isOwn = task.userId === userId;
     const isShared = task.shareScope === 'selected' && (
       (task.shareUserIds || []).includes(userId) ||
       (task.shareTeamIds || []).includes(user.teamId)
     );
-
     if (!isOwn && !isShared) continue;
 
-    const owner = users.find((u: any) => u.id === task.userId);
-    // 시간 표시도 KST 기준으로 변환
-    const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+    const ownerName = users.find((u) => u.id === task.userId)?.username || '알 수 없음';
     todayTasks.push({
       title: task.title,
-      time: timeKST,
+      time: toKSTTimeStr(task.scheduledAt),
       description: task.description || undefined,
       isShared: !isOwn,
-      ownerName: !isOwn ? (owner?.username || '알 수 없음') : undefined,
+      ownerName: !isOwn ? ownerName : undefined,
     });
   }
 
-  // ── 내일 예정 수집 ────────────────────────────────────────────────────────
   const tomorrowTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-    if (taskDateKST !== tomorrow) continue;
+    if (toKSTDateStr(task.scheduledAt) !== tomorrow) continue;
 
     const isOwn = task.userId === userId;
     const isShared = task.shareScope === 'selected' && (
       (task.shareUserIds || []).includes(userId) ||
       (task.shareTeamIds || []).includes(user.teamId)
     );
-
     if (!isOwn && !isShared) continue;
 
-    const owner = users.find((u: any) => u.id === task.userId);
-    const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+    const ownerName = users.find((u) => u.id === task.userId)?.username || '알 수 없음';
     tomorrowTasks.push({
       title: task.title,
-      time: timeKST,
+      time: toKSTTimeStr(task.scheduledAt),
       description: task.description || undefined,
       isShared: !isOwn,
-      ownerName: !isOwn ? (owner?.username || '알 수 없음') : undefined,
+      ownerName: !isOwn ? ownerName : undefined,
     });
   }
 
@@ -275,34 +250,30 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   return { inspectionItems, todayTasks, tomorrowTasks };
 }
 
-// ── 프로세스 레벨 동시 실행 방지 (cron + catch-up 중복 실행 방지) ──────────
+// Process-level guard: prevents concurrent cron + catch-up execution.
+// Set synchronously before first await (JS single-thread guarantee).
 let isDailyDigestRunning = false;
 
-// ── Task 3: 통합 다이제스트 발송 (실행 순서 ①~⑤ 준수) ──────────────────────
 async function sendDailyDigest() {
-  // 1단계 가드 (프로세스 레벨) —
-  // JS는 단일 스레드이므로, 첫 await 이전에 동기적으로 플래그를 설정하면
-  // 두 번째 호출이 끼어들 수 없다. cron + catch-up 동시 실행 방지.
   if (isDailyDigestRunning) {
     console.log('[SCHEDULER] Daily digest is already running, skipping concurrent invocation');
     return;
   }
-  isDailyDigestRunning = true; // ← 반드시 첫 await 이전, 동기적으로 설정
+  isDailyDigestRunning = true;
 
   console.log('[SCHEDULER] Starting daily digest...');
 
   try {
-    // 2단계 가드 (DB 레벨 완료 키) —
-    // last_daily_digest_date는 성공 완료(⑤)에만 기록.
-    // 실패·크래시 시 미기록 → 다음 재시작에서 재시도 가능.
     const today = getTodayKST();
+
+    // DB-level idempotency: only recorded on successful completion (step ⑤).
+    // Failure leaves it unset, enabling retry on next server restart.
     const lastDate = await getSystemSetting('last_daily_digest_date');
     if (lastDate === today) {
       console.log('[SCHEDULER] Daily digest already completed today, skipping');
-      return; // finally 블록에서 isDailyDigestRunning = false 처리
+      return;
     }
 
-    // 데이터 한 번만 로드 (모든 함수에 주입)
     const preloaded: PreloadedData = {
       assets: await storage.getAssets(),
       users: await storage.getUsers(),
@@ -311,21 +282,19 @@ async function sendDailyDigest() {
       personalTasks: await storage.getAllPersonalTasksForScheduler(),
     };
 
-    // ① 장비 점검 푸시 발송
+    // ① Inspection push
     await sendInspectionPushNotifications(preloaded);
 
-    // ② 개인일정 모닝 푸시 발송 (morningNotified=false인 오늘 이전 일정)
+    // ② Morning push for personal tasks (today or overdue, not yet notified)
     const morningNotifyTaskIds: string[] = [];
     for (const task of preloaded.personalTasks) {
       if (task.morningNotified) continue;
       if (task.completed) continue;
-      // KST 날짜/시간 변환 — UTC 타임스탬프 저장 시에도 정확하게 처리
-      const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      const taskDateKST = toKSTDateStr(task.scheduledAt);
       if (taskDateKST > today) continue;
 
-      const owner = preloaded.users.find((u: any) => u.id === task.userId);
-      const ownerName = owner?.username || '알 수 없음';
-      const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+      const ownerName = preloaded.users.find((u) => u.id === task.userId)?.username || '알 수 없음';
+      const timeKST = toKSTTimeStr(task.scheduledAt);
       const isOverdue = taskDateKST < today;
 
       await sendPushToUser(
@@ -335,15 +304,14 @@ async function sendDailyDigest() {
         '/schedule'
       );
 
-      const targetIds = getSharedTargetUserIds(task, preloaded.users);
-      for (const targetId of targetIds) {
+      for (const targetId of getSharedTargetUserIds(task, preloaded.users)) {
         await sendPushToUser(targetId, `📅 공유 일정: ${task.title}`, `${ownerName}님의 일정 | ${taskDateKST} ${timeKST} 예정`, '/schedule');
       }
 
       morningNotifyTaskIds.push(task.id);
     }
 
-    // ③ 이메일 다이제스트 발송 (1인 1통)
+    // ③ One digest email per user (skip if no content or no email)
     let emailSentCount = 0;
     let emailFailedCount = 0;
     for (const user of preloaded.users) {
@@ -365,17 +333,13 @@ async function sendDailyDigest() {
     }
     console.log(`[SCHEDULER] Daily digest emails — sent: ${emailSentCount}, failed: ${emailFailedCount}`);
 
-    // ④ morningNotified = true 설정 (①②③ 완료 후)
+    // ④ Mark morning push tasks as notified
     for (const taskId of morningNotifyTaskIds) {
       await storage.updatePersonalTask(taskId, { morningNotified: true });
     }
 
-    // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 미기록 → 재시도 보장
-    // 멱등성 가드: ①프로세스 플래그(isDailyDigestRunning) ②DB 날짜 기록(성공 시만)
-    // [정책] 부분 실패(일부 사용자 이메일 실패) 시:
-    //   - last_daily_digest_date 미기록 → 다음 서버 재시작/catch-up 시 전체 재시도
-    //   - 이미 성공한 사용자에게 중복 메일이 발송될 수 있음 (의도적 허용)
-    //   - 이유: 사용자별 발송 상태 추적 없이 단순성 우선. 중복 1통보다 미수신 방지 우선.
+    // ⑤ Record completion date (only when all emails succeeded)
+    // Partial failure leaves date unset → full retry on next restart (may resend to successful recipients)
     if (emailFailedCount === 0) {
       await setSystemSetting('last_daily_digest_date', today);
       console.log('[SCHEDULER] Daily digest completed and date recorded');
@@ -388,13 +352,11 @@ async function sendDailyDigest() {
 
   } catch (error) {
     console.error('[SCHEDULER] Error in daily digest:', error);
-    // 예외 시에도 ⑤를 기록하지 않으므로 다음 실행에서 자동 재시도 가능
   } finally {
     isDailyDigestRunning = false;
   }
 }
 
-// ── 10분 전 reminder (푸시 전용, 당일 실시간) ────────────────────────────────
 async function checkPersonalTasksReminder() {
   try {
     const tasks = await storage.getAllPersonalTasksForScheduler();
@@ -409,12 +371,11 @@ async function checkPersonalTasksReminder() {
       const tenMinsBefore = subMinutes(scheduledDate, 10);
 
       if (now >= tenMinsBefore && now < scheduledDate) {
-        const ownerName = users.find((u: any) => u.id === task.userId)?.username || '알 수 없음';
+        const ownerName = users.find((u) => u.id === task.userId)?.username || '알 수 없음';
 
         await sendPushToUser(task.userId, `⏰ 10분 후 일정: ${task.title}`, `곧 시작되는 일정이 있습니다.`, '/schedule');
 
-        const targetIds = getSharedTargetUserIds(task, users);
-        for (const targetId of targetIds) {
+        for (const targetId of getSharedTargetUserIds(task, users)) {
           await sendPushToUser(targetId, `⏰ 10분 후 공유 일정: ${task.title}`, `${ownerName}님의 일정이 곧 시작됩니다.`, '/schedule');
         }
 
@@ -426,20 +387,16 @@ async function checkPersonalTasksReminder() {
   }
 }
 
-// ── Task 5: 스케줄러 cron 재구성 ──────────────────────────────────────────────
 export function startScheduler() {
-  // ── 오전 6시: 통합 다이제스트 (장비 점검 푸시 + 개인일정 푸시 + 이메일 1통) ──
   cron.schedule('0 6 * * *', () => {
     console.log('[SCHEDULER] 6 AM KST - running daily digest');
     sendDailyDigest();
   }, { timezone: 'Asia/Seoul' });
 
-  // ── 매 1분: 10분 전 reminder (푸시 전용) ─────────────────────────────────
   cron.schedule('* * * * *', () => {
     checkPersonalTasksReminder();
   }, { timezone: 'Asia/Seoul' });
 
-  // ── 자정: morningNotified·reminderNotified 리셋 (emailDigestSent 리셋 제거됨) ──
   cron.schedule('0 0 * * *', () => {
     console.log('[SCHEDULER] Midnight KST - resetting daily notification flags');
     storage.resetDailyNotificationFlags();
@@ -447,7 +404,6 @@ export function startScheduler() {
 
   console.log('[SCHEDULER] Scheduler started - 6 AM digest, every min reminder, midnight reset');
 
-  // ── 서버 재시작 catch-up (kstHour >= 6이면 당일 미발송 시 발송) ──────────
   const now = new Date();
   const kstHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
 
