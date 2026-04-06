@@ -63,7 +63,8 @@ function daysDiffKST(dateStr1: string, dateStr2: string): number {
 async function getSystemSetting(key: string): Promise<string | null> {
   try {
     const { db } = await import('../db');
-    const result = await db.execute(`SELECT value FROM system_settings WHERE key = '${key}' LIMIT 1`);
+    const { sql } = await import('drizzle-orm');
+    const result = await db.execute(sql`SELECT value FROM system_settings WHERE key = ${key} LIMIT 1`);
     const rows = result.rows as any[];
     return rows.length > 0 ? rows[0].value : null;
   } catch {
@@ -74,9 +75,10 @@ async function getSystemSetting(key: string): Promise<string | null> {
 async function setSystemSetting(key: string, value: string): Promise<void> {
   try {
     const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
     await db.execute(
-      `INSERT INTO system_settings (key, value) VALUES ('${key}', '${value}')
-       ON CONFLICT (key) DO UPDATE SET value = '${value}'`
+      sql`INSERT INTO system_settings (key, value) VALUES (${key}, ${value})
+          ON CONFLICT (key) DO UPDATE SET value = ${value}`
     );
   } catch (error) {
     console.error(`[SCHEDULER] Failed to save system setting ${key}:`, error);
