@@ -870,7 +870,7 @@ export async function registerRoutes(
   app.post("/api/personal-tasks", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const currentUser = (req as any).currentUser;
-      const { title, description, scheduledAt, repeatType, shareScope, scheduledEndAt } = req.body;
+      const { title, description, scheduledAt, repeatType, shareScope, scheduledEndAt, label, priority } = req.body;
 
       if (!title || typeof title !== 'string' || !title.trim()) {
         return res.status(400).json({ error: "제목을 입력해주세요." });
@@ -886,6 +886,11 @@ export async function registerRoutes(
           return res.status(400).json({ error: "종료일은 시작일 이후여야 합니다." });
         }
       }
+      const validLabels = ['inspection', 'meeting', 'trip', 'training', 'other'];
+      const safeLabel = validLabels.includes(label) ? label : null;
+      const priorityNum = Number(priority);
+      const safePriority = (Number.isInteger(priorityNum) && priorityNum >= 0 && priorityNum <= 3) ? priorityNum : 0;
+
       const validRepeatTypes = ['none', 'daily', 'weekly', 'monthly'];
       const validShareScopes = ['private', 'selected'];
       const safeRepeatType = scheduledEndAt
@@ -910,6 +915,8 @@ export async function registerRoutes(
         description: description || null,
         scheduledAt,
         scheduledEndAt: scheduledEndAt ?? null,
+        label: safeLabel,
+        priority: safePriority,
         repeatType: safeRepeatType,
         completed: false,
         shareScope: finalShareScope,
@@ -981,6 +988,15 @@ export async function registerRoutes(
           }
         }
         updates.scheduledEndAt = req.body.scheduledEndAt;
+      }
+
+      const validLabelsForPatch = ['inspection', 'meeting', 'trip', 'training', 'other'];
+      if (req.body.label !== undefined) {
+        updates.label = validLabelsForPatch.includes(req.body.label) ? req.body.label : null;
+      }
+      if (req.body.priority !== undefined) {
+        const pNum = Number(req.body.priority);
+        updates.priority = (Number.isInteger(pNum) && pNum >= 0 && pNum <= 3) ? pNum : 0;
       }
 
       const finalEndAt = updates.scheduledEndAt !== undefined ? updates.scheduledEndAt : task.scheduledEndAt;

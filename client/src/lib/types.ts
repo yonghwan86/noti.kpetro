@@ -90,5 +90,7 @@ export interface PersonalTask {
   shareTeamIds?: string[] | null;
   shareUserIds?: string[] | null;
   lastMorningNotifiedDate: string | null;
+  label: string | null;
+  priority: number;
   createdAt: string;
 }

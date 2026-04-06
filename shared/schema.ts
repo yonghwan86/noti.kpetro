@@ -13,6 +13,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
+export const systemSettings = pgTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -146,6 +151,8 @@ export const personalTasks = pgTable("personal_tasks", {
   shareUserIds: text("share_user_ids").array().default(sql`'{}'::text[]`),
   scheduledEndAt: text("scheduled_end_at"),
   lastMorningNotifiedDate: text("last_morning_notified_date"),
+  label: text("label"),
+  priority: integer("priority").notNull().default(0),
   reminderNotified: boolean("reminder_notified").notNull().default(false),
   emailDigestSent: boolean("email_digest_sent").notNull().default(false),
   createdAt: text("created_at").notNull(),
@@ -153,6 +160,10 @@ export const personalTasks = pgTable("personal_tasks", {
 
 export const insertPersonalTaskSchema = createInsertSchema(personalTasks)
   .omit({ id: true, lastMorningNotifiedDate: true, reminderNotified: true, emailDigestSent: true })
-  .extend({ scheduledEndAt: z.string().nullable().optional() });
+  .extend({
+    scheduledEndAt: z.string().nullable().optional(),
+    label: z.string().nullable().optional(),
+    priority: z.number().int().min(0).max(3).optional(),
+  });
 export type InsertPersonalTask = z.infer<typeof insertPersonalTaskSchema>;
 export type PersonalTask = typeof personalTasks.$inferSelect;
