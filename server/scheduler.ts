@@ -178,7 +178,8 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   const tomorrow = getTomorrowKST();
   const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
-  const isLeader = user.position === '팀장';
+  // 팀장 판별: role=staff(관리자·팀장 제외)이면서 position=팀장인 경우만 해당 팀 전체 수신
+  const isLeader = user.role === 'staff' && user.position === '팀장';
 
   // ── 장비 점검 알림 수집 ────────────────────────────────────────────────────
   const inspectionItems: InspectionItem[] = [];
@@ -368,7 +369,10 @@ async function sendDailyDigest() {
 
     // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 미기록 → 재시도 보장
     // 멱등성 가드: ①프로세스 플래그(isDailyDigestRunning) ②DB 날짜 기록(성공 시만)
-    // 이메일 실패 시 DB 미기록 → 다음 서버 재시작(cron/catch-up) 시 재시도 가능
+    // [정책] 부분 실패(일부 사용자 이메일 실패) 시:
+    //   - last_daily_digest_date 미기록 → 다음 서버 재시작/catch-up 시 전체 재시도
+    //   - 이미 성공한 사용자에게 중복 메일이 발송될 수 있음 (의도적 허용)
+    //   - 이유: 사용자별 발송 상태 추적 없이 단순성 우선. 중복 1통보다 미수신 방지 우선.
     if (emailFailedCount === 0) {
       await setSystemSetting('last_daily_digest_date', today);
       console.log('[SCHEDULER] Daily digest completed and date recorded');
