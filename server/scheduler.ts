@@ -265,9 +265,9 @@ let isDailyDigestRunning = false;
 
 // ── Task 3: 통합 다이제스트 발송 (실행 순서 ①~⑤ 준수) ──────────────────────
 async function sendDailyDigest() {
-  // 프로세스 레벨 동시성 가드 —
+  // 1단계 가드 (프로세스 레벨) —
   // JS는 단일 스레드이므로, 첫 await 이전에 동기적으로 플래그를 설정하면
-  // 두 번째 호출이 이 시점에 끼어들 수 없다. race condition 없음.
+  // 두 번째 호출이 끼어들 수 없다. cron + catch-up 동시 실행 방지.
   if (isDailyDigestRunning) {
     console.log('[SCHEDULER] Daily digest is already running, skipping concurrent invocation');
     return;
@@ -277,26 +277,17 @@ async function sendDailyDigest() {
   console.log('[SCHEDULER] Starting daily digest...');
 
   try {
+    // 2단계 가드 (DB 레벨 완료 키) —
+    // last_daily_digest_date는 성공 완료(⑤)에만 기록.
+    // 실패·크래시 시 미기록 → 다음 재시작에서 재시도 가능.
     const today = getTodayKST();
-
-    // DB 레벨 원자적 클레임 — 다중 프로세스 환경 대비
-    // today 값이 아직 없을 때만 'today:running'으로 선점.
-    // WHERE 조건 실패 시 UPDATE가 발생하지 않아 RETURNING 결과가 비어 있음.
-    const { db } = await import('../db');
-    const claimResult = await db.execute(
-      `INSERT INTO system_settings (key, value)
-       VALUES ('last_daily_digest_date', '${today}:running')
-       ON CONFLICT (key) DO UPDATE
-         SET value = EXCLUDED.value
-         WHERE system_settings.value NOT LIKE '${today}%'
-       RETURNING key`
-    );
-    if ((claimResult.rows as any[]).length === 0) {
-      console.log('[SCHEDULER] Daily digest already in progress or completed today, skipping');
+    const lastDate = await getSystemSetting('last_daily_digest_date');
+    if (lastDate === today) {
+      console.log('[SCHEDULER] Daily digest already completed today, skipping');
       return; // finally 블록에서 isDailyDigestRunning = false 처리
     }
 
-    // 클레임 성공 — 데이터 한 번만 로드 (모든 함수에 주입)
+    // 데이터 한 번만 로드 (모든 함수에 주입)
     const preloaded: PreloadedData = {
       assets: await storage.getAssets(),
       users: await storage.getUsers(),
