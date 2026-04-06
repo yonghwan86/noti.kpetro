@@ -1,0 +1,491 @@
+좋습니다. 아래는 **현재 코드 구조와 이전 검토 내용을 반영한 최종 Phase 2 구현안**입니다.
+개발자가 그대로 보고 바로 반영할 수 있게, 문구 충돌을 정리하고 구현 전 확인사항까지 포함해 완성본 형태로 정리했습니다. 현재 코드 기준으로는 `schema.ts`에 기간 일정 필드가 이미 들어가 있고, `routes.ts`는 개인 일정 POST/PATCH를 수동 정규화하는 구조이며, `MySchedule.tsx`는 일정 폼·카드·mutation이 한 파일에 모여 있으므로 이 문서 구조가 그대로 맞습니다.   
+
+---
+
+# #8 - 일정 컬러 라벨 + 우선순위 — 백엔드 (최종 확정본)
+
+## What & Why
+
+일정 목록에서 일정의 성격과 긴급도를 한눈에 파악하기 어렵다.
+`label`(카테고리 라벨)과 `priority`(우선순위) 컬럼을 추가하여 시각적 구분과 정렬 기준을 제공한다. 
+
+## 라벨 정의
+
+| 값            | 표시명   | 용도                   |
+| ------------ | ----- | -------------------- |
+| `inspection` | 장비 점검 | 점검 관련 업무             |
+| `meeting`    | 회의    | 회의·미팅                |
+| `trip`       | 출장    | 외근·출장                |
+| `training`   | 교육    | 교육·연수                |
+| `other`      | 기타    | 분류 외 업무              |
+| `null`       | (없음)  | 라벨 미지정 — 기존 일정 하위 호환 |
+
+## 우선순위 정의
+
+| 값   | 표시명      |
+| --- | -------- |
+| `0` | 보통 (기본값) |
+| `1` | 낮음       |
+| `2` | 높음       |
+| `3` | 긴급       |
+
+## Done looks like
+
+* `shared/schema.ts`에 `label`(text, nullable), `priority`(integer, default 0) 추가
+* `insertPersonalTaskSchema`에서 `label`, `priority` 입력 허용
+* POST: `label`, `priority` 수신. `label`은 허용값만 유지하고 그 외 값은 `null`로 정규화한다. `priority`는 `Number()` 변환 후 0~3 범위의 정수만 유지하고, 그 외 값은 `0`으로 정규화한다.
+* PATCH: `label`, `priority` 수신 시 POST와 동일한 기준으로 정규화한다. `undefined`면 무시하고, `label`은 허용값 외 `null`, `priority`는 범위 외 `0`으로 처리한다.
+* GET: 스키마 변경으로 응답 데이터에 자동 포함된다.
+
+## Out of scope
+
+* 라벨별 필터링 API
+* 커스텀 라벨 생성
+
+## 구현 전 필수 확인
+
+* `client/src/lib/types.ts`가 서버 스키마 자동 추론 구조인지, 수동 interface 구조인지 먼저 확인한다.
+* 수동 interface 구조라면 프론트에서 사용하는 `PersonalTask` 타입에 `label`, `priority`를 반드시 추가한다. 현재 `MySchedule.tsx`는 `PersonalTask`를 `@/lib/types`에서 import하는 구조다. 
+
+## Tasks
+
+### 1. 스키마 변경 + DB push
+
+`shared/schema.ts`의 `personalTasks` 테이블에 추가:
+
+```typescript
+label: text("label"),                               // nullable
+priority: integer("priority").notNull().default(0) // 0=보통, 1=낮음, 2=높음, 3=긴급
+```
+
+`insertPersonalTaskSchema`의 기존 `.extend()` 확장:
+
+```typescript
+.extend({
+  scheduledEndAt: z.string().nullable().optional(),
+  label: z.string().nullable().optional(),
+  priority: z.number().int().min(0).max(3).optional(),
+})
+```
+
+참고:
+
+* `createInsertSchema()`가 nullable 컬럼을 입력 스키마에서 원하는 형태로 추론하지 않을 수 있으므로, `scheduledEndAt`, `label`처럼 nullable 입력을 받는 필드는 `.extend()`로 `nullable().optional()`을 명시적으로 보정한다.
+* 현재 코드도 `scheduledEndAt`를 같은 방식으로 보정하고 있으므로 이 패턴을 유지한다.
+
+이후 `npm run db:push` 실행.
+
+### 2. routes.ts — POST 핸들러 수정
+
+body에서 추출:
+
+```typescript
+const { title, description, scheduledAt, repeatType, shareScope, scheduledEndAt, label, priority } = req.body;
+```
+
+`scheduledEndAt` 검증 블록 뒤, `safeRepeatType` 근처에 정규화 로직 추가:
+
+```typescript
+const validLabels = ['inspection', 'meeting', 'trip', 'training', 'other'];
+const safeLabel = (typeof label === 'string' && validLabels.includes(label)) ? label : null;
+
+const p = Number(priority);
+const safePriority = (Number.isInteger(p) && p >= 0 && p <= 3) ? p : 0;
+```
+
+`taskData` 객체에 추가:
+
+```typescript
+label: safeLabel,
+priority: safePriority,
+```
+
+설명:
+
+* POST와 PATCH 모두 `priority`를 같은 방식으로 처리해야 한다.
+* 문자열 `"2"`처럼 들어와도 `Number()` 변환 후 허용 범위면 정상 반영되도록 통일한다.
+
+### 3. routes.ts — PATCH 핸들러 수정
+
+기존 `updates` 빌드 블록에 추가:
+
+```typescript
+if (req.body.label !== undefined) {
+  const validLabels = ['inspection', 'meeting', 'trip', 'training', 'other'];
+  updates.label = (typeof req.body.label === 'string' && validLabels.includes(req.body.label)) ? req.body.label : null;
+}
+
+if (req.body.priority !== undefined) {
+  const p = Number(req.body.priority);
+  updates.priority = (Number.isInteger(p) && p >= 0 && p <= 3) ? p : 0;
+}
+```
+
+설명:
+
+* `undefined`면 변경하지 않는다.
+* 유효하지 않은 값은 에러 대신 안전값으로 정규화한다.
+* 기존 `repeatType`, `shareScope` 처리 방식과 맞춘다.
+
+### 4. 클라이언트 타입 정의 업데이트
+
+`client/src/lib/types.ts`가 수동 interface 구조라면 `PersonalTask` 타입에 추가:
+
+```typescript
+label: string | null;
+priority: number;
+```
+
+자동 추론 구조라면 별도 작업은 불필요하다.
+단, 구현 전에 반드시 확인 후 진행한다.
+
+## Relevant files
+
+* `shared/schema.ts`
+* `server/routes.ts`
+* `client/src/lib/types.ts`
+
+---
+
+# #9 - 일정 컬러 라벨 + 우선순위 + 체크리스트 — 프론트엔드 (최종 확정본)
+
+## What & Why
+
+백엔드에 `label`, `priority` 필드가 추가됨에 따라 일정 폼·카드·정렬 기준을 확장한다.
+추가로 `description`에 마크다운 체크리스트(`- [ ]`, `- [x]`)를 지원하여, 일정 안에서 세부 할 일을 관리할 수 있게 한다.
+이 단계는 **리스트 뷰 강화**까지만 포함하며, 캘린더 뷰 전환과 기간 bar 렌더링은 Phase 3에서 처리한다. Phase 3 목업에는 목록↔캘린더 전환, 월 이동, 오늘 버튼, 범례, 기간 바, 점검 오버레이가 포함되어 있으므로 본 단계에서 범위를 넘기지 않는다.
+
+## 라벨 색상 매핑
+
+| 값            | 표시명   | 배경              | 텍스트               |
+| ------------ | ----- | --------------- | ----------------- |
+| `inspection` | 장비 점검 | `bg-amber-100`  | `text-amber-800`  |
+| `meeting`    | 회의    | `bg-blue-100`   | `text-blue-800`   |
+| `trip`       | 출장    | `bg-green-100`  | `text-green-800`  |
+| `training`   | 교육    | `bg-purple-100` | `text-purple-800` |
+| `other`      | 기타    | `bg-gray-100`   | `text-gray-800`   |
+
+## 우선순위 표시
+
+| 값   | 표시명 | 색상                              |
+| --- | --- | ------------------------------- |
+| `3` | 긴급  | `bg-red-100 text-red-800`       |
+| `2` | 높음  | `bg-orange-100 text-orange-800` |
+| `1` | 낮음  | 표시 안 함                          |
+| `0` | 보통  | 표시 안 함                          |
+
+## Done looks like
+
+* 폼에 라벨 Select + 우선순위 Select 추가
+* 카드에 라벨 뱃지와 우선순위 뱃지(`긴급`, `높음`만) 표시
+* 미완료 일정은 우선순위 내림차순(긴급→보통)으로 정렬
+* `description`에 `- [ ]`, `- [x]` 패턴이 있으면 체크박스로 렌더링
+* 체크박스 클릭 시 `description` 전체를 PATCH로 업데이트하되, 기존 일정 수정용 `updateMutation`과 분리된 체크리스트 전용 mutation을 사용한다.
+* `description` placeholder에 체크리스트 입력 예시를 추가한다.
+
+## Out of scope
+
+* 라벨별 필터 탭 추가
+* 목록 ↔ 캘린더 뷰 전환
+* 월 이동, 오늘 이동, 범례(내 일정/공유받은/장비 점검) 표시
+* 기간 일정의 bar 형태 렌더링
+* 장비 점검 예정일 오버레이
+
+## 구현 전 필수 확인
+
+* `MySchedule.tsx`의 `PersonalTask` 타입에 `label`, `priority`가 실제로 반영되는지 먼저 확인한다.
+* 체크리스트 토글은 기존 `updateMutation`을 재사용하지 않는다. 현재 `updateMutation`은 성공 시 toast와 `closeDialog()`를 실행하므로 체크박스 토글 UX에 부적합하다. 별도 `checklistMutation`을 사용한다. 
+
+## Tasks
+
+### 1. State + 초기화 + 리셋
+
+state 추가:
+
+```typescript
+const [label, setLabel] = useState<string | null>(null);
+const [priority, setPriority] = useState(0);
+```
+
+`openEdit()`에 추가:
+
+```typescript
+setLabel(task.label || null);
+setPriority(task.priority || 0);
+```
+
+`closeDialog()`에 추가:
+
+```typescript
+setLabel(null);
+setPriority(0);
+```
+
+### 2. 체크리스트 전용 mutation 추가
+
+기존 mutation 선언 블록에 추가:
+
+```typescript
+const checklistMutation = useMutation({
+  mutationFn: ({ id, data }: { id: string; data: any }) => api.personalTasks.update(id, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
+  },
+  onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+});
+```
+
+설명:
+
+* 기존 `updateMutation`은 성공 시 toast를 띄우고 `closeDialog()`를 호출한다.
+* 체크박스 토글에는 그 동작이 과하므로, 쿼리 무효화만 수행하는 별도 mutation을 사용한다.
+* 에러는 사용자에게 보여주되, 성공 시 별도 토스트는 띄우지 않는다.
+
+### 3. 폼 UI — 라벨 + 우선순위 Select
+
+`반복` Select 위에 추가:
+
+```tsx
+<div>
+  <label className="text-sm font-medium">라벨</label>
+  <Select value={label || 'none'} onValueChange={v => setLabel(v === 'none' ? null : v)}>
+    <SelectTrigger data-testid="select-label">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="none">없음</SelectItem>
+      <SelectItem value="inspection">장비 점검</SelectItem>
+      <SelectItem value="meeting">회의</SelectItem>
+      <SelectItem value="trip">출장</SelectItem>
+      <SelectItem value="training">교육</SelectItem>
+      <SelectItem value="other">기타</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
+<div>
+  <label className="text-sm font-medium">우선순위</label>
+  <Select value={String(priority)} onValueChange={v => setPriority(Number(v))}>
+    <SelectTrigger data-testid="select-priority">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="0">보통</SelectItem>
+      <SelectItem value="1">낮음</SelectItem>
+      <SelectItem value="2">높음</SelectItem>
+      <SelectItem value="3">긴급</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+```
+
+### 4. handleSubmit() 수정
+
+`data` 객체에 추가:
+
+```typescript
+label,
+priority,
+```
+
+### 5. 카드 뱃지 표시 — renderTask() 수정
+
+컴포넌트 상단에 헬퍼 추가:
+
+```typescript
+const labelConfig: Record<string, { name: string; bg: string; text: string }> = {
+  inspection: { name: '장비 점검', bg: 'bg-amber-100', text: 'text-amber-800' },
+  meeting:    { name: '회의',     bg: 'bg-blue-100',  text: 'text-blue-800' },
+  trip:       { name: '출장',     bg: 'bg-green-100', text: 'text-green-800' },
+  training:   { name: '교육',     bg: 'bg-purple-100', text: 'text-purple-800' },
+  other:      { name: '기타',     bg: 'bg-gray-100',  text: 'text-gray-800' },
+};
+
+const getPriorityBadge = (p: number) => {
+  if (p === 3) return { label: '긴급', color: 'bg-red-100 text-red-800' };
+  if (p === 2) return { label: '높음', color: 'bg-orange-100 text-orange-800' };
+  return null; // 1=낮음, 0=보통은 표시 안 함
+};
+```
+
+`renderTask()`의 status 뱃지 바로 뒤에 추가:
+
+```tsx
+{task.label && labelConfig[task.label] && (
+  <Badge
+    variant="outline"
+    className={`text-[10px] px-1.5 py-0 ${labelConfig[task.label].bg} ${labelConfig[task.label].text}`}
+  >
+    {labelConfig[task.label].name}
+  </Badge>
+)}
+
+{getPriorityBadge(task.priority) && (
+  <Badge
+    variant="outline"
+    className={`text-[10px] px-1.5 py-0 ${getPriorityBadge(task.priority)!.color}`}
+  >
+    {getPriorityBadge(task.priority)!.label}
+  </Badge>
+)}
+```
+
+### 6. 우선순위 정렬
+
+`incompleteTasks` 생성 로직 변경:
+
+```typescript
+const incompleteTasks = filteredTasks
+  .filter(t => !t.completed)
+  .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+```
+
+설명:
+
+* 높은 priority가 위로 온다.
+* 같은 priority끼리는 기존 배열 순서를 유지하는 것으로 본다.
+
+### 7. 체크리스트 렌더링 — description 표시 영역 수정
+
+기존:
+
+```tsx
+{task.description && (
+  <p className="text-xs text-muted-foreground mt-1 truncate">{task.description}</p>
+)}
+```
+
+변경:
+
+```tsx
+{task.description && (
+  <div className="mt-1">
+    {renderDescription(task)}
+  </div>
+)}
+```
+
+컴포넌트 내부에 `renderDescription` 추가:
+
+```typescript
+const renderDescription = (task: TaskWithShared) => {
+  const desc = task.description || '';
+  const hasChecklist = /^- \[[ x]\] /m.test(desc);
+
+  if (!hasChecklist) {
+    return <p className="text-xs text-muted-foreground truncate">{desc}</p>;
+  }
+
+  const lines = desc.split('\n');
+  const isOwner = task.userId === currentUser?.id;
+
+  const toggleChecklistItem = (lineIndex: number) => {
+    if (!isOwner) return;
+
+    const newLines = lines.map((line, i) => {
+      if (i !== lineIndex) return line;
+      if (line.startsWith('- [ ] ')) return line.replace('- [ ] ', '- [x] ');
+      if (line.startsWith('- [x] ')) return line.replace('- [x] ', '- [ ] ');
+      return line;
+    });
+
+    checklistMutation.mutate({
+      id: task.id,
+      data: { description: newLines.join('\n') },
+    });
+  };
+
+  return (
+    <div className="space-y-0.5">
+      {lines.map((line, i) => {
+        const unchecked = line.match(/^- \[ \] (.+)/);
+        const checked = line.match(/^- \[x\] (.+)/);
+
+        if (unchecked) {
+          return (
+            <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={false}
+                onChange={() => toggleChecklistItem(i)}
+                disabled={!isOwner}
+                className="h-3 w-3 rounded border-gray-300"
+              />
+              <span>{unchecked[1]}</span>
+            </div>
+          );
+        }
+
+        if (checked) {
+          return (
+            <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={true}
+                onChange={() => toggleChecklistItem(i)}
+                disabled={!isOwner}
+                className="h-3 w-3 rounded border-gray-300"
+              />
+              <span className="line-through">{checked[1]}</span>
+            </div>
+          );
+        }
+
+        if (line.trim()) {
+          return <p key={i} className="text-xs text-muted-foreground">{line}</p>;
+        }
+
+        return null;
+      })}
+    </div>
+  );
+};
+```
+
+설명:
+
+* 체크리스트가 아닌 일반 설명은 기존 truncate 표시를 유지한다.
+* 체크박스 클릭 시 `description` 전체를 PATCH로 저장한다.
+* 공유받은 일정(`isOwner=false`)은 체크박스를 disabled 처리한다.
+
+### 8. 폼 description Textarea 안내 문구 변경
+
+`Textarea` placeholder 변경:
+
+```tsx
+<Textarea
+  data-testid="input-task-description"
+  value={description}
+  onChange={e => setDescription(e.target.value)}
+  placeholder={"일정 설명 (선택)\n체크리스트: - [ ] 항목명"}
+  rows={3}
+/>
+```
+
+설명:
+
+* 체크리스트 입력 예시를 제공한다.
+* `rows`를 2에서 3으로 늘려 입력 공간을 확보한다.
+
+## Relevant files
+
+* `client/src/lib/types.ts`
+* `client/src/pages/MySchedule.tsx`
+
+---
+
+이 버전이면 개발자가 바로 반영해도 됩니다.
+핵심은 **`types.ts 확인` → `schema/routes 반영` → `MySchedule.tsx state/mutation/render 반영`** 순서로 가는 것입니다. 현재 코드 구조상 이 순서가 가장 덜 헷갈립니다.
+
+**Q1**
+
+이 문서를 기준으로 개발 순서를 1단계부터 2단계까지 작업 순서표로 다시 정리해줘
+
+**Q2**
+
+MySchedule.tsx에 실제로 들어갈 코드만 모아서 한 번에 붙여넣기 좋게 정리해줘
+
+**Q3**
+
+Phase 2 구현 완료 후 검증해야 할 테스트 케이스를 백엔드와 프론트로 나눠서 체크리스트로 만들어줘
