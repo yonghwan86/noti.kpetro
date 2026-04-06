@@ -315,25 +315,25 @@ async function sendDailyDigest() {
     for (const task of preloaded.personalTasks) {
       if (task.morningNotified) continue;
       if (task.completed) continue;
-      const taskDateStr = task.scheduledAt.substring(0, 10);
-      if (taskDateStr > today) continue;
+      // KST 날짜/시간 변환 — UTC 타임스탬프 저장 시에도 정확하게 처리
+      const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      if (taskDateKST > today) continue;
 
       const owner = preloaded.users.find((u: any) => u.id === task.userId);
       const ownerName = owner?.username || '알 수 없음';
-      const timeStr = format(parseISO(task.scheduledAt), 'HH:mm');
-      const dateStr = task.scheduledAt.substring(0, 10);
-      const isOverdue = taskDateStr < today;
+      const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+      const isOverdue = taskDateKST < today;
 
       await sendPushToUser(
         task.userId,
         isOverdue ? `📅 미발송 일정: ${task.title}` : `📅 오늘 일정: ${task.title}`,
-        `${dateStr} ${timeStr}에 예정된 일정입니다.`,
+        `${taskDateKST} ${timeKST}에 예정된 일정입니다.`,
         '/schedule'
       );
 
       const targetIds = getSharedTargetUserIds(task, preloaded.users);
       for (const targetId of targetIds) {
-        await sendPushToUser(targetId, `📅 공유 일정: ${task.title}`, `${ownerName}님의 일정 | ${dateStr} ${timeStr} 예정`, '/schedule');
+        await sendPushToUser(targetId, `📅 공유 일정: ${task.title}`, `${ownerName}님의 일정 | ${taskDateKST} ${timeKST} 예정`, '/schedule');
       }
 
       morningNotifyTaskIds.push(task.id);
@@ -367,12 +367,12 @@ async function sendDailyDigest() {
     }
 
     // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 미기록 → 재시도 보장
+    // 멱등성 가드: ①프로세스 플래그(isDailyDigestRunning) ②DB 날짜 기록(성공 시만)
+    // 이메일 실패 시 DB 미기록 → 다음 서버 재시작(cron/catch-up) 시 재시도 가능
     if (emailFailedCount === 0) {
       await setSystemSetting('last_daily_digest_date', today);
       console.log('[SCHEDULER] Daily digest completed and date recorded');
     } else {
-      // 클레임('today:running')은 남아 있으므로 동일 프로세스 내 재진입은 막힘.
-      // 그러나 DB에 완료 표시를 하지 않으므로 다음 서버 재시작 시 재시도 가능.
       console.error(
         `[SCHEDULER] Daily digest completed with ${emailFailedCount} email failure(s). ` +
         'last_daily_digest_date NOT finalized — will retry on next server restart.'
