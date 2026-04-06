@@ -44,6 +44,8 @@ export default function MySchedule() {
   const [shareUserIds, setShareUserIds] = useState<string[]>([]);
   const [isRangeEnabled, setIsRangeEnabled] = useState(false);
   const [scheduledEndAt, setScheduledEndAt] = useState("");
+  const [label, setLabel] = useState<string | null>(null);
+  const [priority, setPriority] = useState<number>(0);
 
   const { data: tasks = [], isLoading } = useQuery<TaskWithShared[]>({
     queryKey: ["/api/personal-tasks"],
@@ -95,6 +97,15 @@ export default function MySchedule() {
     onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
+  const checklistMutation = useMutation({
+    mutationFn: ({ id, description }: { id: string; description: string }) =>
+      api.personalTasks.update(id, { description }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
+    },
+    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+  });
+
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingTask(null);
@@ -107,6 +118,8 @@ export default function MySchedule() {
     setShareUserIds([]);
     setIsRangeEnabled(false);
     setScheduledEndAt("");
+    setLabel(null);
+    setPriority(0);
   };
 
   const openCreate = () => {
@@ -127,6 +140,8 @@ export default function MySchedule() {
     setShareUserIds(task.shareUserIds || []);
     setIsRangeEnabled(!!task.scheduledEndAt);
     setScheduledEndAt(task.scheduledEndAt || "");
+    setLabel(task.label ?? null);
+    setPriority(task.priority ?? 0);
     setDialogOpen(true);
   };
 
@@ -148,6 +163,8 @@ export default function MySchedule() {
       shareScope,
       shareTeamIds: shareScope === 'selected' ? shareTeamIds : [],
       shareUserIds: shareScope === 'selected' ? shareUserIds : [],
+      label,
+      priority,
     };
 
     if (editingTask) {
@@ -172,7 +189,7 @@ export default function MySchedule() {
     return true;
   });
 
-  const incompleteTasks = filteredTasks.filter(t => !t.completed);
+  const incompleteTasks = filteredTasks.filter(t => !t.completed).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   const completedTasks = filteredTasks.filter(t => t.completed);
 
   const getShareIcon = (scope: string) => {
@@ -210,6 +227,60 @@ export default function MySchedule() {
     if (isToday(date)) return { label: '오늘', color: 'bg-blue-100 text-blue-800' };
     if (isThisWeek(date)) return { label: '이번주', color: 'bg-yellow-100 text-yellow-800' };
     return { label: '예정', color: 'bg-gray-100 text-gray-800' };
+  };
+
+  const labelConfig: Record<string, { label: string; className: string }> = {
+    inspection: { label: '장비 점검', className: 'bg-amber-100 text-amber-800' },
+    meeting:    { label: '회의',      className: 'bg-blue-100 text-blue-800' },
+    trip:       { label: '출장',      className: 'bg-green-100 text-green-800' },
+    training:   { label: '교육',      className: 'bg-purple-100 text-purple-800' },
+    other:      { label: '기타',      className: 'bg-gray-100 text-gray-800' },
+  };
+
+  const getPriorityBadge = (p: number) => {
+    if (p === 3) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-100 text-red-800">긴급</Badge>;
+    if (p === 2) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-800">높음</Badge>;
+    return null;
+  };
+
+  const renderDescription = (task: TaskWithShared, isOwner: boolean) => {
+    const desc = task.description;
+    if (!desc) return null;
+    const lines = desc.split('\n');
+    const hasChecklist = lines.some(l => /^- \[[ x]\]/.test(l));
+    if (!hasChecklist) {
+      return <p className="text-xs text-muted-foreground mt-1 truncate">{desc}</p>;
+    }
+    return (
+      <div className="mt-1 space-y-0.5">
+        {lines.map((line, i) => {
+          const checkedMatch = line.match(/^- \[( |x)\] (.*)/);
+          if (checkedMatch) {
+            const checked = checkedMatch[1] === 'x';
+            const text = checkedMatch[2];
+            return (
+              <div key={i} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={!isOwner}
+                  data-testid={`checklist-item-${task.id}-${i}`}
+                  className="h-3.5 w-3.5 accent-primary cursor-pointer disabled:cursor-default"
+                  onChange={() => {
+                    const newLines = [...lines];
+                    newLines[i] = checked ? `- [ ] ${text}` : `- [x] ${text}`;
+                    checklistMutation.mutate({ id: task.id, description: newLines.join('\n') });
+                  }}
+                />
+                <span className={`text-xs ${checked ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{text}</span>
+              </div>
+            );
+          }
+          if (line.trim()) return <p key={i} className="text-xs text-muted-foreground">{line}</p>;
+          return null;
+        })}
+      </div>
+    );
   };
 
   const renderTask = (task: TaskWithShared) => {
@@ -266,10 +337,14 @@ export default function MySchedule() {
                 {getRepeatLabel(task.repeatType)}
               </Badge>
             )}
+            {task.label && labelConfig[task.label] && (
+              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${labelConfig[task.label].className}`}>
+                {labelConfig[task.label].label}
+              </Badge>
+            )}
+            {getPriorityBadge(task.priority ?? 0)}
           </div>
-          {task.description && (
-            <p className="text-xs text-muted-foreground mt-1 truncate">{task.description}</p>
-          )}
+          {renderDescription(task, isOwner)}
           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -415,8 +490,8 @@ export default function MySchedule() {
                 data-testid="input-task-description"
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="일정 설명 (선택)"
-                rows={2}
+                placeholder={"일정 설명 (선택)\n체크리스트: - [ ] 할 일"}
+                rows={3}
               />
             </div>
             <div>
@@ -456,6 +531,36 @@ export default function MySchedule() {
                 />
               </div>
             )}
+            <div>
+              <label className="text-sm font-medium">라벨</label>
+              <Select value={label ?? "none"} onValueChange={v => setLabel(v === "none" ? null : v)}>
+                <SelectTrigger data-testid="select-task-label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">없음</SelectItem>
+                  <SelectItem value="inspection">장비 점검</SelectItem>
+                  <SelectItem value="meeting">회의</SelectItem>
+                  <SelectItem value="trip">출장</SelectItem>
+                  <SelectItem value="training">교육</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">우선순위</label>
+              <Select value={String(priority)} onValueChange={v => setPriority(Number(v))}>
+                <SelectTrigger data-testid="select-task-priority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">보통</SelectItem>
+                  <SelectItem value="1">낮음</SelectItem>
+                  <SelectItem value="2">높음</SelectItem>
+                  <SelectItem value="3">긴급</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-sm font-medium">반복</label>
               <Select
