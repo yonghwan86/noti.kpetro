@@ -1,0 +1,55 @@
+한 가지만 보완하면 완벽합니다
+Task 1, 2 — 정확합니다
+다만 한 가지 실무적인 주의사항을 추가하면 좋겠습니다. 현재 PATCH /api/assets/:id와 POST /api/assets/:id/inspect에는 requireAuth가 없기 때문에, 핸들러 내부에서 currentUser가 null인 경우를 직접 처리하고 있습니다:
+
+Copyconst currentUser = await getCurrentUser(req);
+if (!currentUser) {
+  return res.status(401).json({ error: "Authentication required" });
+}
+requireAuth를 추가하면 미들웨어가 인증 실패를 먼저 차단하므로 이 if (!currentUser) 블록은 **도달 불가능 코드(dead code)**가 됩니다. 이걸 어떻게 할지 Task에 명시하는 것이 좋습니다. 선택지는 두 가지입니다:
+
+선택 A — 제거 (코드 깔끔, 프로젝트 내 다른 requireAuth 라우트들과 동일)
+
+Copyapp.patch("/api/assets/:id", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      // if (!currentUser) 체크 없음 — requireAuth가 보장
+      const asset = await storage.getAsset(req.params.id);
+선택 B — 방어적으로 유지 (안전망)
+
+Copyapp.patch("/api/assets/:id", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
+    try {
+      const currentUser = (req as any).currentUser;
+      if (!currentUser) return res.status(401).json({ error: "Authentication required" });
+      const asset = await storage.getAsset(req.params.id);
+프로젝트의 기존 코드를 보면, requireAuth를 사용하는 다른 라우트들(POST /api/assets, DELETE /api/assets/:id, 모든 personal-tasks 라우트 등)은 전부 별도의 null 체크 없이 바로 (req as any).currentUser를 사용합니다. 따라서 선택 A가 프로젝트 패턴에 부합합니다.
+
+Task 1, 2에 다음 한 줄을 추가하는 것을 권장합니다:
+
+기존 if (!currentUser) return 401 가드는 제거 (requireAuth가 동일 역할을 수행하며, 프로젝트 내 다른 requireAuth 라우트와 패턴 통일)
+
+Task 3 — 정확합니다
+이전 세션 완료 상태에서의 잔여 작업이 명확합니다. 다만 한 가지 확인이 필요합니다. "이전 세션에서 완료됨"이라고 하셨는데, 실제로 커밋/배포가 된 상태인지 확인하세요. 만약 아직 반영되지 않았다면 Task 3의 범위를 다음과 같이 확장해야 합니다:
+
+const user = getCurrentUser(req) → const user = (req as any).currentUser 교체 및 if (!user) → if (!user?.id) 강화
+
+Task 4 — 검증 시나리오가 구체적이고 좋습니다
+하나만 추가하면 더 완전해집니다:
+
+manager 권한으로 본인 관리 장비 점검(inspect) 정상 동작 확인
+
+현재 검증이 staff 관점에만 집중되어 있는데, manager도 canInspectAsset을 통과하는 주요 사용자이므로 포함하는 것이 좋습니다.
+
+5. Relevant Files — 정확합니다
+수정 대상과 참조 대상이 명확히 구분되어 있습니다.
+
+최종 판정
+항목	상태
+What & Why	통과
+Done Looks Like	통과
+Out of Scope	통과
+Task 1, 2	보완 권장 — 기존 if (!currentUser) 401 가드 제거 여부 명시
+Task 3	통과 (단, 이전 수정이 실제 반영되었는지 확인 필요)
+Task 4	보완 권장 — manager 권한 검증 시나리오 추가
+Relevant Files	통과
+보완 사항은 모두 minor 수준이며, 현재 상태로도 구현에 착수해서 문제가 생길 가능성은 낮습니다. 위 두 가지만 반영하시면 이슈 정의서로서 완성도가 매우 높습니다.

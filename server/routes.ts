@@ -465,12 +465,9 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/assets/:id", async (req: Request, res: Response) => {
+  app.patch("/api/assets/:id", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
-      const currentUser = await getCurrentUser(req);
-      if (!currentUser) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+      const currentUser = (req as any).currentUser;
 
       const asset = await storage.getAsset(req.params.id);
       if (!asset) {
@@ -488,12 +485,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/assets/:id/inspect", async (req: Request, res: Response) => {
+  app.post("/api/assets/:id/inspect", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
-      const currentUser = await getCurrentUser(req);
-      if (!currentUser) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+      const currentUser = (req as any).currentUser;
 
       const asset = await storage.getAsset(req.params.id);
       if (!asset) {
@@ -808,7 +802,7 @@ export async function registerRoutes(
   app.post("/api/push/subscribe", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const user = (req as any).currentUser;
-      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      if (!user?.id) return res.status(401).json({ error: "Not authenticated" });
 
       const { endpoint, keys } = req.body;
       if (!endpoint || !keys?.p256dh || !keys?.auth) {

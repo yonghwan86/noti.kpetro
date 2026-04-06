@@ -1,0 +1,78 @@
+1. What & Why — 정확하지만 한 가지 보정 필요
+"POST /api/push/subscribe: requireAuth 있지만 방어적 가드가 !user로만 체크"라고 기술하셨는데, 이 설명만으로는 진짜 심각성이 드러나지 않습니다. 실제 핵심 문제는 await 누락으로 getCurrentUser가 Promise를 반환하여 user.id가 undefined가 되고 DB NOT NULL 제약을 위반하는 것입니다. !user?.id 강화는 부가적인 방어일 뿐이고, 본질적 수정은 getCurrentUser(req) → (req as any).currentUser로의 교체입니다.
+
+현재 이슈 정의서의 Task 3번을 보면 "가드를 !user?.id로 변경"만 언급되어 있고, getCurrentUser(req) 호출 자체를 (req as any).currentUser로 바꾸는 내용이 Task에 명시되어 있지 않습니다. 이것이 가장 큰 누락입니다.
+
+권장 수정
+What & Why 섹션의 세 번째 항목을 다음과 같이 변경하세요:
+
+POST /api/push/subscribe (line 811): requireAuth 있지만 getCurrentUser(req)를 await 없이 호출 — Promise 객체가 user로 할당되어 user.id = undefined → DB NOT NULL 위반. (req as any).currentUser 패턴으로 교체하고 방어 가드를 !user?.id로 강화 필요
+
+2. Done Looks Like — 한 가지 누락
+세 번째 항목이 "방어 가드를 !user?.id로 강화"로만 되어 있습니다. 다음으로 바꿔야 합니다:
+
+POST /api/push/subscribe의 getCurrentUser(req) → (req as any).currentUser로 교체하고, 방어 가드를 !user?.id로 강화
+
+추가로, 완료 기준에 하나 더 넣는 것을 권장합니다:
+
+코드베이스 전체에서 getCurrentUser 가 라우트 핸들러 내부에서 직접 호출되는 곳이 0건
+
+이 기준이 있어야 향후 동일 패턴의 재발을 잡을 수 있습니다.
+
+3. Tasks — 수정 필요
+Task 3번 재작성 필요
+현재:
+
+POST /api/push/subscribe 방어 가드 강화 — if (!user) → if (!user?.id) 로 변경
+
+이것만으로는 근본 원인이 해결되지 않습니다. getCurrentUser(req)가 그대로 남아 있으면 user는 여전히 Promise이고, Promise?.id는 undefined이므로 !user?.id가 true가 되어 401을 반환합니다. 기존에 무조건 DB 에러가 나던 것이 무조건 401 에러를 반환하는 것으로 바뀔 뿐, 정상 동작하는 것이 아닙니다. 인증된 사용자도 푸시 구독을 할 수 없게 됩니다.
+
+Task 3번을 다음과 같이 수정해야 합니다:
+
+POST /api/push/subscribe 패턴 통일 및 가드 강화 — const user = getCurrentUser(req) → const user = (req as any).currentUser로 교체하고, if (!user) → if (!user?.id)로 강화하여 user 객체가 있어도 id가 없는 경우 차단.
+
+Task 1, 2번 — 정확합니다
+requireAuth 추가와 (req as any).currentUser 패턴 전환, 기존 권한 체크 로직 유지 모두 적절합니다.
+
+Task 4번 — 검증 항목을 더 구체화하면 좋습니다
+현재 "정상 동작하는지 확인"으로만 되어 있는데, 다음 시나리오를 명시하면 QA가 수월해집니다:
+
+비로그인 상태에서 세 API 호출 시 모두 401 반환 확인
+staff 권한으로 본인 장비 수정(PATCH) 및 점검(inspect) 정상 동작 확인
+staff 권한으로 타인 장비 수정 시 403 반환 확인
+푸시 구독(subscribe) 후 DB에 user_id가 정상 저장되는지 확인
+서버 로그에 NOT NULL 위반 에러가 없는지 확인
+4. Relevant Files — 보완 권장
+server/auth.ts가 포함되어 있는데, Out of Scope에서 "인증 로직 자체의 변경 없음"이라고 했으므로 이 파일은 **참조용(read-only)**이라는 점을 명시하면 혼동을 방지할 수 있습니다.
+
+server/routes.ts:468-533, 808-831 (수정 대상) server/auth.ts (참조만, 수정 없음)
+
+또한 라인 번호가 현재 코드와 정확히 맞는지 재확인이 필요합니다. 제가 받은 전체 소스 기준으로 보면 push/subscribe 라우트가 811번이 아닌 다른 위치일 수 있으니 최종 커밋 기준으로 한번 더 확인하세요.
+
+5. Out of Scope — 적절합니다
+다만 한 가지 판단이 필요한 부분이 있습니다. PATCH /api/assets/:id와 POST /api/assets/:id/inspect에 requireAuth를 추가할 때, 권한 배열을 ['admin', 'manager', 'staff']로 설정하면 사실상 로그인한 모든 사용자에게 열리는 것입니다. 현재 코드는 핸들러 내부에서 auth.canEditAsset과 auth.canInspectAsset으로 세밀한 권한 체크를 하고 있으므로 기능적으로 동일하지만, 이 의도가 맞는지 Out of Scope 섹션이나 Task 설명에서 다음 한 줄을 추가하면 명확해집니다:
+
+참고: 세 역할 모두 허용하되, 세밀한 권한 체크는 기존 auth.canEditAsset / auth.canInspectAsset 로직이 핸들러 내부에서 그대로 수행
+
+최종 수정된 이슈 정의서 (변경 부분만)
+What & Why 세 번째 항목:
+
+POST /api/push/subscribe (line ~811): requireAuth 있지만 getCurrentUser(req)를 await 없이 호출 → Promise 객체가 user에 할당 → user.id = undefined → DB NOT NULL 위반. (req as any).currentUser로 교체 필요하며 방어 가드도 !user?.id로 강화 필요
+
+Done Looks Like 세 번째 항목:
+
+POST /api/push/subscribe의 getCurrentUser(req) → (req as any).currentUser 교체 완료, 방어 가드 !user?.id로 강화
+
+Done Looks Like 추가 항목:
+
+코드베이스에서 라우트 핸들러 내 getCurrentUser 직접 호출이 0건
+
+Task 3 교체:
+
+POST /api/push/subscribe 패턴 통일 및 가드 강화 — const user = getCurrentUser(req) → const user = (req as any).currentUser로 교체, if (!user) → if (!user?.id)로 강화
+
+Task 4 검증 시나리오 구체화:
+
+비로그인 401, 정상 권한 동작, 권한 없는 접근 403, DB user_id 정상 저장, NOT NULL 에러 로그 부재 확인
+
+이렇게 보완하시면 이슈 정의서가 누구든 읽고 바로 정확하게 구현할 수 있는 수준이 됩니다.
