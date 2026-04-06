@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { storage } from './storage';
 import { sendDailyDigestEmail } from './emailService';
 import { sendPushToUser } from './pushService';
-import { addDays, parseISO, isAfter, isBefore, format, differenceInDays, subMinutes } from 'date-fns';
+import { parseISO, format, subMinutes } from 'date-fns';
 
 // ── 공유 일정 수신자 ID 목록 ─────────────────────────────────────────────────
 interface TaskWithShare {
@@ -41,10 +41,22 @@ function getTodayKST(): string {
 }
 
 function getTomorrowKST(): string {
+  return getKSTDatePlusDays(1);
+}
+
+// KST 오늘로부터 n일 후 날짜 문자열 (YYYY-MM-DD) 반환
+function getKSTDatePlusDays(n: number): string {
   const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-  const tomorrowKST = new Date(nowKST);
-  tomorrowKST.setDate(tomorrowKST.getDate() + 1);
-  return tomorrowKST.toLocaleDateString('en-CA');
+  nowKST.setDate(nowKST.getDate() + n);
+  return nowKST.toLocaleDateString('en-CA');
+}
+
+// KST 기준 두 날짜 사이의 일수 차 (d2 - d1, YYYY-MM-DD 문자열)
+// KST 자정 기준으로 +09:00 오프셋을 붙여 UTC 변환 후 계산
+function daysDiffKST(dateStr1: string, dateStr2: string): number {
+  const d1 = new Date(`${dateStr1}T00:00:00+09:00`);
+  const d2 = new Date(`${dateStr2}T00:00:00+09:00`);
+  return Math.round((d2.getTime() - d1.getTime()) / 86400000);
 }
 
 // ── 시스템 설정 (멱등성 키 등) ──────────────────────────────────────────────
@@ -85,22 +97,20 @@ async function sendInspectionPushNotifications(preloaded: PreloadedData) {
   console.log('[SCHEDULER] Sending inspection push notifications...');
   const { assets, users, teams, cats } = preloaded;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const sevenDaysFromNow = addDays(today, 7);
+  // KST 날짜 문자열 기반 비교 — 서버가 UTC여도 6AM KST에서 올바른 날짜 사용
+  const todayStr = getTodayKST();
+  const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
   const activeAssets = assets.filter((a: any) => a.status !== 'suspended');
 
   const upcomingAssets = activeAssets.filter((asset: any) => {
     if (!asset.nextDueDate) return false;
-    const dueDate = parseISO(asset.nextDueDate);
-    return isAfter(dueDate, today) && !isAfter(dueDate, sevenDaysFromNow);
+    return asset.nextDueDate > todayStr && asset.nextDueDate <= sevenDaysLaterStr;
   });
 
   const overdueAssets = activeAssets.filter((asset: any) => {
     if (!asset.nextDueDate) return false;
-    const dueDate = parseISO(asset.nextDueDate);
-    return isBefore(dueDate, today);
+    return asset.nextDueDate < todayStr;
   });
 
   console.log(`[SCHEDULER] Found ${upcomingAssets.length} upcoming, ${overdueAssets.length} overdue assets for push`);
@@ -110,8 +120,8 @@ async function sendInspectionPushNotifications(preloaded: PreloadedData) {
     const staffName = staff?.username || '담당자';
     const team = teams.find((t: any) => t.id === asset.teamId);
     const teamName = team?.name || '미지정';
-    const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
-    const daysLeft = differenceInDays(parseISO(asset.nextDueDate!), today);
+    const dueDate = asset.nextDueDate as string;
+    const daysLeft = daysDiffKST(todayStr, dueDate);
     const pushRecipientIds = collectPushRecipientIds(asset, cats);
     for (const uid of pushRecipientIds) {
       await sendPushToUser(uid, `🔔 ${asset.name} 점검 예정`, `점검일: ${dueDate} (D-${daysLeft}일) | 담당: ${staffName} | 팀: ${teamName}`, '/');
@@ -123,8 +133,8 @@ async function sendInspectionPushNotifications(preloaded: PreloadedData) {
     const staffName = staff?.username || '담당자';
     const team = teams.find((t: any) => t.id === asset.teamId);
     const teamName = team?.name || '미지정';
-    const dueDate = format(parseISO(asset.nextDueDate!), 'yyyy-MM-dd');
-    const overdueDays = differenceInDays(today, parseISO(asset.nextDueDate!));
+    const dueDate = asset.nextDueDate as string;
+    const overdueDays = daysDiffKST(dueDate, todayStr);
     const pushRecipientIds = collectPushRecipientIds(asset, cats);
     for (const uid of pushRecipientIds) {
       await sendPushToUser(uid, `🚨 ${asset.name} 점검 지연!`, `점검 예정일: ${dueDate} (${overdueDays}일 초과) | 담당: ${staffName} | 즉시 확인하세요`, '/');
@@ -163,12 +173,10 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   const user = users.find((u: any) => u.id === userId);
   if (!user) return null;
 
+  // KST 날짜 문자열 기반 비교 — 서버가 UTC여도 6AM KST에서 올바른 날짜 사용
   const today = getTodayKST();
   const tomorrow = getTomorrowKST();
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const sevenDaysFromNow = addDays(startOfToday, 7);
+  const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
   const isLeader = user.position === '팀장';
 
@@ -189,16 +197,15 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
 
     if (!isStaff && !isDirectManager && !isCategoryManager && !isTeamLeader) continue;
 
-    const dueDate = parseISO(asset.nextDueDate);
+    const dueDateStr = asset.nextDueDate as string;
     const staffUser = users.find((u: any) => u.id === asset.staffId);
     const staffName = staffUser?.username || '담당자';
-    const dueDateStr = format(dueDate, 'yyyy-MM-dd');
 
-    if (isAfter(dueDate, startOfToday) && !isAfter(dueDate, sevenDaysFromNow)) {
-      const daysLeft = differenceInDays(dueDate, startOfToday);
+    if (dueDateStr > today && dueDateStr <= sevenDaysLaterStr) {
+      const daysLeft = daysDiffKST(today, dueDateStr);
       inspectionItems.push({ assetName: asset.name, dueDate: dueDateStr, status: 'upcoming', daysLeft, staffName });
-    } else if (isBefore(dueDate, startOfToday)) {
-      const daysOverdue = differenceInDays(startOfToday, dueDate);
+    } else if (dueDateStr < today) {
+      const daysOverdue = daysDiffKST(dueDateStr, today);
       inspectionItems.push({ assetName: asset.name, dueDate: dueDateStr, status: 'overdue', daysOverdue, staffName });
     }
   }
