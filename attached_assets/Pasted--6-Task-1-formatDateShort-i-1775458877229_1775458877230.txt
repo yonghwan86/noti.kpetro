@@ -1,0 +1,98 @@
+#6 백엔드 — 항목별 검증
+Task 1. 유틸 함수 + 스키마 변경 ✅
+formatDateShort 함수는 단순하고 문제없습니다.
+스키마 변경도 정확합니다. 다만 한 가지:
+
+insertPersonalTaskSchema: morningNotified omit 제거 → lastMorningNotifiedDate omit 추가
+
+현재 코드(schema.ts:155):
+typescriptcreateInsertSchema(personalTasks).omit({ id: true, morningNotified: true, reminderNotified: true, emailDigestSent: true });
+morningNotified 컬럼 자체가 테이블에서 사라지므로 omit에서도 제거해야 합니다. 맞습니다. 그런데 emailDigestSent는 어디서도 사용되지 않는 것 같은데, 이 필드의 용도를 확인해보세요. scheduler.ts에서 emailDigestSent를 참조하는 곳이 없습니다. 이번 스코프는 아니지만 참고사항입니다.
+
+Task 2. POST 핸들러 ✅ 거의 완벽, 1개 보완
+스펙에서 toKSTDateStr를 routes.ts에서 사용한다고 했는데, 현재 이 함수는 scheduler.ts 내부 함수입니다(scheduler.ts:183-187). 스펙에도 "동일 로직을 인라인 구현하거나, server/utils.ts로 이동 후 import"라고 적혀 있는데, Task 1에서는 formatDateShort만 utils.ts에 넣고 toKSTDateStr는 언급이 없습니다.
+toKSTDateStr도 utils.ts로 이동 대상에 포함시키세요. routes.ts와 scheduler.ts 양쪽에서 쓰이게 되므로 공용 유틸이 되어야 합니다. Task 1의 utils.ts 항목에 추가하는 게 깔끔합니다.
+
+Task 3. PATCH 핸들러 ✅ 정확, 1개 엣지케이스
+
+scheduledEndAt이 포함된 업데이트라면 updateData.repeatType = 'none' 강제 (null→단일 복귀 시는 제외)
+
+이 조건이 좋습니다. 다만 역방향 케이스도 확인: 이미 기간 일정(scheduledEndAt 있음)인 task에서 repeatType: 'weekly'만 보내는 PATCH 요청이 오면? 현재 스펙은 scheduledEndAt이 업데이트에 포함될 때만 강제하므로, 기존 기간 일정의 repeatType을 바꾸는 요청이 통과될 수 있습니다.
+해결: PATCH에서 최종 상태의 scheduledEndAt을 확인하는 조건이 필요합니다:
+typescriptconst finalEndAt = updates.scheduledEndAt !== undefined 
+  ? updates.scheduledEndAt 
+  : task.scheduledEndAt;
+if (finalEndAt) updates.repeatType = 'none';
+이 로직을 스펙에 반영하세요.
+
+Task 4. 모닝 푸시 ✅ 정확
+변경 전/후 코드가 명확하게 대응됩니다. 실제 코드(scheduler.ts:351-354)와 정확히 매칭됩니다.
+한 가지 확인: 발송 후 업데이트 부분에서 현재 코드(scheduler.ts:411-412):
+typescriptfor (const taskId of morningNotifyTaskIds) {
+  await storage.updatePersonalTask(taskId, { morningNotified: true });
+}
+이걸 { lastMorningNotifiedDate: today }로 바꾸는 건 맞는데, today 변수의 스코프를 확인해야 합니다. sendDailyDigest() 함수 내에서 const today = getTodayKST()가 328행에 선언되어 있고, 411행에서 접근 가능하므로 문제없습니다. ✅
+
+Task 5. collectDailyDigestForUser() ✅ 정확, 1개 누락
+오늘/내일 범위 조건 변경과 dateRange 필드 추가 모두 맞습니다.
+누락: toKSTTimeStr(task.scheduledAt) 의미 변화
+현재 오늘/내일 섹션에서 time: toKSTTimeStr(task.scheduledAt)으로 시간을 표시하는데(scheduler.ts:270), 기간 일정의 2일차 이후에는 이 시간이 "시작일의 시간"을 보여주게 됩니다. 예를 들어 4/7 09:00 ~ 4/11 기간 일정이 4/9에 다이제스트에 나오면 시간이 "09:00"으로 표시되는데, 이게 4/9의 09:00이 아니라 4/7의 09:00입니다.
+이게 의도된 건지 확인하고, 의도된 거라면 괜찮지만, 혼란을 줄 수 있으므로 기간 일정에서는 시간 대신 기간을 표시하는 것도 고려해보세요. 또는 Out of scope에 명시하세요.
+
+Task 6. emailService.ts ✅
+dateRange 표시 로직이 명확합니다. 다만 emailService.ts 파일이 Relevant files에 포함되어 있는데 업로드되지 않았습니다. 행번호(97-105)가 실제와 맞는지 구현 시 확인 필요합니다.
+
+Task 7. storage.ts resetDailyNotificationFlags() ✅
+현재 코드(storage.ts:494-499):
+typescriptasync resetDailyNotificationFlags(): Promise<void> {
+  await db.update(personalTasks).set({
+    morningNotified: false,
+    reminderNotified: false,
+  });
+}
+morningNotified: false 제거하고 reminderNotified: false만 남기면 됩니다. 정확합니다.
+
+#7 프론트엔드 — 항목별 검증
+Task 1. State + 초기화 + 리셋 ✅ 완벽
+코드 위치도 정확하고 로직도 맞습니다.
+
+Task 2. 폼 UI ✅ 거의 완벽, 1개 보완
+
+<Switch> 컴포넌트 사용
+
+현재 import 목록(1-18행)에 Switch가 없습니다. shadcn/ui의 Switch 컴포넌트를 import에 추가해야 합니다:
+typescriptimport { Switch } from "@/components/ui/switch";
+스펙의 Tasks 섹션에 이 import 추가를 명시하세요.
+시작일 onChange 자동 조정 로직도 맞습니다. scheduledAt.split('T')[0]은 datetime-local input의 값에서 날짜를 추출하는 것이므로 로컬 시간대 이슈 없이 정확합니다.
+
+Task 3. handleSubmit() ✅
+typescriptscheduledEndAt: isRangeEnabled && scheduledEndAt ? scheduledEndAt : null,
+repeatType: isRangeEnabled ? 'none' : repeatType,
+이렇게 하면 기간 비활성화 시 null 전송, 활성화 시 값 전송이 됩니다. PATCH에서도 동일하게 동작합니다. ✅
+
+Task 4. 오늘 필터 ✅ 정확
+format은 현재 import에 포함되어 있습니다(14행):
+typescriptimport { format, parseISO, isToday, isThisWeek, isPast, isFuture } from "date-fns";
+✅ 추가 import 불필요.
+
+Task 5. getScheduleStatus() ✅ 정확, 1개 미세 이슈
+기간 일정 분기가 단일 일정 분기보다 먼저 오므로 정확합니다.
+미세 이슈: 기간 일정의 시작일이 오늘이고 scheduledAt의 시간이 아직 안 지난 경우(예: 오늘 14:00 시작인데 지금 10:00), 단일 일정에서는 "오늘"로 표시되지만 기간 일정에서는 "진행중"으로 표시됩니다. 뱃지 라벨이 다르지만 둘 다 "현재 유효한 일정"이라는 의미이므로 큰 문제는 아닙니다. 다만 기간 일정 시작 당일에 "오늘" 대신 "진행중"이 보이는 게 자연스러운지 UX 판단이 필요합니다. 원하면 시작일 당일은 "오늘"로 표시하는 것도 가능합니다.
+
+Task 6. 기간 일정 카드 날짜 표시 ⚠️ 위치 불명확
+
+renderTask() (186행~) 안에서 날짜 표시 부분에
+
+현재 renderTask의 날짜 표시 코드가 잘린 상태(212행 이후 truncated)라 정확한 삽입 위치를 확인하려면 해당 부분을 봐야 합니다. 잘린 부분을 확인해보겠습니다:코드 위치를 파악하고 범위 표시 수정을 검토했다코드 위치를 파악하고 범위 표시 수정을 검토했다확인했습니다. 날짜 표시는 247행입니다:
+typescript{format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+스펙의 Task 6에서 이 줄을 교체해야 합니다. 스펙에 **정확한 행번호(247행)**를 명시하면 좋겠습니다. 현재 "186행~"이라고만 되어 있어서 찾기 어렵습니다.
+교체 로직 자체는 맞습니다:
+typescript{task.scheduledEndAt
+  ? `${formatDateShort(format(parseISO(task.scheduledAt), 'yyyy-MM-dd'))} ~ ${formatDateShort(task.scheduledEndAt)}`
+  : format(parseISO(task.scheduledAt), 'M/d HH:mm')
+}
+다만 기존 포맷이 'yyyy-MM-dd HH:mm'인데 단일 일정 변경 후 포맷이 'M/d HH:mm'으로 바뀝니다. 이게 의도적인 변경인지 확인하세요. 의도가 아니면 format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })를 유지해야 합니다.
+
+최종 요약 — 반영 필요 사항
+#항목태스크중요도1toKSTDateStr도 utils.ts로 이동 대상에 포함#6 Task 1높음 — routes.ts에서 사용 불가2PATCH에서 기존 기간 일정의 repeatType 변경 방지 (finalEndAt 확인)#6 Task 3높음 — 규칙 우회 가능3Switch 컴포넌트 import 추가 명시#7 Task 2중간 — 빌드 에러4기간 일정 2일차 이후 시간 표시 정책#6 Task 5낮음 — 명시만 하면 됨5renderTask 날짜 표시 정확한 행번호(247행)#7 Task 6낮음 — 편의6단일 일정 날짜 포맷 변경 의도 확인#7 Task 6낮음 — UX 일관성
+1, 2번은 기능 결함으로 이어질 수 있어 반드시 반영하세요. 나머지는 구현 편의와 UX 품질 관련입니다.

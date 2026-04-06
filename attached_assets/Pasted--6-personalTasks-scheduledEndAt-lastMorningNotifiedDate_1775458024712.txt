@@ -1,0 +1,64 @@
+#6 백엔드 검증
+✅ 스펙이 정확한 부분
+
+스키마 변경 — personalTasks에 scheduledEndAt, lastMorningNotifiedDate 추가하고 morningNotified 제거하는 것은 코드(schema.ts:136-156)와 정합합니다.
+insertPersonalTaskSchema에서 omit — 현재 morningNotified가 omit에 있으므로(155행), lastMorningNotifiedDate를 omit에 추가하고 morningNotified를 제거하면 됩니다.
+POST 핸들러(routes.ts:870-934) — scheduledAt만 받고 있으므로 scheduledEndAt 수신 추가는 맞습니다.
+PATCH 핸들러(routes.ts:936-978) — scheduledEndAt 수신 추가, null 허용도 적절합니다.
+resetDailyNotificationFlags()(storage.ts:494-499) — morningNotified: false 제거, reminderNotified: false는 유지 — 맞습니다.
+
+⚠️ 스펙에 누락되거나 불명확한 부분
+1. 모닝 푸시(②)의 조건 변경이 불완전
+현재 코드(scheduler.ts:351-354):
+typescriptif (task.morningNotified) continue;  // → lastMorningNotifiedDate !== today
+const taskDateKST = toKSTDateStr(task.scheduledAt);
+if (taskDateKST > today) continue;  // 오늘 이후면 스킵
+스펙은 "오늘이 scheduledAt ~ scheduledEndAt 범위 안이면 발송"이라고 했는데, 현재 코드의 taskDateKST > today 조건을 어떻게 바꿀지 구체적이지 않습니다. 기간 일정일 때의 정확한 조건은:
+단일: toKSTDateStr(scheduledAt) <= today
+기간: toKSTDateStr(scheduledAt) <= today && today <= scheduledEndAt
+이렇게 명시해야 합니다. 특히 scheduledEndAt은 이미 YYYY-MM-DD 텍스트인데, scheduledAt은 ISO datetime이라 toKSTDateStr()로 변환이 필요한 비대칭 구조입니다. 스펙에서 이 변환 차이를 언급하지 않으면 구현자가 실수할 수 있습니다.
+2. scheduledEndAt의 저장 포맷이 미정의
+scheduledAt은 ISO datetime 문자열(예: 2025-04-07T09:00:00)인데, scheduledEndAt은 날짜만 저장할지(2025-04-11) datetime까지 저장할지 정의가 없습니다. "4/7 ~ 4/11" 표시를 보면 날짜만일 것 같지만, 명시해야 합니다. 이게 불명확하면 비교 로직(today <= scheduledEndAt)이 포맷에 따라 깨질 수 있습니다.
+3. PATCH 시 lastMorningNotifiedDate 리셋 정책 누락
+스펙에 없습니다. 사용자가 기간을 변경하면(예: 4/7~4/11 → 4/7~4/15) 당일 알림이 이미 발송된 상태에서 리셋하지 않으면 문제없지만, 시작일을 바꾸는 경우는 리셋이 필요할 수 있습니다.
+4. collectDailyDigestForUser()의 "내일" 수집 조건이 불명확
+현재 코드(scheduler.ts:279-281):
+typescriptif (toKSTDateStr(task.scheduledAt) !== tomorrow) continue;
+기간 일정에서 "내일"에도 진행 중이면 내일 섹션에 포함해야 하는지? 스펙은 "오늘/내일 수집이 범위 조건으로 변경"이라고만 되어 있어서 내일의 정확한 조건이 빠져 있습니다. 아마:
+
+오늘: scheduledAt(날짜) <= today <= (scheduledEndAt ?? scheduledAt(날짜))
+내일: scheduledAt(날짜) <= tomorrow <= (scheduledEndAt ?? scheduledAt(날짜))
+
+일 텐데, 이렇게 하면 기간 일정이 오늘·내일 양쪽 다이제스트에 중복 표시됩니다. 의도된 건지 명시 필요합니다.
+5. 공유 푸시 메시지의 날짜 포맷 로직
+현재 코드(routes.ts:923):
+typescript`${currentUser.username}님이 일정을 공유했습니다: ${created.scheduledAt.split('T')[0]}`
+스펙은 "4/7 ~ 4/11 형태"라고 했는데, 현재 split('T')[0]은 2025-04-07 형태입니다. "4/7" 형태로 바꾸려면 별도 포맷팅이 필요하고, scheduledEndAt이 있을 때만 ~ 붙여야 합니다. 이 포맷 변환 로직을 구체적으로 명시하면 좋겠습니다.
+6. checkPersonalTasksReminder()(scheduler.ts:433-472) 영향 미언급
+10분 전 리마인더 기능이 기간 일정에서 어떻게 동작할지 스펙에 없습니다. 기간 일정은 시작일의 scheduledAt 시간에만 리마인더가 가는 건지, 매일 같은 시간에 가야 하는 건지? 현재 코드는 scheduledAt 시점 기준으로만 동작하므로 기간 일정의 첫날에만 리마인더가 갑니다. 이게 의도라면 Out of scope에 명시하는 게 좋습니다.
+
+#7 프론트엔드 검증
+✅ 스펙이 정확한 부분
+
+폼에 기간 설정 토글 + 종료일 필드 추가 — 현재 폼(365-462행)에 추가하면 됩니다.
+기간 활성화 시 반복 비활성화 — 현재 반복 Select(400-411행)을 disabled 처리.
+Relevant files가 MySchedule.tsx — 폼이 이 파일 안에 있으므로 맞습니다.
+
+⚠️ 스펙에 누락되거나 불명확한 부분
+1. 수정 폼 진입 시 기간 토글 초기 상태
+openEdit()(107-119행)에서 기존 task의 scheduledEndAt이 있으면 토글을 ON으로 초기화해야 하는데, 스펙에 이 초기화 로직이 없습니다. 새로운 state(isRangeEnabled 같은)의 초기값 설정을 명시해야 합니다.
+2. "오늘" 필터 조건 — 현재 코드와의 차이가 큼
+현재(148행):
+typescriptif (filter === 'today') return isToday(parseISO(t.scheduledAt));
+스펙은 scheduledAt ≤ today ≤ (scheduledEndAt ?? scheduledAt)으로 변경인데, isToday()는 date-fns 함수라 단순 교체가 아닙니다. scheduledAt이 datetime이고 scheduledEndAt이 date-only일 수 있어서 비교 방식을 구체화해야 합니다.
+3. getScheduleStatus() 함수(177-184행) 수정 누락
+이 함수가 task의 상태 뱃지("오늘", "지남", "예정" 등)를 결정하는데, 현재 scheduledAt 기준으로만 판단합니다. 기간 일정이면 scheduledEndAt까지 고려해야 합니다(예: 기간 중이면 "진행중", 끝나면 "지남"). 스펙에 이 변경이 없습니다.
+4. 시작일 변경 시 종료일 연동
+시작일을 종료일 이후로 변경하면 유효하지 않은 상태가 됩니다. 자동 조정할지 에러 표시할지 정의 필요합니다.
+5. handleSubmit()에서 scheduledEndAt 전송 로직
+현재 handleSubmit()(121-143행)의 data 객체에 scheduledEndAt을 추가해야 하는데, 토글 OFF면 null을 명시적으로 보내야 한다는 점을 스펙이 언급하고 있지만, PATCH일 때만 null 전송이 필요한지 POST일 때도 필요한지 구분이 없습니다.
+6. closeDialog()에서 기간 관련 state 리셋 누락
+closeDialog()(90-100행)에서 새로 추가될 scheduledEndAt, isRangeEnabled state도 리셋해야 합니다. 스펙에 없습니다.
+
+종합 — 반드시 보완해야 할 항목
+순위항목태스크위험도1scheduledEndAt 저장 포맷 정의 (date-only vs datetime)#6높음 — 모든 비교 로직에 영향2모닝 푸시 ②의 정확한 조건식#6높음 — scheduledAt은 datetime, scheduledEndAt은 text 비대칭3"내일" 수집의 범위 조건 + 중복 표시 의도#6중간4수정 폼 기간 토글 초기화 로직#7중간5getScheduleStatus() 기간 일정 대응#7중간6checkPersonalTasksReminder() 기간 일정 동작 정의#6낮음 (Out of scope 명시로 해결 가능)

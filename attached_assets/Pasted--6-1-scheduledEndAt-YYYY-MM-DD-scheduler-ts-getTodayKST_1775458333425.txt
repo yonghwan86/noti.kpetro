@@ -1,0 +1,91 @@
+#6 백엔드 보완 항목 검증
+1. 저장 포맷: scheduledEndAt = YYYY-MM-DD ✅ 적절
+scheduler.ts에서 getTodayKST()가 YYYY-MM-DD를 반환하므로(48-49행) scheduledEndAt을 같은 포맷으로 저장하면 today <= task.scheduledEndAt 같은 문자열 비교가 바로 됩니다. 반면 scheduledAt은 ISO datetime이라 toKSTDateStr() 변환이 필요하고요. 이 비대칭을 명시한 건 좋습니다.
+한 가지 추가 고려: POST/PATCH에서 scheduledEndAt 입력값 검증 시 YYYY-MM-DD 정규식 또는 파싱 검증을 넣어야 합니다. 현재 scheduledAt도 별도 포맷 검증 없이 typeof === 'string'만 체크하고 있어서(routes.ts:877), scheduledEndAt도 최소한 같은 수준은 해야 합니다. 가능하면 YYYY-MM-DD 패턴 검증을 스펙에 추가하세요.
+
+2. 모닝 푸시 ② 조건식 ✅ 적절, 단 조건식을 더 정확하게
+현재 코드(scheduler.ts:351-355):
+typescriptif (task.morningNotified) continue;
+if (task.completed) continue;
+const taskDateKST = toKSTDateStr(task.scheduledAt);
+if (taskDateKST > today) continue;
+변경 후 조건은 이렇게 되어야 합니다:
+if (task.lastMorningNotifiedDate === today) continue;
+if (task.completed) continue;
+const startDate = toKSTDateStr(task.scheduledAt);
+const endDate = task.scheduledEndAt ?? startDate;
+if (startDate > today || today > endDate) continue;
+"양쪽 모두 만족"이라는 표현이 약간 모호합니다. **"startDate ≤ today ≤ endDate"**라고 명시하는 게 구현자에게 더 명확합니다.
+
+3. 내일 수집: 중복 포함 의도 ✅ 적절
+현재 코드의 오늘(258행)과 내일(281행) 모두 !== today / !== tomorrow 단일 비교인데, 둘 다 범위 조건으로 바꾸면 기간 일정이 양쪽에 나옵니다.
+추가 고려: 다이제스트 이메일에서 같은 일정이 "오늘 일정"과 "내일 일정" 양쪽에 뜨면 사용자가 혼란스러울 수 있습니다. "중복은 의도된 동작"이라고 명시한 건 좋지만, 이메일 템플릿(sendDailyDigestEmail)에서 기간 일정임을 표시해주는 게 좋습니다 — 예를 들어 title 옆에 "(4/7~4/11)" 같은 기간 표시. 이게 없으면 같은 제목이 두 번 나오는 것처럼 보입니다. 이 부분을 스펙에 추가할지 검토해보세요.
+
+4. PATCH 리셋 정책 ✅ 적절, 조건 보완 필요
+"시작일 변경 시 리셋"이라고 했는데, 더 정확하게는:
+
+scheduledAt이 변경될 때 → lastMorningNotifiedDate: null
+scheduledEndAt이 변경될 때 (기간 확장/축소) → lastMorningNotifiedDate: null
+기간→단일 전환 (scheduledEndAt: null) → lastMorningNotifiedDate: null
+
+종료일만 변경하는 경우도 리셋해야 합니다. 예: 오늘이 4/9인데 기간을 4/7~4/11 → 4/7~4/8로 줄이면, 이미 오늘 알림이 갔는데 범위 밖이 되므로 리셋 자체는 무해하지만 일관성을 위해 모두 리셋하는 게 안전합니다. 스펙에 "scheduledAt 또는 scheduledEndAt이 변경되면 리셋"으로 통합 명시하는 걸 권장합니다.
+
+5. 공유 푸시 포맷 ✅ 적절
+현재 코드(routes.ts:923):
+typescript`${currentUser.username}님이 일정을 공유했습니다: ${created.scheduledAt.split('T')[0]}`
+split('T')[0]은 2025-04-07을 반환하는데, 스펙의 "4/7 ~ 4/11" 포맷과 다릅니다. 포맷 변환 함수를 명시해야 합니다. 예:
+typescriptfunction formatDateShort(dateStr: string): string {
+  // "2025-04-07" → "4/7"
+  const [, m, d] = dateStr.split('-');
+  return `${parseInt(m)}/${parseInt(d)}`;
+}
+단일: "4/7", 기간: "4/7 ~ 4/11" — 이 포맷팅 유틸 함수를 어디에 둘지(routes.ts 내부 또는 공용)도 정하면 좋겠습니다. 프론트엔드(#7)에서도 같은 포맷을 쓰니까요.
+
+6. checkPersonalTasksReminder Out of scope ✅ 적절
+기간 첫날의 scheduledAt 시점에만 10분 전 리마인더가 가고, 이후 날짜에는 모닝 푸시만 가는 구조입니다. 합리적입니다.
+
+#7 프론트엔드 보완 항목 검증
+1. 수정 폼 토글 초기화 ✅ 적절
+openEdit()(107-119행)에 추가:
+typescriptsetIsRangeEnabled(!!task.scheduledEndAt);
+setScheduledEndAt(task.scheduledEndAt || "");
+문제없습니다.
+
+2. 오늘 필터 변환 방식 ✅ 적절, 구현 방식 구체화 필요
+현재(148행):
+typescriptif (filter === 'today') return isToday(parseISO(t.scheduledAt));
+변경:
+typescriptif (filter === 'today') {
+  const start = t.scheduledAt.split('T')[0]; // 또는 format(parseISO(...))
+  const end = t.scheduledEndAt ?? start;
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  return start <= todayStr && todayStr <= end;
+}
+여기서 scheduledAt에서 날짜만 추출하는 방식이 문제입니다. split('T')[0]은 UTC 기준이고, toKSTDateStr()는 KST 변환입니다. 백엔드는 KST 변환을 쓰는데 프론트엔드는 브라우저 로컬 시간대를 쓸 수 있어서 자정 부근에 차이가 날 수 있습니다. 현재 코드가 isToday(parseISO(...))로 로컬 시간대 기준이니, 프론트도 로컬 시간대 기준으로 통일하되 이 점을 스펙에 명시하세요.
+
+3. getScheduleStatus() 수정 ✅ 적절, 조건 구체화 필요
+현재(177-184행):
+typescriptconst date = parseISO(task.scheduledAt);
+if (isPast(date)) return { label: '지남', ... };
+if (isToday(date)) return { label: '오늘', ... };
+기간 일정 추가 시:
+- 완료 → "완료" (기존 유지)
+- 기간 일정 && today가 범위 안 → "진행중" (새 뱃지)
+- 기간 일정 && scheduledEndAt < today → "지남"
+- 기간 일정 && scheduledAt > today → "예정"
+- 단일 일정 → 기존 로직 유지
+"진행중" 뱃지의 색상이 정의되어 있지 않습니다. 기존 패턴을 보면 bg-blue-100 text-blue-800이 "오늘"에 쓰이고 있으니, "진행중"은 다른 색(예: bg-purple-100 text-purple-800)을 명시해야 합니다.
+
+4. 시작일 > 종료일 시 자동 조정 ✅ 적절
+시작일 변경 시 종료일을 시작일로 맞추는 건 직관적입니다. 단, 종료일 input의 min 속성도 시작일에 연동되어야 합니다:
+html<Input type="date" min={scheduledAt.split('T')[0]} ... />
+이걸 스펙에 명시하세요. 그래야 달력 UI에서 시작일 이전 날짜가 선택 불가로 표시됩니다.
+
+5. closeDialog() 리셋 ✅ 적절
+문제없습니다. setIsRangeEnabled(false), setScheduledEndAt("") 추가.
+
+6. POST/PATCH 모두 null 전송 ✅ 적절, 단 주의점
+POST에서 isRangeEnabled = false일 때 scheduledEndAt: null을 보내는 건 괜찮지만, 백엔드 POST 핸들러에서 scheduledEndAt이 undefined로 올 때와 null로 올 때를 구분해야 합니다. 현재 taskData 객체(routes.ts:896-907)를 보면 명시적으로 필드를 나열하고 있으므로, scheduledEndAt: req.body.scheduledEndAt ?? null 식으로 처리해야 합니다. 이 디테일을 스펙에 넣으면 좋겠습니다.
+
+최종 요약 — 아직 추가하면 좋을 것들
+항목설명scheduledEndAt 입력값 포맷 검증POST/PATCH에서 YYYY-MM-DD 패턴 체크PATCH 리셋 조건 통합"scheduledAt 또는 scheduledEndAt 변경 시 리셋"으로 단순화다이제스트 이메일 기간 표시중복 노출 시 혼란 방지를 위해 기간 정보 표시"진행중" 뱃지 색상프론트엔드 디자인 명시종료일 input min 속성시작일 연동프론트 시간대 기준로컬 시간대 기준 명시
