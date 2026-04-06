@@ -83,10 +83,12 @@ export interface PersonalTask {
   title: string;
   description?: string | null;
   scheduledAt: string;
+  scheduledEndAt: string | null;
   repeatType: RepeatType;
   completed: boolean;
   shareScope: ShareScope;
   shareTeamIds?: string[] | null;
   shareUserIds?: string[] | null;
+  lastMorningNotifiedDate: string | null;
   createdAt: string;
 }

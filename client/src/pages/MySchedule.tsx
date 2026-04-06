@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isToday, isThisWeek, isPast, isFuture } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -19,6 +20,11 @@ import {
 import ShareTargetSelector from "@/components/ShareTargetSelector";
 
 type TaskWithShared = PersonalTask & { isShared?: boolean };
+
+const formatDateShort = (dateStr: string) => {
+  const [, m, d] = dateStr.split('-');
+  return `${parseInt(m)}/${parseInt(d)}`;
+};
 
 export default function MySchedule() {
   const { currentUser } = useUser();
@@ -36,6 +42,8 @@ export default function MySchedule() {
   const [shareScope, setShareScope] = useState<ShareScope>("private");
   const [shareTeamIds, setShareTeamIds] = useState<string[]>([]);
   const [shareUserIds, setShareUserIds] = useState<string[]>([]);
+  const [isRangeEnabled, setIsRangeEnabled] = useState(false);
+  const [scheduledEndAt, setScheduledEndAt] = useState("");
 
   const { data: tasks = [], isLoading } = useQuery<TaskWithShared[]>({
     queryKey: ["/api/personal-tasks"],
@@ -97,6 +105,8 @@ export default function MySchedule() {
     setShareScope("private");
     setShareTeamIds([]);
     setShareUserIds([]);
+    setIsRangeEnabled(false);
+    setScheduledEndAt("");
   };
 
   const openCreate = () => {
@@ -115,6 +125,8 @@ export default function MySchedule() {
     setShareScope(mappedScope);
     setShareTeamIds(task.shareTeamIds || []);
     setShareUserIds(task.shareUserIds || []);
+    setIsRangeEnabled(!!task.scheduledEndAt);
+    setScheduledEndAt(task.scheduledEndAt || "");
     setDialogOpen(true);
   };
 
@@ -123,11 +135,16 @@ export default function MySchedule() {
       toast({ title: "제목과 일정 시간을 입력해주세요.", variant: "destructive" });
       return;
     }
+    if (isRangeEnabled && !scheduledEndAt) {
+      toast({ title: "종료일을 입력해주세요.", variant: "destructive" });
+      return;
+    }
     const data: any = {
       title: title.trim(),
       description: description.trim() || null,
       scheduledAt,
-      repeatType,
+      repeatType: isRangeEnabled ? 'none' : repeatType,
+      scheduledEndAt: isRangeEnabled && scheduledEndAt ? scheduledEndAt : null,
       shareScope,
       shareTeamIds: shareScope === 'selected' ? shareTeamIds : [],
       shareUserIds: shareScope === 'selected' ? shareUserIds : [],
@@ -145,7 +162,12 @@ export default function MySchedule() {
   const filteredTasks = tasks.filter(t => {
     if (filter === 'mine') return !t.isShared;
     if (filter === 'shared') return t.isShared;
-    if (filter === 'today') return isToday(parseISO(t.scheduledAt));
+    if (filter === 'today') {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const start = format(parseISO(t.scheduledAt), 'yyyy-MM-dd');
+      const end = t.scheduledEndAt ?? start;
+      return start <= todayStr && todayStr <= end;
+    }
     if (filter === 'completed') return t.completed;
     return true;
   });
@@ -176,6 +198,13 @@ export default function MySchedule() {
 
   const getScheduleStatus = (task: TaskWithShared) => {
     if (task.completed) return { label: '완료', color: 'bg-green-100 text-green-800' };
+    if (task.scheduledEndAt) {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const startStr = format(parseISO(task.scheduledAt), 'yyyy-MM-dd');
+      if (task.scheduledEndAt < todayStr) return { label: '지남', color: 'bg-red-100 text-red-800' };
+      if (startStr <= todayStr && todayStr <= task.scheduledEndAt) return { label: '진행중', color: 'bg-purple-100 text-purple-800' };
+      return { label: '예정', color: 'bg-gray-100 text-gray-800' };
+    }
     const date = parseISO(task.scheduledAt);
     if (isPast(date)) return { label: '지남', color: 'bg-red-100 text-red-800' };
     if (isToday(date)) return { label: '오늘', color: 'bg-blue-100 text-blue-800' };
@@ -244,7 +273,10 @@ export default function MySchedule() {
           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+              {task.scheduledEndAt
+                ? `${formatDateShort(format(parseISO(task.scheduledAt), 'yyyy-MM-dd'))} ~ ${formatDateShort(task.scheduledEndAt)}`
+                : format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })
+              }
             </span>
             {task.isShared && (
               <span>작성자: {getUserName(task.userId)}</span>
@@ -393,12 +425,44 @@ export default function MySchedule() {
                 data-testid="input-task-datetime"
                 type="datetime-local"
                 value={scheduledAt}
-                onChange={e => setScheduledAt(e.target.value)}
+                onChange={e => {
+                  setScheduledAt(e.target.value);
+                  if (isRangeEnabled && scheduledEndAt && e.target.value.split('T')[0] > scheduledEndAt) {
+                    setScheduledEndAt(e.target.value.split('T')[0]);
+                  }
+                }}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                data-testid="toggle-range-enabled"
+                checked={isRangeEnabled}
+                onCheckedChange={(v) => {
+                  setIsRangeEnabled(v);
+                  if (!v) setScheduledEndAt("");
+                }}
+              />
+              <label className="text-sm">기간 설정</label>
+            </div>
+            {isRangeEnabled && (
+              <div>
+                <label className="text-sm font-medium">종료일 *</label>
+                <Input
+                  data-testid="input-task-end-date"
+                  type="date"
+                  value={scheduledEndAt}
+                  min={scheduledAt.split('T')[0]}
+                  onChange={e => setScheduledEndAt(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">반복</label>
-              <Select value={repeatType} onValueChange={v => setRepeatType(v as RepeatType)}>
+              <Select
+                value={isRangeEnabled ? 'none' : repeatType}
+                onValueChange={v => { if (!isRangeEnabled) setRepeatType(v as RepeatType); }}
+                disabled={isRangeEnabled}
+              >
                 <SelectTrigger data-testid="select-repeat-type">
                   <SelectValue />
                 </SelectTrigger>
