@@ -265,25 +265,38 @@ let isDailyDigestRunning = false;
 
 // ── Task 3: 통합 다이제스트 발송 (실행 순서 ①~⑤ 준수) ──────────────────────
 async function sendDailyDigest() {
-  // 프로세스 레벨 동시성 가드 — cron 실행 중 catch-up 재진입 방지
+  // 프로세스 레벨 동시성 가드 —
+  // JS는 단일 스레드이므로, 첫 await 이전에 동기적으로 플래그를 설정하면
+  // 두 번째 호출이 이 시점에 끼어들 수 없다. race condition 없음.
   if (isDailyDigestRunning) {
     console.log('[SCHEDULER] Daily digest is already running, skipping concurrent invocation');
     return;
   }
+  isDailyDigestRunning = true; // ← 반드시 첫 await 이전, 동기적으로 설정
 
-  // Task 6 — 멱등성 체크: last_daily_digest_date 기준 (DB 레벨)
-  const today = getTodayKST();
-  const lastDate = await getSystemSetting('last_daily_digest_date');
-  if (lastDate === today) {
-    console.log('[SCHEDULER] Daily digest already sent today, skipping');
-    return;
-  }
-
-  isDailyDigestRunning = true;
   console.log('[SCHEDULER] Starting daily digest...');
 
   try {
-    // 데이터 한 번만 로드 (모든 함수에 주입)
+    const today = getTodayKST();
+
+    // DB 레벨 원자적 클레임 — 다중 프로세스 환경 대비
+    // today 값이 아직 없을 때만 'today:running'으로 선점.
+    // WHERE 조건 실패 시 UPDATE가 발생하지 않아 RETURNING 결과가 비어 있음.
+    const { db } = await import('../db');
+    const claimResult = await db.execute(
+      `INSERT INTO system_settings (key, value)
+       VALUES ('last_daily_digest_date', '${today}:running')
+       ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value
+         WHERE system_settings.value NOT LIKE '${today}%'
+       RETURNING key`
+    );
+    if ((claimResult.rows as any[]).length === 0) {
+      console.log('[SCHEDULER] Daily digest already in progress or completed today, skipping');
+      return; // finally 블록에서 isDailyDigestRunning = false 처리
+    }
+
+    // 클레임 성공 — 데이터 한 번만 로드 (모든 함수에 주입)
     const preloaded: PreloadedData = {
       assets: await storage.getAssets(),
       users: await storage.getUsers(),
@@ -351,14 +364,16 @@ async function sendDailyDigest() {
       await storage.updatePersonalTask(taskId, { morningNotified: true });
     }
 
-    // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 기록하지 않아 재시도 보장
+    // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 미기록 → 재시도 보장
     if (emailFailedCount === 0) {
       await setSystemSetting('last_daily_digest_date', today);
       console.log('[SCHEDULER] Daily digest completed and date recorded');
     } else {
+      // 클레임('today:running')은 남아 있으므로 동일 프로세스 내 재진입은 막힘.
+      // 그러나 DB에 완료 표시를 하지 않으므로 다음 서버 재시작 시 재시도 가능.
       console.error(
         `[SCHEDULER] Daily digest completed with ${emailFailedCount} email failure(s). ` +
-        'last_daily_digest_date NOT recorded — will retry on next run.'
+        'last_daily_digest_date NOT finalized — will retry on next server restart.'
       );
     }
 
