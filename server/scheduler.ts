@@ -260,17 +260,27 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   return { inspectionItems, todayTasks, tomorrowTasks };
 }
 
+// ── 프로세스 레벨 동시 실행 방지 (cron + catch-up 중복 실행 방지) ──────────
+let isDailyDigestRunning = false;
+
 // ── Task 3: 통합 다이제스트 발송 (실행 순서 ①~⑤ 준수) ──────────────────────
 async function sendDailyDigest() {
-  console.log('[SCHEDULER] Starting daily digest...');
+  // 프로세스 레벨 동시성 가드 — cron 실행 중 catch-up 재진입 방지
+  if (isDailyDigestRunning) {
+    console.log('[SCHEDULER] Daily digest is already running, skipping concurrent invocation');
+    return;
+  }
 
-  // Task 6 — 멱등성 체크: last_daily_digest_date 기준
+  // Task 6 — 멱등성 체크: last_daily_digest_date 기준 (DB 레벨)
   const today = getTodayKST();
   const lastDate = await getSystemSetting('last_daily_digest_date');
   if (lastDate === today) {
     console.log('[SCHEDULER] Daily digest already sent today, skipping');
     return;
   }
+
+  isDailyDigestRunning = true;
+  console.log('[SCHEDULER] Starting daily digest...');
 
   try {
     // 데이터 한 번만 로드 (모든 함수에 주입)
@@ -316,6 +326,7 @@ async function sendDailyDigest() {
 
     // ③ 이메일 다이제스트 발송 (1인 1통)
     let emailSentCount = 0;
+    let emailFailedCount = 0;
     for (const user of preloaded.users) {
       if (!user.email) continue;
       const digest = collectDailyDigestForUser(user.id, preloaded);
@@ -329,23 +340,33 @@ async function sendDailyDigest() {
         emailSentCount++;
       } else {
         console.error(`[SCHEDULER] Failed to send digest to ${user.email}: ${result.error}`);
+        emailFailedCount++;
       }
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    console.log(`[SCHEDULER] Daily digest emails sent: ${emailSentCount}`);
+    console.log(`[SCHEDULER] Daily digest emails — sent: ${emailSentCount}, failed: ${emailFailedCount}`);
 
     // ④ morningNotified = true 설정 (①②③ 완료 후)
     for (const taskId of morningNotifyTaskIds) {
       await storage.updatePersonalTask(taskId, { morningNotified: true });
     }
 
-    // ⑤ last_daily_digest_date 기록 (모든 발송 완료 후, 반드시 마지막)
-    await setSystemSetting('last_daily_digest_date', today);
-    console.log('[SCHEDULER] Daily digest completed and date recorded');
+    // ⑤ last_daily_digest_date 기록 — 이메일 실패가 있으면 기록하지 않아 재시도 보장
+    if (emailFailedCount === 0) {
+      await setSystemSetting('last_daily_digest_date', today);
+      console.log('[SCHEDULER] Daily digest completed and date recorded');
+    } else {
+      console.error(
+        `[SCHEDULER] Daily digest completed with ${emailFailedCount} email failure(s). ` +
+        'last_daily_digest_date NOT recorded — will retry on next run.'
+      );
+    }
 
   } catch (error) {
     console.error('[SCHEDULER] Error in daily digest:', error);
-    // ⑤를 기록하지 않으므로 다음 재시작 또는 cron에서 자동 재시도 가능
+    // 예외 시에도 ⑤를 기록하지 않으므로 다음 실행에서 자동 재시도 가능
+  } finally {
+    isDailyDigestRunning = false;
   }
 }
 
