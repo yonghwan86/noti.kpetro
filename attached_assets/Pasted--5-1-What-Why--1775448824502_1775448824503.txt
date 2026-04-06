@@ -1,0 +1,95 @@
+이슈 #5 정밀 검토 결과
+매우 완성도가 높은 이슈 정의서입니다. 핵심 로직과 엣지 케이스를 꼼꼼하게 짚겠습니다.
+
+1. What & Why — 통과
+현재 문제(다건 발송)와 개선 방향(1인 1통)이 명확합니다. 6AM 변경 이유도 기술되어 있습니다.
+
+2. Done Looks Like — 통과, 한 가지 보완 권장
+"발송 완료 후 last_daily_digest_date 기록"이라는 멱등성 규칙과 catch-up 조건이 모두 명시되어 있어 좋습니다.
+
+보완 권장: 일일 최대 발송량의 기대치를 넣으면 검증 기준이 명확해집니다.
+
+일일 이메일 발송량이 최대 400통 이하 (알림 대상이 있는 사용자 수 이하로 제한)
+
+3. Out of Scope — 중요한 판단이 잘 기록되어 있습니다
+팀 contactEmail 제외 결정이 Out of Scope에 명시된 것이 좋습니다. 다만 이 부분은 기존 동작의 변경이기도 하므로, 이해관계자(관리자)에게 사전 고지가 필요할 수 있습니다. 기존에 팀 contactEmail로 장비 점검 알림을 받던 사람이 갑자기 못 받게 되면 혼란이 생길 수 있습니다.
+
+Task 또는 Done Looks Like에 다음 한 줄을 추가하는 것을 권장합니다:
+
+참고: 기존에 팀 contactEmail로 발송되던 장비 점검 알림은 더 이상 해당 주소로 발송되지 않음 — 해당 장비의 담당자(staff)·구분관리자(managerIds)·팀장 개인 이메일로 대체됨. 배포 전 관리자에게 변경 사항 고지 필요.
+
+4. Tasks — 전체적으로 정확하며, 아래 항목들을 확인/보완해야 합니다
+Task 1 (collectDailyDigestForUser) — 3가지 확인
+첫째, "내일 예정" 수집 시점의 정확성 문제입니다.
+
+이 함수가 6AM에 실행됩니다. "내일 예정"이란 내일(+1일) 예정인 일정을 의미합니다. 기존 6PM 다이제스트는 "오늘 6PM 시점에서 내일"을 수집했으므로 시점이 동일합니다. 그런데 6AM에 수집하면 "오늘 아직 시작 안 한 일정"과 "내일 일정"의 구분이 명확해야 합니다.
+
+예를 들어 4/7 06:00에 실행 시, "오늘 일정"은 4/7 전체, "내일 예정"은 4/8 전체입니다. 기존 6PM 다이제스트는 4/7 18:00에 "내일(4/8)"을 수집했으므로 내용은 동일합니다. 논리적 문제는 없지만, Task 1에 날짜 기준을 명시하면 구현 시 혼동이 없습니다:
+
+오늘 일정: scheduledAt의 날짜 === today (KST 기준) 내일 예정: scheduledAt의 날짜 === today + 1일 (KST 기준)
+
+둘째, 장비 점검 알림의 수신자 범위에서 한 가지 누락이 있습니다.
+
+Task 1에 "staffId === userId, managerIds에 userId 포함, 또는 팀장"으로 기술되어 있는데, 현재 시스템의 collectRecipients는 asset.managerId (개별 장비의 담당 관리자)도 수신자에 포함합니다. category.managerIds와 asset.managerId는 다를 수 있습니다. category.managerIds는 구분 전체의 관리자 배열이고, asset.managerId는 개별 장비에 할당된 관리자입니다.
+
+Task 1의 수신자 범위를 다음과 같이 정확히 명시하는 것을 권장합니다:
+
+staffId === userId, asset.managerId === userId, category.managerIds에 userId 포함, 또는 팀장(position='팀장')으로서 해당 팀 장비
+
+셋째, preloaded 데이터에 personalTasks가 포함되어 있는데, 공유 일정 필터링 방법이 명시되어 있지 않습니다.
+
+현재 API에서는 getPersonalTasksSharedWithUser(userId, teamId, department)를 호출하여 공유 일정을 가져옵니다. preloaded로 전체 일정을 한 번만 로드한다면, 각 사용자별로 공유 범위(shareScope, shareTeamIds, shareUserIds)를 필터링하는 로직이 수집 함수 안에 있어야 합니다. Task 1에 다음을 추가하면 명확해집니다:
+
+공유 일정 필터: task.shareScope === 'selected'이고, task.shareUserIds에 userId 포함 또는 task.shareTeamIds에 user.teamId 포함
+
+Task 2 (sendDailyDigestEmail) — 통과
+템플릿 구조가 명확합니다.
+
+Task 3 (sendDailyDigest) — 2가지 확인
+첫째, 장비 점검 푸시 발송의 실행 위치가 불명확합니다.
+
+"장비 점검 푸시 발송(collectPushRecipientIds → sendPushToUser)은 기존과 동일하게 유지"라고 되어 있습니다. 현재 이 푸시 발송은 checkUpcomingInspections() 안에 있습니다. Task 4에서 이 함수의 "이메일 발송 루프를 제거"한다고 했으므로, 푸시 발송 부분이 sendDailyDigest() 안으로 이동하는 건지, 아니면 checkUpcomingInspections()가 "푸시 전용 함수"로 남는 건지 명확히 해야 합니다.
+
+권장: checkUpcomingInspections()를 sendInspectionPushNotifications()로 리네이밍하고 이메일 발송 부분만 제거하여 푸시 전용으로 남기는 것이 가장 깔끔합니다. 그리고 sendDailyDigest() 안에서 이 함수를 호출합니다.
+
+둘째, morningNotified 플래그 처리의 타이밍입니다.
+
+"이메일 다이제스트 발송 완료 후 해당 일정들에 True 설정 (중복 push 방지 및 catch-up 기준)"이라고 되어 있습니다. 그런데 morningNotified가 true로 설정되면 checkPersonalTasksMorning()의 푸시 발송도 skip됩니다. 현재 구조에서 sendDailyDigest()가 이메일과 푸시를 모두 처리한 후 플래그를 설정해야 합니다.
+
+실행 순서를 명시하면 안전합니다:
+
+개인일정 모닝 푸시 발송
+다이제스트 이메일 발송
+morningNotified = true 설정
+또는 기존 checkPersonalTasksMorning()의 푸시 발송 부분도 sendDailyDigest() 안으로 통합하여 한 곳에서 관리하는 것이 더 깔끔합니다.
+
+Task 4 (기존 함수 정리) — 통과, 한 가지 확인
+emailDigestSent 플래그 관련 코드 제거 시, sendSharedTasksEmailDigest()에서 이 플래그를 설정하는 부분과 자정 리셋에서 이 플래그를 false로 돌리는 부분이 있을 수 있습니다. 자정 리셋 코드에서 emailDigestSent 관련 리셋도 함께 제거해야 합니다. "DB 컬럼은 유지, 코드만 제거"라는 방침이 명시되어 있어 방향은 맞습니다.
+
+Task 5 (cron 재구성) — 통과
+0 18 * * * cron 제거, catch-up 시간 변경이 모두 명시되어 있습니다.
+
+한 가지 확인: 자정 cron (0 0 * * *)에서 morningNotified, reminderNotified 리셋은 기존대로 유지해야 합니다. emailDigestSent 리셋만 제거합니다. Task 5에 "자정 flag reset cron은 유지"라고만 되어 있는데, emailDigestSent 리셋 제거를 명시하면 좋겠습니다.
+
+Task 6 (멱등성 키) — 통과
+기존 키를 DB에 남기고 새 키만 사용하는 방식이 안전합니다.
+
+Task 7 (검증) — 통과, 1개 추가 권장
+동일 서버에서 6AM cron이 두 번 실행되어도 이메일이 1회만 발송되는지 확인 (멱등성 검증)
+
+5. Relevant Files — 1개 추가 권장
+기존 checkUpcomingInspections()의 수신자 수집 로직(collectRecipients)이 현재 어느 파일에 있는지에 따라 다르지만, 이 함수가 scheduler.ts 안에 있다면 별도 추가는 불필요합니다. 만약 emailService.ts에 있다면 해당 파일도 수정 대상에 포함해야 합니다.
+
+6. 최종 판정
+항목	상태	보완 내용
+What & Why	통과	—
+Done Looks Like	통과	일일 최대 발송량 기대치 추가 권장
+Out of Scope	통과	contactEmail 변경 고지 문구 추가 권장
+Task 1	보완 필요	날짜 기준 명시, asset.managerId 누락, 공유 일정 필터 명시
+Task 2	통과	—
+Task 3	보완 필요	장비 푸시 실행 위치 명확화, morningNotified 설정 순서 명시
+Task 4	통과	자정 리셋에서 emailDigestSent 제거 확인
+Task 5	통과	emailDigestSent 리셋 제거 명시 권장
+Task 6	통과	—
+Task 7	통과	멱등성 이중 실행 검증 추가 권장
+핵심 보완이 필요한 것은 Task 1의 수신자 범위(asset.managerId 누락) 와 Task 3의 실행 순서(푸시 → 이메일 → 플래그) 두 가지입니다. 나머지는 모두 minor 수준의 명확화입니다.

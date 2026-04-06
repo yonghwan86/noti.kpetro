@@ -1,0 +1,78 @@
+Task 1 — collectDailyDigestForUser
+이전 지적 3가지
+지적 1: 날짜 기준 명시
+
+이전: "오늘 일정", "내일 예정"의 날짜 기준이 불명확
+
+현재 이슈 정의서:
+
+오늘 일정 — scheduledAt 날짜(KST 기준) === today인 미완료 일정 내일 예정 — scheduledAt 날짜(KST 기준) === today + 1일인 미완료 일정
+
+반영 완료
+
+지적 2: asset.managerId 누락
+
+이전: "staffId === userId, managerIds에 userId 포함, 또는 팀장"으로만 기술, asset.managerId 누락
+
+현재 이슈 정의서:
+
+staffId === userId (담당자) asset.managerId === userId (개별 장비 관리자) category.managerIds에 userId 포함 (구분 관리자) 팀장(position='팀장')으로서 asset.teamId === user.teamId (팀장)
+
+반영 완료
+
+지적 3: 공유 일정 필터링 방법 명시
+
+이전: preloaded 데이터에서 공유 일정을 어떻게 필터링하는지 미명시
+
+현재 이슈 정의서:
+
+공유받은 일정: task.shareScope === 'selected' AND (task.shareUserIds에 userId 포함 OR task.shareTeamIds에 user.teamId 포함)
+
+반영 완료
+
+Task 1 추가 확인 — 1가지 발견
+장비 점검 알림의 팀장 조건에서 asset.teamId === user.teamId로 되어 있는데, 시스템 문서를 보면 asset에는 두 가지 팀 관계가 있습니다. teamId(관리 팀)와 usageTeamId(사용 팀)입니다. 기존 collectRecipients가 어느 팀 기준으로 팀장을 포함하는지에 따라 달라집니다.
+
+현재 시스템 문서에는 "Team leaders (position='팀장' in same team)"이라고만 되어 있고, 이것이 asset.teamId 기준인지 asset.usageTeamId 기준인지 명시되어 있지 않습니다. 기존 collectRecipients 코드를 확인하여 정확히 어느 팀 기준인지 Task 1에 명시하면 구현 시 혼동이 없습니다.
+
+다만 이것은 기존 동작을 그대로 옮기는 것이므로, Task에 다음 한 줄을 추가하면 충분합니다:
+
+팀장 매칭 기준: 기존 collectRecipients()와 동일한 teamId 필드 사용 (구현 시 기존 코드 참조)
+
+Task 3 — sendDailyDigest
+이전 지적 2가지
+지적 1: 장비 점검 푸시 발송의 실행 위치 불명확
+
+이전: "기존과 동일하게 유지"라고만 되어 있어 checkUpcomingInspections()가 어떻게 되는지 불명확
+
+현재 이슈 정의서:
+
+장비 점검 푸시: checkUpcomingInspections()를 sendInspectionPushNotifications()로 리네이밍하여 이메일 발송 루프를 제거한 순수 푸시 전용 함수로 남기고, sendDailyDigest() 안에서 호출
+
+반영 완료
+
+지적 2: morningNotified 플래그 처리 타이밍
+
+이전: 이메일 발송 후 플래그를 설정하면 푸시가 skip될 수 있다는 순서 문제
+
+현재 이슈 정의서:
+
+morningNotified 처리 순서 (반드시 준수): ① 개인일정 모닝 푸시 발송 ② 이메일 다이제스트 발송 ③ morningNotified = true 설정 (위 두 단계 완료 후)
+
+반영 완료
+
+Task 3 추가 확인 — 1가지 발견
+sendInspectionPushNotifications()가 sendDailyDigest() 안에서 호출된다고 되어 있는데, 이 함수의 실행 순서가 morningNotified 순서 목록에는 빠져 있습니다. 장비 점검 푸시는 morningNotified와 무관하므로 순서가 중요하지 않을 수 있지만, 전체 실행 흐름을 명확히 하려면 순서를 다음과 같이 확장하는 것을 권장합니다:
+
+sendDailyDigest() 내부 실행 순서: ① 장비 점검 푸시 발송 (sendInspectionPushNotifications) ② 개인일정 모닝 푸시 발송 ③ 이메일 다이제스트 발송 (1인 1통) ④ morningNotified = true 설정 ⑤ last_daily_digest_date 기록
+
+이렇게 하면 sendDailyDigest()의 전체 흐름이 한눈에 보이고, last_daily_digest_date 기록 시점도 명시되어 멱등성 보장이 시각적으로 확인됩니다.
+
+최종 판정
+항목	이전 지적	반영 여부	추가 발견
+Task 1 — 날짜 기준	명시 필요	반영 완료	—
+Task 1 — asset.managerId	누락	반영 완료	팀장 매칭 teamId 기준 명시 권장 (minor)
+Task 1 — 공유 필터	미명시	반영 완료	—
+Task 3 — 푸시 실행 위치	불명확	반영 완료	—
+Task 3 — morningNotified 순서	미명시	반영 완료	전체 실행 순서 ①~⑤ 확장 권장 (minor)
+이전에 지적한 핵심 보완 사항은 모두 반영되었습니다. 추가 발견 2건은 둘 다 minor 수준이며, Task 1의 팀장 매칭 기준은 "기존 collectRecipients()와 동일"이라는 한 줄 추가, Task 3은 실행 순서를 ①~⑤로 확장하면 완벽해집니다.
