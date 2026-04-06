@@ -214,8 +214,9 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   const todayTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    const taskDate = task.scheduledAt.substring(0, 10);
-    if (taskDate !== today) continue;
+    // KST 날짜로 변환하여 비교 — scheduledAt이 UTC 타임스탬프인 경우도 정확하게 처리
+    const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    if (taskDateKST !== today) continue;
 
     const isOwn = task.userId === userId;
     const isShared = task.shareScope === 'selected' && (
@@ -226,9 +227,11 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
     if (!isOwn && !isShared) continue;
 
     const owner = users.find((u: any) => u.id === task.userId);
+    // 시간 표시도 KST 기준으로 변환
+    const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
     todayTasks.push({
       title: task.title,
-      time: format(parseISO(task.scheduledAt), 'HH:mm'),
+      time: timeKST,
       description: task.description || undefined,
       isShared: !isOwn,
       ownerName: !isOwn ? (owner?.username || '알 수 없음') : undefined,
@@ -239,8 +242,8 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
   const tomorrowTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    const taskDate = task.scheduledAt.substring(0, 10);
-    if (taskDate !== tomorrow) continue;
+    const taskDateKST = new Date(task.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    if (taskDateKST !== tomorrow) continue;
 
     const isOwn = task.userId === userId;
     const isShared = task.shareScope === 'selected' && (
@@ -251,9 +254,10 @@ function collectDailyDigestForUser(userId: string, preloaded: PreloadedData): Di
     if (!isOwn && !isShared) continue;
 
     const owner = users.find((u: any) => u.id === task.userId);
+    const timeKST = new Date(task.scheduledAt).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
     tomorrowTasks.push({
       title: task.title,
-      time: format(parseISO(task.scheduledAt), 'HH:mm'),
+      time: timeKST,
       description: task.description || undefined,
       isShared: !isOwn,
       ownerName: !isOwn ? (owner?.username || '알 수 없음') : undefined,
