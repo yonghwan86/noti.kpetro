@@ -14,7 +14,7 @@ import {
 import { setupEmailAuth, registerEmailAuthRoutes } from "./emailAuth";
 import * as excel from "./excel";
 import { sendTestEmail } from "./emailService";
-import { checkUpcomingInspections } from "./scheduler";
+import { sendInspectionPushNotifications } from "./scheduler";
 import { getVapidPublicKey, sendPushToUser } from "./pushService";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -784,7 +784,14 @@ export async function registerRoutes(
 
   app.post("/api/email/check-inspections", requireAuth(['admin']), async (req: Request, res: Response) => {
     try {
-      await checkUpcomingInspections();
+      const preloaded = {
+        assets: await storage.getAssets(),
+        users: await storage.getUsers(),
+        teams: await storage.getTeams(),
+        cats: await storage.getCategories(),
+        personalTasks: await storage.getAllPersonalTasksForScheduler(),
+      };
+      await sendInspectionPushNotifications(preloaded);
       res.json({ message: "점검 알림 확인이 완료되었습니다. 서버 로그를 확인하세요." });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "점검 확인 중 오류가 발생했습니다" });

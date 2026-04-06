@@ -85,30 +85,32 @@ Preferred communication style: Simple, everyday language.
 ### Scheduler (`server/scheduler.ts`)
 
 **Cron Jobs** (all in Asia/Seoul timezone):
-- `0 9 * * *` (9 AM KST) — `runDailyCheckIfNeeded()` + `checkPersonalTasksMorning()`
-- `* * * * *` (every minute) — `checkPersonalTasksReminder()` (10-min-before push)
-- `0 18 * * *` (6 PM KST) — `sendOwnerTomorrowDigest()` + `sendSharedTasksEmailDigest()`
+- `0 6 * * *` (6 AM KST) — `sendDailyDigest()` — 통합 다이제스트 (장비 점검 푸시 + 개인일정 푸시 + 이메일 1인 1통)
+- `* * * * *` (every minute) — `checkPersonalTasksReminder()` (10분 전 푸시 전용)
 - `0 0 * * *` (midnight KST) — reset `morningNotified` / `reminderNotified` flags
 
 **Server start catch-up logic**:
-- If kstHour >= 9: run `runDailyCheckIfNeeded()` + `checkPersonalTasksMorning()`
-- If kstHour >= 18: run `sendOwnerTomorrowDigest()`
+- If kstHour >= 6: `sendDailyDigest()` (멱등성 키 체크로 중복 발송 방지)
 
-**Idempotency keys** (stored in `system_settings` table):
-- `last_email_date` — prevents duplicate inspection emails per day
-- `last_owner_digest_date` — prevents duplicate personal task digest per day
+**Idempotency key** (stored in `system_settings` table):
+- `last_daily_digest_date` — 당일 발송 완료 여부 (발송 완료 후 기록, 발송 전 기록 금지 — 장애 시 재시도 보장)
+- 기존 `last_email_date`, `last_owner_digest_date` 대체 (DB 레코드는 유지)
 
-**Email sending order**: `last_email_date` is recorded AFTER `checkUpcomingInspections()` completes (not before), so a server crash mid-send allows retry on next startup.
+**sendDailyDigest() 실행 순서** (①~⑤ 준수):
+1. ① `sendInspectionPushNotifications(preloaded)` — 장비 점검 푸시 (이메일 없음)
+2. ② 개인일정 모닝 푸시 — `morningNotified=false`인 오늘 이전 일정, 공유 대상 포함
+3. ③ 이메일 다이제스트 발송 — `collectDailyDigestForUser()` → 내용 있는 사용자만 `sendDailyDigestEmail()` (1인 1통)
+4. ④ `morningNotified = true` 설정
+5. ⑤ `last_daily_digest_date` 기록 (반드시 마지막)
 
-**Recipient collection** (`collectRecipients`):
-1. Asset staff (staffId) — using their individual name in email greeting
-2. Team leaders (position='팀장' in same team)
-3. Team contact email (contactEmail)
-4. Category manager IDs (category.managerIds array) — all managers, not just asset.managerId
-
-**Email personalization**: `sendInspectionReminder(email, assetName, dueDate, staffName, teamName, recipientName?)` — greeting uses `recipientName` (looked up per recipient in the loop); staff name appears as a separate "담당자" field in the email body.
+**collectDailyDigestForUser(userId, preloaded)** — 사용자별 수집 기준:
+- 장비 점검: staffId / managerId / category.managerIds / 팀장(position='팀장' AND user.teamId === asset.teamId)
+- 오늘·내일 일정: 본인(userId) + 공유(shareScope='selected' AND shareUserIds/shareTeamIds 포함)
+- 3개 섹션 모두 비면 null 반환 → 이메일 미발송
 
 **Push recipient collection** (`collectPushRecipientIds`): staff + category.managerIds + asset.managerId
+
+**참고 — 팀 contactEmail**: userId가 없는 공유 계정이므로 다이제스트 수신 대상 제외. 기존에 팀 contactEmail로 발송되던 장비 점검 알림은 담당자(staff)/구분관리자/팀장 개인 이메일로 대체됨.
 
 ### Push Notifications (`server/pushService.ts`)
 

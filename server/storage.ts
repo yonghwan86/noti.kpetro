@@ -495,7 +495,6 @@ export class PostgresStorage implements IStorage {
     await db.update(personalTasks).set({
       morningNotified: false,
       reminderNotified: false,
-      emailDigestSent: false,
     });
   }
 }
