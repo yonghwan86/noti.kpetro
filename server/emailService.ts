@@ -53,8 +53,8 @@ export async function sendDailyDigestEmail(
   user: { username: string; email: string | null },
   digest: {
     inspectionItems: { assetName: string; dueDate: string; status: 'upcoming' | 'overdue'; daysLeft?: number; daysOverdue?: number; staffName: string }[];
-    todayTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string }[];
-    tomorrowTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string }[];
+    todayTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string; dateRange?: string }[];
+    tomorrowTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string; dateRange?: string }[];
   }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
@@ -99,7 +99,9 @@ export async function sendDailyDigestEmail(
       <tr>
         <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${t.time}</td>
         <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">
-          ${t.title}${t.isShared ? ` <span style="font-size:11px;color:#6b7280;">(${t.ownerName}님 일정)</span>` : ''}
+          ${t.title}
+          ${t.dateRange ? `<span style="font-size:11px;color:#6b7280;"> (${t.dateRange})</span>` : ''}
+          ${t.isShared ? `<span style="font-size:11px;color:#6b7280;">(${t.ownerName}님 일정)</span>` : ''}
         </td>
         <td style="padding: 7px 10px; border: 1px solid #e5e7eb; color:#6b7280;">${t.description || '-'}</td>
       </tr>`).join('');

@@ -493,7 +493,6 @@ export class PostgresStorage implements IStorage {
 
   async resetDailyNotificationFlags(): Promise<void> {
     await db.update(personalTasks).set({
-      morningNotified: false,
       reminderNotified: false,
     });
   }

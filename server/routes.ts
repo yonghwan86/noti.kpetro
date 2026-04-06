@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
 import { auth, getCurrentUser, requireAuth } from "./auth";
+import { toKSTDateStr, formatDateShort } from "./utils";
 import { 
   insertTeamSchema, 
   insertUserSchema, 
@@ -869,7 +870,7 @@ export async function registerRoutes(
   app.post("/api/personal-tasks", requireAuth(['admin', 'manager', 'staff']), async (req: Request, res: Response) => {
     try {
       const currentUser = (req as any).currentUser;
-      const { title, description, scheduledAt, repeatType, shareScope } = req.body;
+      const { title, description, scheduledAt, repeatType, shareScope, scheduledEndAt } = req.body;
 
       if (!title || typeof title !== 'string' || !title.trim()) {
         return res.status(400).json({ error: "제목을 입력해주세요." });
@@ -877,9 +878,19 @@ export async function registerRoutes(
       if (!scheduledAt || typeof scheduledAt !== 'string') {
         return res.status(400).json({ error: "일정 시간을 입력해주세요." });
       }
+      if (scheduledEndAt != null) {
+        if (typeof scheduledEndAt !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(scheduledEndAt)) {
+          return res.status(400).json({ error: "종료일 형식이 올바르지 않습니다. (YYYY-MM-DD)" });
+        }
+        if (toKSTDateStr(scheduledAt) > scheduledEndAt) {
+          return res.status(400).json({ error: "종료일은 시작일 이후여야 합니다." });
+        }
+      }
       const validRepeatTypes = ['none', 'daily', 'weekly', 'monthly'];
       const validShareScopes = ['private', 'selected'];
-      const safeRepeatType = validRepeatTypes.includes(repeatType) ? repeatType : 'none';
+      const safeRepeatType = scheduledEndAt
+        ? 'none'
+        : (validRepeatTypes.includes(repeatType) ? repeatType : 'none');
       const safeShareScope = validShareScopes.includes(shareScope) ? shareScope : 'private';
 
       let shareTeamIds: string[] = [];
@@ -898,6 +909,7 @@ export async function registerRoutes(
         title: title.trim(),
         description: description || null,
         scheduledAt,
+        scheduledEndAt: scheduledEndAt ?? null,
         repeatType: safeRepeatType,
         completed: false,
         shareScope: finalShareScope,
@@ -916,11 +928,15 @@ export async function registerRoutes(
           if (shareTeamIds.includes(u.teamId)) targetUserSet.add(u.id);
           if (shareUserIds.includes(u.id)) targetUserSet.add(u.id);
         }
+        const startShort = formatDateShort(toKSTDateStr(created.scheduledAt));
+        const dateLabel = created.scheduledEndAt
+          ? `${startShort} ~ ${formatDateShort(created.scheduledEndAt)}`
+          : startShort;
         for (const targetUserId of targetUserSet) {
           await sendPushToUser(
             targetUserId,
             `📅 새 공유 일정: ${created.title}`,
-            `${currentUser.username}님이 일정을 공유했습니다: ${created.scheduledAt.split('T')[0]}`,
+            `${currentUser.username}님이 일정을 공유했습니다: ${dateLabel}`,
             '/schedule'
           );
         }
@@ -953,6 +969,30 @@ export async function registerRoutes(
       if (req.body.shareScope !== undefined) {
         updates.shareScope = validShareScopesForPatch.includes(req.body.shareScope) ? req.body.shareScope : 'private';
       }
+
+      if (req.body.scheduledEndAt !== undefined) {
+        if (req.body.scheduledEndAt !== null) {
+          if (typeof req.body.scheduledEndAt !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(req.body.scheduledEndAt)) {
+            return res.status(400).json({ error: "종료일 형식이 올바르지 않습니다. (YYYY-MM-DD)" });
+          }
+          const checkStart = updates.scheduledAt ? toKSTDateStr(updates.scheduledAt) : toKSTDateStr(task.scheduledAt);
+          if (checkStart > req.body.scheduledEndAt) {
+            return res.status(400).json({ error: "종료일은 시작일 이후여야 합니다." });
+          }
+        }
+        updates.scheduledEndAt = req.body.scheduledEndAt;
+      }
+
+      const finalEndAt = updates.scheduledEndAt !== undefined ? updates.scheduledEndAt : task.scheduledEndAt;
+      if (finalEndAt) updates.repeatType = 'none';
+
+      if (updates.scheduledAt !== undefined || updates.scheduledEndAt !== undefined) {
+        updates.lastMorningNotifiedDate = null;
+      }
+      if (updates.scheduledAt !== undefined) {
+        updates.reminderNotified = false;
+      }
+
       const effectiveScope = updates.shareScope || task.shareScope;
       if (effectiveScope === 'private') {
         updates.shareTeamIds = [];

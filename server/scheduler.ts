@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { storage } from "./storage";
 import { sendDailyDigestEmail } from "./emailService";
 import { sendPushToUser } from "./pushService";
+import { toKSTDateStr, formatDateShort } from "./utils";
 import { parseISO, subMinutes } from "date-fns";
 import { sql } from "drizzle-orm";
 import type {
@@ -172,18 +173,13 @@ interface PersonalTaskItem {
   description?: string;
   isShared: boolean;
   ownerName?: string;
+  dateRange?: string;
 }
 
 interface DigestData {
   inspectionItems: InspectionItem[];
   todayTasks: PersonalTaskItem[];
   tomorrowTasks: PersonalTaskItem[];
-}
-
-function toKSTDateStr(scheduledAt: string): string {
-  return new Date(scheduledAt).toLocaleDateString("en-CA", {
-    timeZone: "Asia/Seoul",
-  });
 }
 
 function toKSTTimeStr(scheduledAt: string): string {
@@ -255,7 +251,9 @@ function collectDailyDigestForUser(
   const todayTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    if (toKSTDateStr(task.scheduledAt) !== today) continue;
+    const startDate = toKSTDateStr(task.scheduledAt);
+    const endDate = task.scheduledEndAt ?? startDate;
+    if (startDate > today || today > endDate) continue;
 
     const isOwn = task.userId === userId;
     const isShared =
@@ -272,13 +270,18 @@ function collectDailyDigestForUser(
       description: task.description || undefined,
       isShared: !isOwn,
       ownerName: !isOwn ? ownerName : undefined,
+      dateRange: task.scheduledEndAt
+        ? `${formatDateShort(toKSTDateStr(task.scheduledAt))}~${formatDateShort(task.scheduledEndAt)}`
+        : undefined,
     });
   }
 
   const tomorrowTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
-    if (toKSTDateStr(task.scheduledAt) !== tomorrow) continue;
+    const startDate = toKSTDateStr(task.scheduledAt);
+    const endDate = task.scheduledEndAt ?? startDate;
+    if (startDate > tomorrow || tomorrow > endDate) continue;
 
     const isOwn = task.userId === userId;
     const isShared =
@@ -295,6 +298,9 @@ function collectDailyDigestForUser(
       description: task.description || undefined,
       isShared: !isOwn,
       ownerName: !isOwn ? ownerName : undefined,
+      dateRange: task.scheduledEndAt
+        ? `${formatDateShort(toKSTDateStr(task.scheduledAt))}~${formatDateShort(task.scheduledEndAt)}`
+        : undefined,
     });
   }
 
@@ -349,23 +355,34 @@ async function sendDailyDigest() {
     // ② Morning push for personal tasks (today or overdue, not yet notified)
     const morningNotifyTaskIds: string[] = [];
     for (const task of preloaded.personalTasks) {
-      if (task.morningNotified) continue;
+      if (task.lastMorningNotifiedDate === today) continue;
       if (task.completed) continue;
-      const taskDateKST = toKSTDateStr(task.scheduledAt);
-      if (taskDateKST > today) continue;
+      const startDate = toKSTDateStr(task.scheduledAt);
+
+      if (task.scheduledEndAt) {
+        if (startDate > today || today > task.scheduledEndAt) continue;
+      } else {
+        if (startDate > today) continue;
+      }
 
       const ownerName =
         preloaded.users.find((u) => u.id === task.userId)?.username ||
         "알 수 없음";
       const timeKST = toKSTTimeStr(task.scheduledAt);
-      const isOverdue = taskDateKST < today;
+      const isOverdue = !task.scheduledEndAt && startDate < today;
+
+      const dateLabel = task.scheduledEndAt
+        ? `${formatDateShort(startDate)} ~ ${formatDateShort(task.scheduledEndAt)}`
+        : `${startDate} ${timeKST}`;
 
       await sendPushToUser(
         task.userId,
         isOverdue
           ? `📅 미발송 일정: ${task.title}`
           : `📅 오늘 일정: ${task.title}`,
-        `${taskDateKST} ${timeKST}에 예정된 일정입니다.`,
+        task.scheduledEndAt
+          ? `${dateLabel} 기간 중 일정입니다.`
+          : `${dateLabel}에 예정된 일정입니다.`,
         "/schedule",
       );
 
@@ -373,7 +390,9 @@ async function sendDailyDigest() {
         await sendPushToUser(
           targetId,
           `📅 공유 일정: ${task.title}`,
-          `${ownerName}님의 일정 | ${taskDateKST} ${timeKST} 예정`,
+          task.scheduledEndAt
+            ? `${ownerName}님의 일정 | ${dateLabel} 기간 중`
+            : `${ownerName}님의 일정 | ${dateLabel} 예정`,
           "/schedule",
         );
       }
@@ -409,7 +428,7 @@ async function sendDailyDigest() {
 
     // ④ Mark morning push tasks as notified
     for (const taskId of morningNotifyTaskIds) {
-      await storage.updatePersonalTask(taskId, { morningNotified: true });
+      await storage.updatePersonalTask(taskId, { lastMorningNotifiedDate: today });
     }
 
     // ⑤ Record completion date (only when all emails succeeded)

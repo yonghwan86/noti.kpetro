@@ -144,12 +144,15 @@ export const personalTasks = pgTable("personal_tasks", {
   shareScope: text("share_scope").notNull().default("private"),
   shareTeamIds: text("share_team_ids").array().default(sql`'{}'::text[]`),
   shareUserIds: text("share_user_ids").array().default(sql`'{}'::text[]`),
-  morningNotified: boolean("morning_notified").notNull().default(false),
+  scheduledEndAt: text("scheduled_end_at"),
+  lastMorningNotifiedDate: text("last_morning_notified_date"),
   reminderNotified: boolean("reminder_notified").notNull().default(false),
   emailDigestSent: boolean("email_digest_sent").notNull().default(false),
   createdAt: text("created_at").notNull(),
 });
 
-export const insertPersonalTaskSchema = createInsertSchema(personalTasks).omit({ id: true, morningNotified: true, reminderNotified: true, emailDigestSent: true });
+export const insertPersonalTaskSchema = createInsertSchema(personalTasks)
+  .omit({ id: true, lastMorningNotifiedDate: true, reminderNotified: true, emailDigestSent: true })
+  .extend({ scheduledEndAt: z.string().nullable().optional() });
 export type InsertPersonalTask = z.infer<typeof insertPersonalTaskSchema>;
 export type PersonalTask = typeof personalTasks.$inferSelect;
