@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { PersonalTask, Team, User, ShareScope, RepeatType, Asset, CreatePersonalTaskPayload, UpdatePersonalTaskPayload } from "@/lib/types";
+import { PersonalTask, Team, User, ShareScope, RepeatType, Asset, CreatePersonalTaskPayload, UpdatePersonalTaskPayload, TaskFilter } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export default function MySchedule() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithShared | null>(null);
-  const [filter, setFilter] = useState<'all' | 'mine' | 'shared' | 'today' | 'completed'>('all');
+  const [filter, setFilter] = useState<TaskFilter>('all');
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

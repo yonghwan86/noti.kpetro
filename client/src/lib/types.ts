@@ -76,6 +76,7 @@ export interface AssetHistory {
 
 export type ShareScope = 'private' | 'selected';
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
+export type TaskFilter = 'all' | 'mine' | 'shared' | 'today' | 'completed';
 
 export interface PersonalTask {
   id: string;

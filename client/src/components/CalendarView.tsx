@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   getMonthGridDates, toDateKey, getTaskStartKey, getBarPosition,
 } from '@/lib/calendarUtils';
-import type { PersonalTask, Asset } from '@/lib/types';
+import type { PersonalTask, Asset, TaskFilter } from '@/lib/types';
 
 type TaskWithShared = PersonalTask & { isShared?: boolean };
 
@@ -13,7 +13,7 @@ interface CalendarViewProps {
   tasks: TaskWithShared[];
   allTasks: TaskWithShared[];
   assets: Asset[];
-  filter: string;
+  filter: TaskFilter;
   calendarMonth: Date;
   onPrevMonth: () => void;
   onNextMonth: () => void;
@@ -28,9 +28,20 @@ export default function CalendarView({
 }: CalendarViewProps) {
 
   const displayTasks = (() => {
-    if (filter === 'completed') return tasks;
-    if (filter === 'today') return allTasks;
-    return tasks.filter(t => !t.completed);
+    switch (filter) {
+      case 'completed':
+        return tasks;
+      case 'today':
+        return allTasks;
+      case 'all':
+      case 'mine':
+      case 'shared':
+        return tasks.filter(t => !t.completed);
+      default: {
+        const _exhaustive: never = filter;
+        return tasks.filter(t => !t.completed);
+      }
+    }
   })();
 
   const sortedTasks = [...displayTasks].sort((a, b) => {
@@ -67,8 +78,8 @@ export default function CalendarView({
 
       cellItems.push(
         <div
-          key={`bar-${task.id}`}
-          data-testid={`calendar-task-${task.id}`}
+          key={`bar-${task.id}-${dateKey}`}
+          data-testid={`calendar-task-${task.id}-${dateKey}`}
           className={`text-[10px] leading-4 px-1 py-0 text-white truncate cursor-pointer ${bgColor} ${roundedClass} ${priorityBorder}`}
           onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
         >
@@ -88,8 +99,8 @@ export default function CalendarView({
 
       cellItems.push(
         <div
-          key={`pill-${task.id}`}
-          data-testid={`calendar-task-${task.id}`}
+          key={`pill-${task.id}-${dateKey}`}
+          data-testid={`calendar-task-${task.id}-${dateKey}`}
           className={`text-[10px] leading-4 px-1 py-0 text-white truncate rounded-sm cursor-pointer ${bgColor} ${priorityBorder}`}
           onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
         >
