@@ -12,10 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO, isToday, isThisWeek, isPast, isFuture } from "date-fns";
+import { format, parseISO, isToday, isThisWeek, isPast, isFuture, addMonths, startOfMonth } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
-  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat
+  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat, List, CalendarDays
 } from "lucide-react";
 import ShareTargetSelector from "@/components/ShareTargetSelector";
 
@@ -46,6 +46,11 @@ export default function MySchedule() {
   const [scheduledEndAt, setScheduledEndAt] = useState("");
   const [label, setLabel] = useState<string | null>(null);
   const [priority, setPriority] = useState<number>(0);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
 
   const { data: tasks = [], isLoading } = useQuery<TaskWithShared[]>({
     queryKey: ["/api/personal-tasks"],
@@ -60,6 +65,11 @@ export default function MySchedule() {
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: () => api.users.getAll(),
+  });
+
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+    queryFn: () => api.assets.getAll(),
   });
 
   const createMutation = useMutation({
@@ -122,8 +132,14 @@ export default function MySchedule() {
     setPriority(0);
   };
 
-  const openCreate = () => {
+  const openCreate = (date?: Date) => {
     closeDialog();
+    if (date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      setScheduledAt(`${y}-${m}-${d}T09:00`);
+    }
     setDialogOpen(true);
   };
 
@@ -399,10 +415,34 @@ export default function MySchedule() {
             <p className="text-sm text-muted-foreground hidden sm:block">개인 업무 일정을 관리하고 알림을 받으세요</p>
           </div>
         </div>
-        <Button onClick={openCreate} data-testid="button-create-task">
-          <Plus className="h-4 w-4 mr-2" />
-          일정 등록
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border overflow-hidden">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('list')}
+              data-testid="toggle-view-list"
+            >
+              <List className="h-4 w-4 mr-1" />
+              목록
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none"
+              onClick={() => setViewMode('calendar')}
+              data-testid="toggle-view-calendar"
+            >
+              <CalendarDays className="h-4 w-4 mr-1" />
+              캘린더
+            </Button>
+          </div>
+          <Button onClick={() => openCreate()} data-testid="button-create-task">
+            <Plus className="h-4 w-4 mr-2" />
+            일정 등록
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
