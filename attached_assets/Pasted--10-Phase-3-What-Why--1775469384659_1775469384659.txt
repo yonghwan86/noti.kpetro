@@ -1,0 +1,289 @@
+#10 - 내 일정 캘린더 뷰 전환 + 기간 바 렌더링 + 장비 점검 오버레이 — Phase 3
+What & Why
+
+현재 내 일정 페이지는 목록 중심이라 월 단위 일정 분포, 기간 일정의 길이, 점검 예정일과 개인 일정의 겹침을 한눈에 보기 어렵다.
+기존 리스트 뷰는 유지하고, 동일한 일정 데이터를 월간 캘린더 뷰로 재구성하여 일정 밀도·기간·우선순위를 직관적으로 파악할 수 있게 한다. 또한 기존 장비 데이터의 nextDueDate를 활용해 장비 점검 예정일 오버레이를 함께 표시한다.
+
+핵심 원칙
+새 DB 컬럼 추가 없음
+Phase 3는 기존 데이터만 재사용한다.
+개인 일정: scheduledAt, scheduledEndAt, shareScope, label, priority, completed
+장비 점검: assets[].nextDueDate, assets[].status, assets[].name
+리스트 뷰 유지 + 캘린더 뷰 추가
+기존 “목록” UI는 그대로 두고, 상단에 “목록 / 캘린더” 토글을 추가한다. 기본값은 기존과 동일하게 목록 뷰다. 목업도 이 구조를 전제로 한다.
+기존 등록/수정 다이얼로그 재사용
+일정 생성/수정은 Phase 2의 MySchedule.tsx 다이얼로그와 동일한 payload 구조를 재사용한다. 따라서 캘린더 날짜 클릭 시에도 새 전용 폼을 만들지 않고 기존 다이얼로그 state를 재사용한다.
+payload 타입 정리 선반영
+캘린더 뷰에서도 create/update를 재사용할 예정이므로, api.ts의 personalTasks create/update 타입을 실제 payload 기준으로 먼저 정리한다. 이건 Phase 3 착수 전 필수 선행 작업이다.
+Phase 3에서 재사용할 기존 데이터 필드
+개인 일정(PersonalTask)
+
+아래 필드는 이미 Phase 1~2에 존재하며 캘린더 렌더링에 그대로 사용한다.
+
+id
+title
+description
+scheduledAt
+scheduledEndAt
+completed
+shareScope
+shareTeamIds
+shareUserIds
+label
+priority
+userId
+장비 점검(Asset)
+
+장비 점검 오버레이는 기존 assets 데이터에서 아래 필드를 사용한다.
+
+id
+name
+nextDueDate
+status
+별도 스키마 변경 없이 /api/assets 응답을 그대로 활용한다.
+payload 타입 정리 — Phase 3 선행 작업
+문제
+
+현재 api.personalTasks.create는 Omit<PersonalTask, "id" | "createdAt">를 사용하고 있어 생성 시점에 필요 없는 lastMorningNotifiedDate 같은 필드까지 타입상 허용된다. 캘린더 뷰에서도 같은 create/update API를 재사용할 예정이므로, payload 타입을 실제 사용 필드 기준으로 분리해야 한다.
+
+수정 지시
+
+client/src/lib/types.ts 또는 api.ts 인접 영역에 아래 타입 추가:
+
+export interface CreatePersonalTaskPayload {
+  title: string;
+  description?: string | null;
+  scheduledAt: string;
+  scheduledEndAt?: string | null;
+  repeatType: RepeatType;
+  shareScope: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+  userId?: string;
+  completed?: boolean;
+}
+
+export interface UpdatePersonalTaskPayload {
+  title?: string;
+  description?: string | null;
+  scheduledAt?: string;
+  scheduledEndAt?: string | null;
+  repeatType?: RepeatType;
+  completed?: boolean;
+  shareScope?: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+}
+
+api.ts 수정:
+
+create: async (task: CreatePersonalTaskPayload): Promise<PersonalTask> => { ... }
+update: async (id: string, updates: UpdatePersonalTaskPayload): Promise<PersonalTask> => { ... }
+
+설명:
+
+lastMorningNotifiedDate, createdAt 등 서버 관리 필드는 payload 타입에서 제외
+Phase 2 리스트 뷰와 Phase 3 캘린더 뷰가 동일 payload 타입을 재사용
+MySchedule.tsx의 createMutation, updateMutation, checklistMutation도 이 타입으로 수렴 가능
+Done looks like
+상단에 “목록 / 캘린더” 토글 추가
+캘린더 뷰 선택 시 월간 grid 표시
+월 이동(이전 / 다음), 오늘 이동 버튼 제공
+일~토 7열 grid, 월 외 날짜는 흐리게 표시
+개인 일정은 날짜 셀 안에 렌더링
+기간 일정은 여러 날짜에 걸쳐 bar 형태로 렌더링
+내 일정 / 공유받은 일정 / 장비 점검이 서로 구분되는 색과 범례 제공
+장비 점검 예정일은 assets의 nextDueDate를 기준으로 오버레이 표시
+날짜 셀 클릭 시 기존 일정 등록 다이얼로그 열기
+일정 bar 클릭 시 기존 수정 다이얼로그 열기
+기존 리스트 뷰 기능은 그대로 유지
+기존 Phase 2의 label/priority/checklist는 리스트 뷰에 유지되고, 캘린더에서는 핵심 정보만 축약해 표시
+Out of scope
+drag & drop 일정 이동
+주간/일간 뷰
+캘린더 안에서 체크리스트 직접 토글
+라벨별 필터 탭
+recurring 시리즈 전개 고도화
+장비 점검 편집/수정 기능을 캘린더에서 직접 제공
+렌더링 정책
+1. 뷰 전환
+
+상단 필터 우측에 목록 / 캘린더 토글 추가.
+
+기본값: 목록
+상태값 예시: viewMode: "list" | "calendar"
+기존 필터(전체, 내 일정, 공유받은, 오늘, 완료)는 두 뷰에서 공통 유지
+단, 캘린더에서는 completed 일정도 기본 숨김 유지 권장.
+2. 달력 기준
+월간 뷰
+주 시작: 일요일
+6행 7열 고정 grid
+현재 월이 아닌 날짜는 흐린 색 표시
+오늘 날짜 셀은 별도 강조 가능
+헤더: 2026년 4월 형식
+
+3. 개인 일정 렌더링
+단일 일정
+scheduledEndAt == null
+일정이 속한 날짜 셀에 pill 형태로 1줄 렌더링
+제목 축약 표시
+시간이 있으면 제목 뒤에 간단 표시 가능 (팀 회의 14:00)
+기간 일정
+scheduledEndAt != null
+startDate = format(parseISO(scheduledAt), 'yyyy-MM-dd')
+endDate = scheduledEndAt
+시작일~종료일 범위에 걸쳐 bar 렌더링
+시작일 셀: 왼쪽 rounded
+중간 셀: 직사각형
+종료일 셀: 오른쪽 rounded
+시작일 셀에는 제목 표시
+중간 셀은 bar만 표시
+종료일 셀에는 필요 시 → 4/10 같은 종료 표시 허용
+4. 색상 규칙
+
+캘린더는 Phase 2 라벨 색상과 목업 색상을 동시에 고려해 아래 우선순위로 렌더링:
+
+일정 소유 구분
+내 일정: 보라 계열
+공유받은 일정: 파랑 계열
+라벨 보조색
+
+label === "inspection"인 개인 일정은 amber 계열 사용 가능
+단, 장비 점검 오버레이와 혼동되지 않도록 개인 일정 라벨 색보다 장비 점검 오버레이를 더 연하고 얇게 렌더링 권장.
+
+5. 우선순위 표시
+
+캘린더 셀은 공간이 좁으므로 Phase 2처럼 별도 배지를 모두 붙이지 않는다.
+
+priority === 3: 제목 앞 점 또는 좌측 border 강조
+priority === 2: 약한 강조
+priority 0/1: 일반 표시
+
+즉, 리스트 뷰는 뱃지, 캘린더는 밀도 때문에 미묘한 강조만 사용한다.
+이건 목업의 미니멀한 셀 구조와도 맞다.
+
+6. 장비 점검 오버레이
+
+/api/assets 데이터를 추가로 조회하여 현재 월 내 nextDueDate가 있는 장비를 날짜 셀에 표시한다.
+
+기본 소스: assets.filter(a => a.status !== 'suspended')
+날짜 키: asset.nextDueDate
+셀당 최대 1~2개만 표시
+예시 문구:
+A동 소화기 점검 D-4
+점검일
+캘린더 일정 bar보다 시각적 우선순위는 낮게 표시
+(배경 연한 amber, 작은 pill)
+7. 범례
+
+헤더 우측에 범례 표시:
+
+내 일정
+공유받은
+장비 점검
+목업 구조 그대로 유지.
+구현 Tasks
+Task 1. payload 타입 정리
+
+파일:
+
+client/src/lib/types.ts
+client/src/lib/api.ts
+
+작업:
+
+CreatePersonalTaskPayload, UpdatePersonalTaskPayload 정의
+api.personalTasks.create/update 시그니처 교체
+MySchedule.tsx mutation 호출부 타입 정리
+Task 2. 캘린더 뷰 상태 추가
+
+파일:
+
+client/src/pages/MySchedule.tsx
+
+작업:
+
+viewMode: 'list' | 'calendar'
+calendarMonth: Date
+상단 토글 버튼 추가
+이전/다음 월 이동
+오늘 버튼
+Task 3. 캘린더 데이터 가공 함수 추가
+
+파일:
+
+client/src/pages/MySchedule.tsx 또는 calendarUtils.ts
+
+작업:
+
+월간 grid 날짜 배열 생성
+task를 날짜별로 매핑
+기간 일정 bar segment 계산
+assets를 날짜별 점검 오버레이로 매핑
+
+권장 헬퍼:
+
+getMonthGridDates(month: Date): Date[]
+toDateKey(date: Date): string
+getTaskSpan(task): { start: string; end: string }
+buildCalendarItems(tasks, assets, month)
+Task 4. assets 조회 추가
+
+파일:
+
+client/src/pages/MySchedule.tsx
+
+작업:
+
+api.assets.getAll() useQuery 추가
+캘린더에서만 사용해도 되지만, 조건부 렌더링만 하면 상시 조회도 가능
+status !== 'suspended' 필터 적용
+Task 5. 캘린더 grid UI 구현
+
+파일:
+
+client/src/pages/MySchedule.tsx
+
+작업:
+
+7열 헤더(일~토)
+6주 grid
+월 외 날짜 흐림 표시
+셀 내부에
+단일 일정 pill
+기간 일정 bar
+점검 오버레이
+렌더링
+Task 6. 기존 다이얼로그 재사용
+
+파일:
+
+client/src/pages/MySchedule.tsx
+
+작업:
+
+날짜 셀 클릭 → openCreate() + scheduledAt 초기값 주입
+일정 클릭 → openEdit(task)
+캘린더에서 생성/수정 후 기존 query invalidate 재사용
+Task 7. 필터 연동
+
+파일:
+
+client/src/pages/MySchedule.tsx
+
+작업:
+
+기존 filter 상태를 캘린더에도 동일 적용
+mine/shared/today/completed가 캘린더 아이템에도 반영되도록 기존 filteredTasks 또는 캘린더용 filteredCalendarTasks 재사용/분기
+구현 전 마지막 확인
+실제 화면에서 Phase 2 일정 생성/수정이 정상이라고 했으므로 payload 구조는 이미 백엔드와 맞아 있다고 볼 수 있다.
+따라서 Phase 3의 리스크는 “저장”이 아니라 렌더링 규칙과 뷰 상태 관리 쪽에 있다.
+지금 시점에서 Phase 3를 막는 데이터 모델 부족은 없다.
+즉, 새로운 스키마 없이도 Phase 3 구현 가능하다.
+개발자에게 전달할 핵심 한 줄
+
+“Phase 3는 새 테이블/새 컬럼 없이, 기존 PersonalTask와 Asset 데이터를 재가공해 목록↔캘린더 뷰를 추가하는 작업입니다. 시작 전에 api.personalTasks.create/update payload 타입만 실제 입력 구조로 좁혀 주세요.”

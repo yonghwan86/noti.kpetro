@@ -1,0 +1,658 @@
+# Phase 3 — 캘린더 뷰 구현 (최종)
+
+실행 순서: #11 → #12 → #13
+전제: Phase 2(#8, #9) 완료 후 진행
+
+---
+
+# #11 - Phase 3 선행 — API payload 타입 정리
+
+## What & Why
+`api.personalTasks.create`가 `Omit<PersonalTask, "id" | "createdAt">`를 사용해 `lastMorningNotifiedDate` 같은 서버 전용 필드까지 허용된다. Phase 3 캘린더 뷰에서도 동일 create/update API를 재사용하므로 payload 타입을 실제 입력 필드 기준으로 좁혀 타입 안전성을 확보한다.
+
+## Done looks like
+- `client/src/lib/types.ts`에 `CreatePersonalTaskPayload`, `UpdatePersonalTaskPayload` 타입 추가
+- `client/src/lib/api.ts` `personalTasks.create`/`update` 시그니처가 새 타입 사용
+- `client/src/pages/MySchedule.tsx`의 `createMutation`, `updateMutation` 인수 타입이 `any`에서 새 타입으로 교체
+- `checklistMutation`은 Phase 2 구현 시 확정된 시그니처를 존중하고, 내부에서 `api.personalTasks.update`를 호출하는 부분만 `UpdatePersonalTaskPayload` 호환을 확인
+- 기존 동작은 변경 없음 (런타임 코드 변경 없이 타입 시그니처만 교체)
+
+## Out of scope
+- 런타임 로직 변경 (타입 시그니처 교체만)
+- handleSubmit 내부의 data 변수 타입 강제 (분기가 복잡하므로 타입 에러 시 해당 변수만 `as` 처리 허용)
+
+## Dependencies
+- Phase 2(#8, #9) 완료 — `label`, `priority`, `checklistMutation`이 Phase 2에서 추가됨
+
+## Tasks
+
+### 1. types.ts — CreatePersonalTaskPayload / UpdatePersonalTaskPayload 추가
+
+PersonalTask 인터페이스 아래에 추가 (types.ts:96행 이후):
+
+```typescript
+export interface CreatePersonalTaskPayload {
+  title: string;
+  description?: string | null;
+  scheduledAt: string;
+  scheduledEndAt?: string | null;
+  repeatType: RepeatType;
+  shareScope: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+  userId?: string;       // 서버가 currentUser.id로 덮어쓰지만 현재 프론트에서 전송 중
+  completed?: boolean;   // 서버가 false로 강제하지만 현재 프론트에서 전송 중
+}
+
+export interface UpdatePersonalTaskPayload {
+  title?: string;
+  description?: string | null;
+  scheduledAt?: string;
+  scheduledEndAt?: string | null;
+  repeatType?: RepeatType;
+  completed?: boolean;
+  shareScope?: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+}
+```
+
+### 2. api.ts — create/update 시그니처 교체
+
+import 추가 (api.ts:1행):
+```typescript
+import { Asset, Team, User, InspectionLog, Category, AssetHistory, PersonalTask, CreatePersonalTaskPayload, UpdatePersonalTaskPayload } from "./types";
+```
+
+personalTasks.create (api.ts:228행) 변경:
+```typescript
+// 변경 전:
+create: async (task: Omit<PersonalTask, "id" | "createdAt">): Promise<PersonalTask> =>
+// 변경 후:
+create: async (task: CreatePersonalTaskPayload): Promise<PersonalTask> =>
+```
+
+personalTasks.update (api.ts:237행) 변경:
+```typescript
+// 변경 전:
+update: async (id: string, updates: Partial<PersonalTask>): Promise<PersonalTask> =>
+// 변경 후:
+update: async (id: string, updates: UpdatePersonalTaskPayload): Promise<PersonalTask> =>
+```
+
+### 3. MySchedule.tsx — mutation mutationFn 타입 교체
+
+import 추가 (4행):
+```typescript
+import { PersonalTask, Team, User, ShareScope, RepeatType, Asset, CreatePersonalTaskPayload, UpdatePersonalTaskPayload } from "@/lib/types";
+```
+
+createMutation (63행) 변경:
+```typescript
+// 변경 전: mutationFn: (data: any) => api.personalTasks.create(data),
+// 변경 후:
+mutationFn: (data: CreatePersonalTaskPayload) => api.personalTasks.create(data),
+```
+
+updateMutation (73행) 변경:
+```typescript
+// 변경 전: mutationFn: ({ id, data }: { id: string; data: any }) => api.personalTasks.update(id, data),
+// 변경 후:
+mutationFn: ({ id, data }: { id: string; data: UpdatePersonalTaskPayload }) => api.personalTasks.update(id, data),
+```
+
+checklistMutation (Phase 2 #9에서 추가됨):
+
+> checklistMutation은 Phase 2 구현 시 확정된 시그니처(인수 구조)를 그대로 유지한다. 내부에서 `api.personalTasks.update(id, ...)`를 호출하는 부분의 두 번째 인수가 `UpdatePersonalTaskPayload`와 호환되는지만 확인한다. Phase 2에서 `{ id, data }` 형태로 구현되었으면 data 타입을 `UpdatePersonalTaskPayload`로 교체하고, `{ id, description }` 형태로 구현되었으면 `api.personalTasks.update(id, { description })`의 `{ description }` 부분이 `UpdatePersonalTaskPayload`의 부분집합이므로 별도 변경 없이 호환된다.
+
+## Relevant files
+- client/src/lib/types.ts:81-96 (PersonalTask 아래)
+- client/src/lib/api.ts:1 (import), 228 (create), 237 (update)
+- client/src/pages/MySchedule.tsx:4 (import), 63-96 (mutations)
+
+---
+
+# #12 - Phase 3 인프라 — 캘린더 상태 + 유틸 + assets 조회 + openCreate 수정
+
+## What & Why
+CalendarView 컴포넌트가 필요로 하는 데이터와 상태를 MySchedule.tsx에 준비한다. 날짜 계산 로직을 별도 유틸 파일로 분리하여 컴포넌트를 단순하게 유지한다.
+
+## Done looks like
+- MySchedule.tsx에 `viewMode`, `calendarMonth` 상태 추가
+- 헤더 영역 우측에 "목록 / 캘린더" 토글 버튼 추가 (기존 "일정 등록" 버튼 왼쪽)
+- MySchedule.tsx에 assets useQuery 추가
+- `openCreate(date?: Date)` 시그니처 변경 — 날짜 전달 시 scheduledAt을 `YYYY-MM-DDTHH:MM` 형식으로 초기화 (기본 09:00)
+- **기존 `onClick={openCreate}`를 `onClick={() => openCreate()}`로 변경** — Event 객체가 date 파라미터로 전달되는 런타임 크래시 방지
+- `client/src/lib/calendarUtils.ts` 신규 파일 생성 — **42칸 고정** grid 생성 (6주 × 7일)
+
+## Out of scope
+- CalendarView 컴포넌트 구현 (#13에서 처리)
+- viewMode에 따른 조건부 렌더링 (#13에서 처리)
+
+## Dependencies
+- #11 완료 (타입 정리, Asset import)
+
+## Tasks
+
+### 1. MySchedule.tsx — import 추가 + 상태 추가
+
+date-fns import 추가 (15행):
+```typescript
+// 변경 전:
+import { format, parseISO, isToday, isThisWeek, isPast, isFuture } from "date-fns";
+// 변경 후:
+import { format, parseISO, isToday, isThisWeek, isPast, isFuture, addMonths, startOfMonth } from "date-fns";
+```
+
+lucide import 추가 (17-19행):
+```typescript
+// 변경 전:
+import {
+  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat
+} from "lucide-react";
+// 변경 후:
+import {
+  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat, List, CalendarDays
+} from "lucide-react";
+```
+
+> types.ts import에 `Asset`은 #11에서 이미 추가됨. 여기서 확인만.
+
+상태 추가 (기존 state 블록 끝, 46행 이후):
+```typescript
+const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+});
+```
+
+### 2. MySchedule.tsx — assets useQuery 추가
+
+tasks/teams/users useQuery 아래(61행 이후)에 추가:
+```typescript
+const { data: assets = [] } = useQuery<Asset[]>({
+  queryKey: ["/api/assets"],
+  queryFn: () => api.assets.getAll(),
+});
+```
+
+> `GET /api/assets`는 인증 없이 접근 가능 (routes.ts:357). 캘린더 뷰에서 장비 점검 오버레이에 사용.
+
+### 3. MySchedule.tsx — openCreate 시그니처 수정
+
+현재 (112-115행):
+```typescript
+const openCreate = () => {
+  closeDialog();
+  setDialogOpen(true);
+};
+```
+
+변경 후:
+```typescript
+const openCreate = (date?: Date) => {
+  closeDialog();
+  if (date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    setScheduledAt(`${y}-${m}-${d}T09:00`);
+  }
+  setDialogOpen(true);
+};
+```
+
+**기존 헤더 버튼 호출부도 반드시 수정** (327행):
+```tsx
+// 변경 전:
+<Button onClick={openCreate} data-testid="button-create-task">
+// 변경 후:
+<Button onClick={() => openCreate()} data-testid="button-create-task">
+```
+
+> ⚠️ 필수 수정. `onClick={openCreate}`는 React SyntheticEvent를 첫 번째 인수로 전달한다. `openCreate(date?: Date)` 시그니처에서 Event 객체가 date로 해석되면 `event.getFullYear()`에서 런타임 크래시 발생. `onClick={() => openCreate()}`로 래핑해야 인수 없이 호출된다.
+
+### 4. MySchedule.tsx — 헤더에 목록/캘린더 토글 추가
+
+기존 헤더 우측 버튼 영역(326-330행)을 토글 포함 구조로 교체:
+```tsx
+<div className="flex items-center gap-2">
+  <div className="flex rounded-md border overflow-hidden">
+    <Button
+      variant={viewMode === 'list' ? 'default' : 'ghost'}
+      size="sm"
+      className="rounded-none"
+      onClick={() => setViewMode('list')}
+      data-testid="toggle-view-list"
+    >
+      <List className="h-4 w-4 mr-1" />
+      목록
+    </Button>
+    <Button
+      variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+      size="sm"
+      className="rounded-none"
+      onClick={() => setViewMode('calendar')}
+      data-testid="toggle-view-calendar"
+    >
+      <CalendarDays className="h-4 w-4 mr-1" />
+      캘린더
+    </Button>
+  </div>
+  <Button onClick={() => openCreate()} data-testid="button-create-task">
+    <Plus className="h-4 w-4 mr-2" />
+    일정 등록
+  </Button>
+</div>
+```
+
+### 5. calendarUtils.ts 신규 파일 생성
+
+`client/src/lib/calendarUtils.ts`:
+
+```typescript
+import { startOfMonth, startOfWeek, addDays, format, parseISO } from 'date-fns';
+import type { PersonalTask } from './types';
+
+/**
+ * 월간 캘린더 grid에 표시할 날짜 배열 (항상 42개 = 6주 × 7일)
+ * 달에 따라 5주만 필요한 경우에도 42칸 고정 — grid 높이 안정성 보장
+ */
+export function getMonthGridDates(month: Date): Date[] {
+  const start = startOfWeek(startOfMonth(month), { weekStartsOn: 0 }); // 일요일 시작
+  return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
+/** Date → 'YYYY-MM-DD' */
+export function toDateKey(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+/** scheduledAt(datetime) → 로컬 시간대 기준 'YYYY-MM-DD' (기존 리스트 뷰와 동일 방식) */
+export function getTaskStartKey(task: PersonalTask): string {
+  return format(parseISO(task.scheduledAt), 'yyyy-MM-dd');
+}
+
+/** scheduledEndAt 또는 startKey fallback */
+export function getTaskEndKey(task: PersonalTask): string {
+  return task.scheduledEndAt ?? getTaskStartKey(task);
+}
+
+/** 날짜 dateKey가 task 범위에 포함되는지 */
+export function taskCoversDate(task: PersonalTask, dateKey: string): boolean {
+  const start = getTaskStartKey(task);
+  const end = getTaskEndKey(task);
+  return start <= dateKey && dateKey <= end;
+}
+
+/**
+ * 범위 일정에서 특정 날짜의 시각적 위치 (주 경계 보정 포함)
+ *
+ * rowStartKey/rowEndKey: 해당 셀이 속한 주(행)의 첫째/마지막 날짜
+ * 기간 일정이 주를 넘을 때, 행의 마지막 셀은 'end'(rounded-r),
+ * 다음 행의 첫 셀은 'start'(rounded-l)로 렌더링되어 시각적 연속성을 유지한다.
+ */
+export function getBarPosition(
+  task: PersonalTask,
+  dateKey: string,
+  rowStartKey: string,
+  rowEndKey: string,
+): 'start' | 'middle' | 'end' | 'single' | null {
+  if (!taskCoversDate(task, dateKey)) return null;
+  const taskStart = getTaskStartKey(task);
+  const taskEnd = getTaskEndKey(task);
+  if (taskStart === taskEnd) return 'single';
+
+  const isVisualStart = dateKey === taskStart || dateKey === rowStartKey;
+  const isVisualEnd = dateKey === taskEnd || dateKey === rowEndKey;
+
+  if (isVisualStart && isVisualEnd) return 'single';
+  if (isVisualStart) return 'start';
+  if (isVisualEnd) return 'end';
+  return 'middle';
+}
+```
+
+> `eachDayOfInterval` 대신 `addDays`로 42칸 고정. import에 `addDays` 포함.
+
+## Relevant files
+- client/src/pages/MySchedule.tsx:1-30 (imports), 34-46 (state), 48-65 (queries), 112-115 (openCreate), 326-330 (헤더 버튼)
+- client/src/lib/calendarUtils.ts (신규)
+- client/src/lib/types.ts (import용 — #11에서 정리됨)
+
+---
+
+# #13 - Phase 3 UI — CalendarView 컴포넌트 구현 + 다이얼로그 연동
+
+## What & Why
+월간 캘린더 뷰를 별도 컴포넌트로 구현한다. MySchedule.tsx가 이미 600줄 이상이므로 CalendarView.tsx를 분리해 관리 가능하게 유지한다. 기존 openCreate/openEdit 다이얼로그를 재사용해 캘린더에서 일정 생성/수정이 가능하게 한다.
+
+## 완료 일정 표시 정책
+
+캘린더 셀은 공간이 좁으므로 기본적으로 미완료 일정 중심으로 표시한다.
+
+| 필터 | 캘린더에 표시되는 일정 | 비고 |
+|---|---|---|
+| `all` | 미완료만 | 리스트 뷰는 완료를 별도 Card로 분리, 캘린더는 제외 |
+| `mine` | 내 미완료만 | |
+| `shared` | 공유받은 미완료만 | |
+| `today` | **전체 미완료** (필터 무시) | 오늘 셀만 시각적 강조, 월 전체 일정 표시 |
+| `completed` | 완료만 | 캘린더에서도 완료 일정 확인 가능 |
+
+## 셀 내부 정렬 규칙
+
+같은 날짜 셀에 여러 일정이 있을 때: **기간 일정 → 단일 일정 → 장비 점검** 순서로 그룹핑하고, 각 그룹 내에서는 **priority DESC → startDate ASC → title ASC** 순서로 정렬한다.
+
+## Done looks like
+- `client/src/components/CalendarView.tsx` 신규 컴포넌트
+- MySchedule.tsx에서 `viewMode === 'calendar'`일 때 CalendarView 렌더링, `viewMode === 'list'`일 때 기존 Card 블록 렌더링
+- 캘린더 헤더: "2026년 4월" + 이전/다음/오늘 버튼 + 범례
+- 7열(일~토) 헤더 행 + 6주 × 7열 grid (항상 42칸)
+- 이번 달 외 날짜는 흐린 색, 오늘 날짜 셀 강조
+- 단일 일정: pill 렌더링 (제목 truncate)
+- 기간 일정: bar 조각 렌더링 (시작=rounded-l, 중간=직사각형, 끝=rounded-r, 주 경계 보정 포함)
+- 장비 점검 오버레이: amber pill (셀당 최대 2개, 초과 시 "+N개")
+- 날짜 셀 클릭 → openCreate(date), pill/bar 클릭 → openEdit(task) (`e.stopPropagation()` 필수)
+- 캘린더 완료 일정 정책: 위 표 기준
+
+## Out of scope
+- 캘린더에서 라벨(label) 색상 반영 — 소유자 기준 색상(보라/파랑)만 사용, 라벨별 색상 분기는 별도 Phase
+- 기간 일정 bar 슬롯 할당 알고리즘 — 같은 셀에 여러 bar가 겹칠 때 동일 task bar가 같은 행 위치에 오도록 하는 고도화는 별도 Phase
+- TaskWithShared 타입 공용화 — 현재 MySchedule.tsx와 CalendarView.tsx에서 각각 정의, 추후 types.ts로 이동 검토
+- 모바일 캘린더 최적화 — 현재는 7열 grid 그대로 표시, 모바일에서는 뷰 토글로 리스트 전환 권장
+
+## Dependencies
+- #12 완료 (viewMode, calendarMonth, assets query, openCreate, calendarUtils.ts)
+
+## Tasks
+
+### 1. CalendarView.tsx — 인터페이스 + 기본 구조
+
+`client/src/components/CalendarView.tsx` 신규 생성:
+
+```typescript
+import { format, isSameMonth, isToday as isDateToday } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  getMonthGridDates, toDateKey, getTaskStartKey, getTaskEndKey,
+  taskCoversDate, getBarPosition,
+} from '@/lib/calendarUtils';
+import type { PersonalTask, Asset } from '@/lib/types';
+
+type TaskWithShared = PersonalTask & { isShared?: boolean };
+
+interface CalendarViewProps {
+  tasks: TaskWithShared[];        // filteredTasks
+  allTasks: TaskWithShared[];     // 전체 미완료 목록 (today 필터 시 사용)
+  assets: Asset[];
+  filter: string;                 // 현재 필터 상태
+  calendarMonth: Date;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  onToday: () => void;
+  onDateClick: (date: Date) => void;
+  onTaskClick: (task: TaskWithShared) => void;
+}
+```
+
+> `currentUserId` prop은 제거 — `task.isShared`로 내 일정/공유받은 구분이 이미 가능하며, 컴포넌트 내에서 사용하지 않음.
+
+### 2. CalendarView.tsx — 헤더 (월 이동 + 범례)
+
+```tsx
+export default function CalendarView({
+  tasks, allTasks, assets, filter, calendarMonth,
+  onPrevMonth, onNextMonth, onToday, onDateClick, onTaskClick,
+}: CalendarViewProps) {
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3" data-testid="calendar-header">
+        <div className="flex items-center gap-3">
+          <h3 className="text-base font-medium">
+            {format(calendarMonth, 'yyyy년 M월', { locale: ko })}
+          </h3>
+          <div className="flex gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={onPrevMonth} data-testid="button-prev-month">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onToday} data-testid="button-today">
+              오늘
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={onNextMonth} data-testid="button-next-month">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
+            내 일정
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+            공유받은
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+            장비 점검
+          </span>
+        </div>
+      </div>
+      {/* 요일 헤더 + grid는 아래 Task에서 */}
+    </div>
+  );
+}
+```
+
+### 3. CalendarView.tsx — 표시 대상 결정 + grid 생성
+
+```typescript
+// 완료 일정 표시 정책
+const displayTasks = (() => {
+  if (filter === 'completed') return tasks;             // 이미 완료만 포함
+  if (filter === 'today') return allTasks;              // 전체 미완료, 월 전체 표시 + 오늘 강조
+  return tasks.filter(t => !t.completed);               // 필터된 목록에서 미완료만
+})();
+
+// 셀 내 정렬: priority DESC → startDate ASC → title ASC
+const sortedTasks = [...displayTasks].sort((a, b) => {
+  const pDiff = (b.priority || 0) - (a.priority || 0);
+  if (pDiff !== 0) return pDiff;
+  const aStart = getTaskStartKey(a);
+  const bStart = getTaskStartKey(b);
+  if (aStart !== bStart) return aStart < bStart ? -1 : 1;
+  return a.title.localeCompare(b.title);
+});
+
+// 42칸 grid
+const gridDates = getMonthGridDates(calendarMonth);
+const rows: Date[][] = [];
+for (let i = 0; i < gridDates.length; i += 7) {
+  rows.push(gridDates.slice(i, i + 7));
+}
+```
+
+요일 헤더:
+```tsx
+<div className="grid grid-cols-7 border-b">
+  {['일','월','화','수','목','금','토'].map((day, i) => (
+    <div key={day} className={`py-2 text-center text-xs font-medium ${
+      i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-muted-foreground'
+    }`}>
+      {day}
+    </div>
+  ))}
+</div>
+```
+
+날짜 셀:
+```tsx
+{rows.map((week, wi) => {
+  const rowStartKey = toDateKey(week[0]);
+  const rowEndKey = toDateKey(week[6]);
+  return (
+    <div key={wi} className="grid grid-cols-7">
+      {week.map((date, di) => {
+        const dateKey = toDateKey(date);
+        const isCurrentMonth = isSameMonth(date, calendarMonth);
+        const isTodayCell = isDateToday(date);
+        return (
+          <div
+            key={dateKey}
+            data-testid={`calendar-cell-${dateKey}`}
+            className={`min-h-[80px] p-1 border-b border-r cursor-pointer hover:bg-accent/30 ${
+              !isCurrentMonth ? 'bg-muted/30' : ''
+            }`}
+            onClick={() => onDateClick(date)}
+          >
+            <div className={`text-xs text-right mb-1 ${
+              isTodayCell
+                ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center ml-auto'
+                : !isCurrentMonth ? 'text-muted-foreground'
+                : di === 0 ? 'text-red-500' : di === 6 ? 'text-blue-500' : ''
+            }`}>
+              {date.getDate()}
+            </div>
+            {renderCellContent(dateKey, rowStartKey, rowEndKey)}
+          </div>
+        );
+      })}
+    </div>
+  );
+})}
+```
+
+### 4. CalendarView.tsx — 단일 일정 pill + 기간 일정 bar 렌더링
+
+```typescript
+const renderCellContent = (dateKey: string, rowStartKey: string, rowEndKey: string) => {
+  const cellItems: JSX.Element[] = [];
+
+  // 기간 일정 bar (sortedTasks 순서 유지)
+  for (const task of sortedTasks) {
+    if (!task.scheduledEndAt) continue;
+    const pos = getBarPosition(task, dateKey, rowStartKey, rowEndKey);
+    if (!pos) continue;
+
+    const isShared = !!task.isShared;
+    const bgColor = isShared ? 'bg-blue-500' : 'bg-violet-500';
+    const priorityBorder = task.priority === 3 ? 'border-l-2 border-red-400' :
+                           task.priority === 2 ? 'border-l-2 border-orange-400' : '';
+    const roundedClass =
+      pos === 'start'  ? 'rounded-l-sm' :
+      pos === 'end'    ? 'rounded-r-sm' :
+      pos === 'single' ? 'rounded-sm' : '';
+
+    cellItems.push(
+      <div
+        key={`bar-${task.id}`}
+        data-testid={`calendar-task-${task.id}`}
+        className={`text-[10px] leading-4 px-1 py-0 text-white truncate cursor-pointer ${bgColor} ${roundedClass} ${priorityBorder}`}
+        onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
+      >
+        {pos === 'start' || pos === 'single' ? task.title : '\u00A0'}
+      </div>
+    );
+  }
+
+  // 단일 일정 pill (sortedTasks 순서 유지)
+  for (const task of sortedTasks) {
+    if (task.scheduledEndAt) continue;
+    if (getTaskStartKey(task) !== dateKey) continue;
+
+    const isShared = !!task.isShared;
+    const bgColor = isShared ? 'bg-blue-500' : 'bg-violet-500';
+    const priorityBorder = task.priority === 3 ? 'border-l-2 border-red-400' :
+                           task.priority === 2 ? 'border-l-2 border-orange-400' : '';
+
+    cellItems.push(
+      <div
+        key={`pill-${task.id}`}
+        data-testid={`calendar-task-${task.id}`}
+        className={`text-[10px] leading-4 px-1 py-0 text-white truncate rounded-sm cursor-pointer ${bgColor} ${priorityBorder}`}
+        onClick={(e) => { e.stopPropagation(); onTaskClick(task); }}
+      >
+        {task.title}
+      </div>
+    );
+  }
+
+  // 장비 점검 오버레이
+  const dueAssets = assets.filter(a => a.status !== 'suspended' && a.nextDueDate === dateKey);
+  for (const asset of dueAssets.slice(0, 2)) {
+    cellItems.push(
+      <div
+        key={`asset-${asset.id}`}
+        className="text-[10px] leading-4 px-1 py-0 bg-amber-100 text-amber-800 border border-amber-300 rounded-sm truncate"
+      >
+        {asset.name.length > 8 ? asset.name.slice(0, 8) + '…' : asset.name}
+      </div>
+    );
+  }
+  if (dueAssets.length > 2) {
+    cellItems.push(
+      <div key="asset-more" className="text-[9px] text-amber-600 px-1">
+        +{dueAssets.length - 2}개
+      </div>
+    );
+  }
+
+  return <div className="space-y-0.5">{cellItems}</div>;
+};
+```
+
+> ⚠️ 모든 pill/bar의 onClick에 `e.stopPropagation()` 포함. 없으면 셀의 onDateClick과 동시에 발생하여 openEdit + openCreate가 동시 호출된다.
+
+### 5. MySchedule.tsx — CalendarView import + 조건부 렌더링
+
+import 추가:
+```typescript
+import CalendarView from '@/components/CalendarView';
+```
+
+기존 Card 블록(진행 중 + 완료됨, 357-395행 부근)을 viewMode 분기로 감싸기:
+
+```tsx
+{viewMode === 'list' ? (
+  <>
+    <Card>
+      {/* 기존 진행 중 Card 내용 그대로 */}
+    </Card>
+    {completedTasks.length > 0 && (
+      <Card>
+        {/* 기존 완료됨 Card 내용 그대로 */}
+      </Card>
+    )}
+  </>
+) : (
+  <CalendarView
+    tasks={filteredTasks}
+    allTasks={tasks.filter(t => !t.completed)}
+    assets={assets}
+    filter={filter}
+    calendarMonth={calendarMonth}
+    onPrevMonth={() => setCalendarMonth(prev => addMonths(prev, -1))}
+    onNextMonth={() => setCalendarMonth(prev => addMonths(prev, 1))}
+    onToday={() => setCalendarMonth(startOfMonth(new Date()))}
+    onDateClick={(date) => openCreate(date)}
+    onTaskClick={(task) => openEdit(task)}
+  />
+)}
+```
+
+> 필터 버튼 행(333-355행)은 분기 밖에 유지 — 두 뷰 모두에서 표시.
+>
+> `allTasks={tasks.filter(t => !t.completed)}` — `tasks`는 useQuery 원본(전체 일정). `filter === 'today'`일 때 CalendarView가 이 목록을 사용하여 전체 미완료 일정을 표시하되 오늘 셀만 강조한다.
+
+## Relevant files
+- client/src/components/CalendarView.tsx (신규)
+- client/src/lib/calendarUtils.ts (#12에서 생성)
+- client/src/pages/MySchedule.tsx:357-395 (list Card 영역), 1-30 (imports)
