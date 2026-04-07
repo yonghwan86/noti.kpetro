@@ -1,4 +1,4 @@
-import { Asset, Team, User, InspectionLog, Category, AssetHistory, PersonalTask } from "./types";
+import { Asset, Team, User, InspectionLog, Category, AssetHistory, PersonalTask, CreatePersonalTaskPayload, UpdatePersonalTaskPayload } from "./types";
 
 const API_BASE = "/api";
 
@@ -225,7 +225,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/personal-tasks`, fetchOptions);
       return handleResponse(res, "Failed to fetch personal tasks");
     },
-    create: async (task: Omit<PersonalTask, "id" | "createdAt">): Promise<PersonalTask> => {
+    create: async (task: CreatePersonalTaskPayload): Promise<PersonalTask> => {
       const res = await fetch(`${API_BASE}/personal-tasks`, {
         method: "POST",
         headers: getAuthHeaders(),
@@ -234,7 +234,7 @@ export const api = {
       });
       return handleResponse(res, "Failed to create personal task");
     },
-    update: async (id: string, updates: Partial<PersonalTask>): Promise<PersonalTask> => {
+    update: async (id: string, updates: UpdatePersonalTaskPayload): Promise<PersonalTask> => {
       const res = await fetch(`${API_BASE}/personal-tasks/${id}`, {
         method: "PATCH",
         headers: getAuthHeaders(),

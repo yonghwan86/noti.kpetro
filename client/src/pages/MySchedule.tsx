@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { PersonalTask, Team, User, ShareScope, RepeatType } from "@/lib/types";
+import { PersonalTask, Team, User, ShareScope, RepeatType, Asset, CreatePersonalTaskPayload, UpdatePersonalTaskPayload } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ export default function MySchedule() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.personalTasks.create(data),
+    mutationFn: (data: CreatePersonalTaskPayload) => api.personalTasks.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
       toast({ title: "일정이 등록되었습니다." });
@@ -73,7 +73,7 @@ export default function MySchedule() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.personalTasks.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdatePersonalTaskPayload }) => api.personalTasks.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
       toast({ title: "일정이 수정되었습니다." });

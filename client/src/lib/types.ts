@@ -94,3 +94,32 @@ export interface PersonalTask {
   priority: number;
   createdAt: string;
 }
+
+export interface CreatePersonalTaskPayload {
+  title: string;
+  description?: string | null;
+  scheduledAt: string;
+  scheduledEndAt?: string | null;
+  repeatType: RepeatType;
+  shareScope: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+  userId?: string;
+  completed?: boolean;
+}
+
+export interface UpdatePersonalTaskPayload {
+  title?: string;
+  description?: string | null;
+  scheduledAt?: string;
+  scheduledEndAt?: string | null;
+  repeatType?: RepeatType;
+  completed?: boolean;
+  shareScope?: ShareScope;
+  shareTeamIds?: string[];
+  shareUserIds?: string[];
+  label?: string | null;
+  priority?: number;
+}
