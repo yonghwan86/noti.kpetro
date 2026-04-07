@@ -18,6 +18,7 @@ import {
   Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat, List, CalendarDays
 } from "lucide-react";
 import ShareTargetSelector from "@/components/ShareTargetSelector";
+import CalendarView from "@/components/CalendarView";
 
 type TaskWithShared = PersonalTask & { isShared?: boolean };
 
@@ -469,44 +470,61 @@ export default function MySchedule() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            진행 중 ({incompleteTasks.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-            </div>
-          ) : incompleteTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              {filter === 'shared' ? '공유받은 일정이 없습니다.' : '등록된 일정이 없습니다.'}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {incompleteTasks.map(renderTask)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {viewMode === 'list' ? (
+        <>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                진행 중 ({incompleteTasks.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : incompleteTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  {filter === 'shared' ? '공유받은 일정이 없습니다.' : '등록된 일정이 없습니다.'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {incompleteTasks.map(renderTask)}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {completedTasks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
-              <Check className="h-4 w-4" />
-              완료됨 ({completedTasks.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {completedTasks.map(renderTask)}
-            </div>
-          </CardContent>
-        </Card>
+          {completedTasks.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
+                  <Check className="h-4 w-4" />
+                  완료됨 ({completedTasks.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {completedTasks.map(renderTask)}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : (
+        <CalendarView
+          tasks={filteredTasks}
+          allTasks={tasks.filter(t => !t.completed)}
+          assets={assets}
+          filter={filter}
+          calendarMonth={calendarMonth}
+          onPrevMonth={() => setCalendarMonth(prev => addMonths(prev, -1))}
+          onNextMonth={() => setCalendarMonth(prev => addMonths(prev, 1))}
+          onToday={() => setCalendarMonth(startOfMonth(new Date()))}
+          onDateClick={(date) => openCreate(date)}
+          onTaskClick={(task) => openEdit(task)}
+        />
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
