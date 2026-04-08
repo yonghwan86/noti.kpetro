@@ -441,8 +441,13 @@ export default function Team() {
                   ? "구분을 등록하고 구분 관리자를 지정합니다."
                   : "담당 구분을 관리합니다."}
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-2" asChild>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 rounded-none h-8"
+                  asChild
+                >
                   <a href="/api/categories/export" download>
                     <Download className="h-4 w-4" />
                     다운로드
@@ -1518,7 +1523,10 @@ function EditUserDialog({
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
-                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
                       {departments.map((dept) => (
                         <SelectItem key={dept} value={dept}>
                           {dept}
@@ -1540,7 +1548,10 @@ function EditUserDialog({
                     >
                       <SelectValue placeholder="팀 선택" />
                     </SelectTrigger>
-                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
                       {filteredTeams.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.name}
@@ -2109,7 +2120,7 @@ function PromoteToManagerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-promote-manager">
-          <UserPlus className="w-4 h-4" /> 구분 관리자 배정
+          <UserPlus className="w-4 h-4" /> 구분 관 �자 배정
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
@@ -2839,7 +2850,10 @@ function AddMasterDialog({
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
-                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
                       {departments.map((dept) => (
                         <SelectItem key={dept} value={dept}>
                           {dept}
@@ -2861,7 +2875,10 @@ function AddMasterDialog({
                     >
                       <SelectValue placeholder="팀 선택" />
                     </SelectTrigger>
-                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
                       {filteredTeams.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.name}

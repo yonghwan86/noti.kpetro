@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ImportResult {
@@ -64,28 +70,34 @@ export default function ExcelImportDialog({
         method: "POST",
         body: formData,
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         setResult({
           success: false,
           successCount: 0,
           errorCount: 1,
-          errors: [{ row: 0, field: "", message: data.error || "서버 오류가 발생했습니다" }],
+          errors: [
+            {
+              row: 0,
+              field: "",
+              message: data.error || "서버 오류가 발생했습니다",
+            },
+          ],
         });
         return;
       }
-      
+
       const normalizedResult: ImportResult = {
         success: data.success ?? false,
         successCount: data.successCount ?? 0,
-        errorCount: data.errorCount ?? (data.errors?.length ?? 0),
+        errorCount: data.errorCount ?? data.errors?.length ?? 0,
         errors: Array.isArray(data.errors) ? data.errors : [],
         managerUpdateCount: data.managerUpdateCount ?? 0,
         removedCount: data.removedCount ?? 0,
       };
-      
+
       setResult(normalizedResult);
 
       if (normalizedResult.success || normalizedResult.successCount > 0) {
@@ -96,7 +108,9 @@ export default function ExcelImportDialog({
         success: false,
         successCount: 0,
         errorCount: 1,
-        errors: [{ row: 0, field: "", message: "파일 처리 중 오류가 발생했습니다" }],
+        errors: [
+          { row: 0, field: "", message: "파일 처리 중 오류가 발생했습니다" },
+        ],
       });
     } finally {
       setLoading(false);
@@ -113,9 +127,12 @@ export default function ExcelImportDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => (isOpen ? setOpen(true) : handleClose())}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => (isOpen ? setOpen(true) : handleClose())}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2 rounded-none h-8">
           <Upload className="h-4 w-4" />
           엑셀 업로드
         </Button>
@@ -132,7 +149,11 @@ export default function ExcelImportDialog({
         <div className="space-y-4 py-4">
           <div className="flex items-center gap-2">
             <Button variant="link" asChild className="p-0 h-auto">
-              <a href={templateUrl} download className="flex items-center gap-1 text-sm">
+              <a
+                href={templateUrl}
+                download
+                className="flex items-center gap-1 text-sm"
+              >
                 <Download className="h-4 w-4" />
                 양식 다운로드
               </a>
@@ -166,17 +187,20 @@ export default function ExcelImportDialog({
                     {result.successCount}건이 성공적으로 처리되었습니다.
                     {(result.updateCount ?? 0) > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground">
-                        (이 중 {result.updateCount}건은 기존 데이터가 업데이트되었습니다.)
+                        (이 중 {result.updateCount}건은 기존 데이터가
+                        업데이트되었습니다.)
                       </div>
                     )}
                     {(result.managerUpdateCount ?? 0) > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground">
-                        (이 중 구분 관리자 {result.managerUpdateCount}명의 정보가 업데이트되었습니다. 역할은 유지됩니다.)
+                        (이 중 구분 관리자 {result.managerUpdateCount}명의
+                        정보가 업데이트되었습니다. 역할은 유지됩니다.)
                       </div>
                     )}
                     {(result.removedCount ?? 0) > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground">
-                        (엑셀에 없는 기존 담당자 {result.removedCount}명이 해당 구분에서 배정 해제되었습니다.)
+                        (엑셀에 없는 기존 담당자 {result.removedCount}명이 해당
+                        구분에서 배정 해제되었습니다.)
                       </div>
                     )}
                   </AlertDescription>
@@ -186,11 +210,14 @@ export default function ExcelImportDialog({
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <div className="font-medium mb-1">{result.errorCount}건의 오류가 발생했습니다:</div>
+                    <div className="font-medium mb-1">
+                      {result.errorCount}건의 오류가 발생했습니다:
+                    </div>
                     <ul className="list-disc list-inside text-sm max-h-32 overflow-auto">
                       {result.errors.slice(0, 10).map((err, i) => (
                         <li key={i}>
-                          {err.row > 0 ? `${err.row}행` : ""} {err.field}: {err.message}
+                          {err.row > 0 ? `${err.row}행` : ""} {err.field}:{" "}
+                          {err.message}
                         </li>
                       ))}
                       {result.errors.length > 10 && (
@@ -208,7 +235,11 @@ export default function ExcelImportDialog({
           <Button variant="outline" onClick={handleClose}>
             닫기
           </Button>
-          <Button onClick={handleImport} disabled={!file || loading} data-testid="button-import">
+          <Button
+            onClick={handleImport}
+            disabled={!file || loading}
+            data-testid="button-import"
+          >
             {loading ? "처리중..." : "업로드"}
           </Button>
         </DialogFooter>

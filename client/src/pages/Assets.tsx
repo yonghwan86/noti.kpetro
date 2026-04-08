@@ -484,7 +484,7 @@ export default function Assets() {
           <h2 className="text-2xl font-bold tracking-tight">구분 관리</h2>
           <p className="text-muted-foreground">{getRoleDescription()}</p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
           <div className="flex rounded-md border overflow-hidden">
             <Button
               variant={viewMode === "list" ? "default" : "ghost"}
@@ -510,7 +510,7 @@ export default function Assets() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 hidden sm:flex"
+                className="gap-2 hidden sm:flex rounded-none h-8"
                 asChild
               >
                 <a href="/api/assets/export" download>
@@ -534,7 +534,7 @@ export default function Assets() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 rounded-none h-8"
             onClick={() => setGlobalHistoryOpen(true)}
             data-testid="button-view-history"
           >
