@@ -1,13 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  Package, 
-  Users, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  Settings,
   ShieldCheck,
   Activity,
   Calendar,
-  X
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -24,12 +24,22 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
   const { currentUser } = useUser();
 
   const navigation = [
-    { name: '대시보드', href: '/', icon: LayoutDashboard, show: true },
-    { name: 'AI 업무 알림 서비스', href: '/assets', icon: Package, show: true },
-    { name: '내 일정', href: '/schedule', icon: Calendar, show: true },
-    { name: '구분 및 사용자 관리', href: '/team', icon: Users, show: auth.canAccessTeamPage(currentUser) },
-    { name: '설정', href: '/settings', icon: Settings, show: auth.canManageTeams(currentUser) },
-  ].filter(item => item.show);
+    { name: "대시보드", href: "/", icon: LayoutDashboard, show: true },
+    { name: "AI 업무 알림 서비스", href: "/assets", icon: Package, show: true },
+    { name: "내 일정", href: "/schedule", icon: Calendar, show: true },
+    {
+      name: "구분 및 사용자 관리",
+      href: "/team",
+      icon: Users,
+      show: auth.canAccessTeamPage(currentUser),
+    },
+    {
+      name: "설정",
+      href: "/settings",
+      icon: Settings,
+      show: auth.canManageTeams(currentUser),
+    },
+  ].filter((item) => item.show);
 
   const handleNavClick = () => {
     if (isMobile && onClose) {
@@ -42,12 +52,14 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
       <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border/40">
         <div className="flex items-center">
           <ShieldCheck className="h-6 w-6 text-sidebar-primary mr-2" />
-          <span className="text-lg font-bold tracking-tight">AI 업무 알림 서비스</span>
+          <span className="text-lg font-bold tracking-tight">
+            AI 업무 알림 서비스
+          </span>
         </div>
         {isMobile && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             className="text-sidebar-foreground hover:bg-sidebar-accent"
           >
@@ -55,7 +67,7 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
           </Button>
         )}
       </div>
-      
+
       <div className="flex-1 overflow-y-auto py-6 px-3">
         <nav className="space-y-1">
           {navigation.map((item) => {
@@ -67,13 +79,15 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
                     "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                   )}
                 >
                   <item.icon
                     className={cn(
                       "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
-                      isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
+                      isActive
+                        ? "text-sidebar-primary"
+                        : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground",
                     )}
                     aria-hidden="true"
                   />
@@ -90,16 +104,22 @@ export function Sidebar({ onClose, isMobile }: SidebarProps) {
           </div>
           <nav className="space-y-1">
             <Link href="/logs" onClick={handleNavClick}>
-              <span className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
-                location === '/logs'
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-              )}>
-                <Activity className={cn(
-                  "mr-3 h-5 w-5",
-                  location === '/logs' ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground"
-                )} />
+              <span
+                className={cn(
+                  "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
+                  location === "/logs"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+              >
+                <Activity
+                  className={cn(
+                    "mr-3 h-5 w-5",
+                    location === "/logs"
+                      ? "text-sidebar-primary"
+                      : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground",
+                  )}
+                />
                 활동 로그
               </span>
             </Link>

@@ -683,7 +683,7 @@ export default function MySchedule() {
               {editingTask ? "일정 수정" : "새 일정 등록"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
+          <div className="space-y-4 overflow-y-auto max-h-[60vh] px-1">
             <div>
               <label className="text-sm font-medium">제목 *</label>
               <Input

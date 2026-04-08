@@ -16,7 +16,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 
 function clearAppBadge() {
-  if ('clearAppBadge' in navigator && typeof navigator.clearAppBadge === 'function') {
+  if (
+    "clearAppBadge" in navigator &&
+    typeof navigator.clearAppBadge === "function"
+  ) {
     navigator.clearAppBadge().catch(() => {});
   }
 }
@@ -25,14 +28,14 @@ function useClearAppBadge() {
   useEffect(() => {
     clearAppBadge();
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') clearAppBadge();
+      if (document.visibilityState === "visible") clearAppBadge();
     };
     const onFocus = () => clearAppBadge();
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
     return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 }
