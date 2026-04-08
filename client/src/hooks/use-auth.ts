@@ -17,21 +17,21 @@ async function fetchUser(): Promise<User | null> {
   return response.json();
 }
 
-async function logout(): Promise<void> {
-  window.location.href = "/api/logout";
-}
-
 export function useAuth() {
   const queryClient = useQueryClient();
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
   const logoutMutation = useMutation({
-    mutationFn: logout,
+    mutationFn: async (): Promise<void> => {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      queryClient.clear();
+      window.location.href = "/";
+    },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/user"], null);
     },

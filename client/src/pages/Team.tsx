@@ -27,17 +27,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, UserPlus, Users, Pencil, MoreHorizontal, ShieldAlert, KeyRound, Download, Upload, Tags, Shield, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+  Users,
+  Pencil,
+  MoreHorizontal,
+  ShieldAlert,
+  KeyRound,
+  Download,
+  Upload,
+  Tags,
+  Shield,
+  ChevronLeft,
+  ChevronRight,
+  UserCheck,
+} from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +62,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import { auth } from "@/lib/auth";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Popover,
   PopoverContent,
@@ -63,7 +80,7 @@ export default function Team() {
   const [recentUserIds, setRecentUserIds] = useState<string[]>([]);
 
   const pushRecentUser = (id: string) => {
-    setRecentUserIds(prev => [id, ...prev.filter(x => x !== id)]);
+    setRecentUserIds((prev) => [id, ...prev.filter((x) => x !== id)]);
   };
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -88,13 +105,13 @@ export default function Team() {
     queryFn: () => api.assets.getAll(),
   });
 
-
   const userAssetCategoryMap = useMemo(() => {
     const map: Record<string, Record<string, string[]>> = {};
     for (const asset of assets) {
       if (!asset.staffId || !asset.categoryId) continue;
       if (!map[asset.staffId]) map[asset.staffId] = {};
-      if (!map[asset.staffId][asset.categoryId]) map[asset.staffId][asset.categoryId] = [];
+      if (!map[asset.staffId][asset.categoryId])
+        map[asset.staffId][asset.categoryId] = [];
       map[asset.staffId][asset.categoryId].push(asset.name);
     }
     return map;
@@ -102,7 +119,7 @@ export default function Team() {
 
   const getDeptName = (teamId: string | null) => {
     if (!teamId) return "-";
-    const team = teams.find(t => t.id === teamId);
+    const team = teams.find((t) => t.id === teamId);
     return team?.department || "-";
   };
 
@@ -110,10 +127,18 @@ export default function Team() {
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "구분 삭제됨", description: "구분이 시스템에서 제거되었습니다.", variant: "destructive" });
+      toast({
+        title: "구분 삭제됨",
+        description: "구분이 시스템에서 제거되었습니다.",
+        variant: "destructive",
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+      toast({
+        title: "삭제 실패",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -156,7 +181,8 @@ export default function Team() {
   });
 
   const updateTeamMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TeamType> }) => api.teams.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<TeamType> }) =>
+      api.teams.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       toast({
@@ -167,7 +193,8 @@ export default function Team() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) => api.users.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) =>
+      api.users.update(id, data),
     onSuccess: (_data, variables) => {
       pushRecentUser(variables.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -179,24 +206,32 @@ export default function Team() {
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/users/${id}/reset-password`, { method: 'POST' }).then(res => res.json()),
+    mutationFn: (id: string) =>
+      fetch(`/api/users/${id}/reset-password`, { method: "POST" }).then((res) =>
+        res.json(),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "비밀번호 초기화됨",
-        description: "사용자가 다음 로그인 시 새 비밀번호를 설정할 수 있습니다.",
+        description:
+          "사용자가 다음 로그인 시 새 비밀번호를 설정할 수 있습니다.",
       });
     },
   });
 
   const handleResetPassword = (id: string, username: string) => {
-    if (confirm(`${username}님의 비밀번호를 초기화하시겠습니까?\n다음 로그인 시 새 비밀번호를 설정해야 합니다.`)) {
+    if (
+      confirm(
+        `${username}님의 비밀번호를 초기화하시겠습니까?\n다음 로그인 시 새 비밀번호를 설정해야 합니다.`,
+      )
+    ) {
       resetPasswordMutation.mutate(id);
     }
   };
 
-  const isAdmin = currentUser?.role === 'admin';
-  const isManager = currentUser?.role === 'manager';
+  const isAdmin = currentUser?.role === "admin";
+  const isManager = currentUser?.role === "manager";
 
   const ITEMS_PER_PAGE = 10;
   const [categoryPage, setCategoryPage] = useState(1);
@@ -204,7 +239,8 @@ export default function Team() {
   const [staffPage, setStaffPage] = useState(1);
   const [assignedStaffPage, setAssignedStaffPage] = useState(1);
   const [adminPage, setAdminPage] = useState(1);
-  const [managerCategoryFilter, setManagerCategoryFilter] = useState<string>("all");
+  const [managerCategoryFilter, setManagerCategoryFilter] =
+    useState<string>("all");
 
   if (!auth.canAccessTeamPage(currentUser)) {
     return (
@@ -214,8 +250,8 @@ export default function Team() {
             <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <CardTitle>접근 권한이 없습니다</CardTitle>
             <CardDescription>
-              이 페이지는 관리자 이상 권한이 필요합니다.
-              필요한 경우 시스템 관리자에게 문의하세요.
+              이 페이지는 관리자 이상 권한이 필요합니다. 필요한 경우 시스템
+              관리자에게 문의하세요.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -235,64 +271,93 @@ export default function Team() {
     });
   };
 
-  const adminUsers = users.filter(u => u.role === 'admin');
-  const filteredAdminUsers = adminUsers.filter(u => {
+  const adminUsers = users.filter((u) => u.role === "admin");
+  const filteredAdminUsers = adminUsers.filter((u) => {
     const search = searchTerm.toLowerCase();
     return (
       u.username.toLowerCase().includes(search) ||
-      (u.email || '').toLowerCase().includes(search) ||
-      teams.find(t => t.id === u.teamId)?.name.toLowerCase().includes(search)
+      (u.email || "").toLowerCase().includes(search) ||
+      teams
+        .find((t) => t.id === u.teamId)
+        ?.name.toLowerCase()
+        .includes(search)
     );
   });
-  const managerUsers = users.filter(u => u.role === 'manager');
-  const visibleCategories = isManager && currentUser
-    ? categories.filter(c => (c.managerIds || []).includes(currentUser.id))
-    : categories;
-  const filteredCategories = visibleCategories.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.managerIds || []).some(mid => (users.find(u => u.id === mid)?.username || '').toLowerCase().includes(searchTerm.toLowerCase()))
+  const managerUsers = users.filter((u) => u.role === "manager");
+  const visibleCategories =
+    isManager && currentUser
+      ? categories.filter((c) => (c.managerIds || []).includes(currentUser.id))
+      : categories;
+  const filteredCategories = visibleCategories.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.managerIds || []).some((mid) =>
+        (users.find((u) => u.id === mid)?.username || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      ),
   );
-  const filteredManagerUsers = sortRecent(managerUsers.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ));
+  const filteredManagerUsers = sortRecent(
+    managerUsers.filter(
+      (user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        teams
+          .find((t) => t.id === user.teamId)
+          ?.name.toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+    ),
+  );
 
-  const myCategories = isManager && currentUser
-    ? categories.filter(c => (c.managerIds || []).includes(currentUser.id))
-    : [];
+  const myCategories =
+    isManager && currentUser
+      ? categories.filter((c) => (c.managerIds || []).includes(currentUser.id))
+      : [];
 
-  const allAssignedStaff = users.filter(u => u.role === 'staff' && u.managerId);
-  const filteredAssignedStaff = allAssignedStaff.filter(u => {
+  const allAssignedStaff = users.filter(
+    (u) => u.role === "staff" && u.managerId,
+  );
+  const filteredAssignedStaff = allAssignedStaff.filter((u) => {
     const search = searchTerm.toLowerCase();
-    const manager = users.find(m => m.id === u.managerId);
+    const manager = users.find((m) => m.id === u.managerId);
     return (
       u.username.toLowerCase().includes(search) ||
-      (u.email || '').toLowerCase().includes(search) ||
-      (manager?.username || '').toLowerCase().includes(search) ||
-      teams.find(t => t.id === u.teamId)?.name.toLowerCase().includes(search) ||
-      (u.assignedCategoryIds || []).some(cid => categories.find(c => c.id === cid)?.name.toLowerCase().includes(search))
+      (u.email || "").toLowerCase().includes(search) ||
+      (manager?.username || "").toLowerCase().includes(search) ||
+      teams
+        .find((t) => t.id === u.teamId)
+        ?.name.toLowerCase()
+        .includes(search) ||
+      (u.assignedCategoryIds || []).some((cid) =>
+        categories
+          .find((c) => c.id === cid)
+          ?.name.toLowerCase()
+          .includes(search),
+      )
     );
   });
 
-  const filteredStaffUsers = sortRecent(users.filter(
-    (user) => {
-      if (user.role !== 'staff') return false;
+  const filteredStaffUsers = sortRecent(
+    users.filter((user) => {
+      if (user.role !== "staff") return false;
       if (isManager && currentUser) {
         if (user.managerId !== currentUser.id) return false;
         if (managerCategoryFilter !== "all") {
-          if (!userAssetCategoryMap[user.id]?.[managerCategoryFilter]?.length) return false;
+          if (!userAssetCategoryMap[user.id]?.[managerCategoryFilter]?.length)
+            return false;
         }
       }
       const search = searchTerm.toLowerCase();
       return (
         user.username.toLowerCase().includes(search) ||
-        (user.email || '').toLowerCase().includes(search) ||
-        teams.find((t) => t.id === user.teamId)?.name.toLowerCase().includes(search)
+        (user.email || "").toLowerCase().includes(search) ||
+        teams
+          .find((t) => t.id === user.teamId)
+          ?.name.toLowerCase()
+          .includes(search)
       );
-    }
-  ));
+    }),
+  );
 
   const handleDeleteUser = (id: string) => {
     deleteUserMutation.mutate(id);
@@ -314,244 +379,401 @@ export default function Team() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">관리</h2>
-        <p className="text-muted-foreground">
-          구분과 사용자를 관리합니다.
-        </p>
+        <p className="text-muted-foreground">구분과 사용자를 관리합니다.</p>
       </div>
 
-      <Tabs defaultValue={(isAdmin || isManager) ? "equipTypes" : "staff"} className="space-y-4">
+      <Tabs
+        defaultValue={isAdmin || isManager ? "equipTypes" : "staff"}
+        className="space-y-4"
+      >
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="w-full sm:w-auto overflow-x-auto">
             <TabsList className="w-max sm:w-auto">
               {(isAdmin || isManager) && (
-                <TabsTrigger value="equipTypes" className="gap-2"><Tags className="w-4 h-4"/> 구분</TabsTrigger>
+                <TabsTrigger value="equipTypes" className="gap-2">
+                  <Tags className="w-4 h-4" /> 구분
+                </TabsTrigger>
               )}
               {isAdmin && (
-                <TabsTrigger value="managers" className="gap-2"><Users className="w-4 h-4"/> 구분 관리자 (역할)</TabsTrigger>
+                <TabsTrigger value="managers" className="gap-2">
+                  <Users className="w-4 h-4" /> 구분 관리자 (역할)
+                </TabsTrigger>
               )}
               {isAdmin && (
-                <TabsTrigger value="adminAssignedStaff" className="gap-2"><UserCheck className="w-4 h-4"/> 배정 담당자</TabsTrigger>
+                <TabsTrigger value="adminAssignedStaff" className="gap-2">
+                  <UserCheck className="w-4 h-4" /> 배정 담당자
+                </TabsTrigger>
               )}
-              <TabsTrigger value="staff" className="gap-2"><UserPlus className="w-4 h-4"/> {isAdmin ? "사용자 관리" : "배정 담당자"}</TabsTrigger>
+              <TabsTrigger value="staff" className="gap-2">
+                <UserPlus className="w-4 h-4" />{" "}
+                {isAdmin ? "사용자 관리" : "배정 담당자"}
+              </TabsTrigger>
               {isAdmin && (
-                <TabsTrigger value="admins" className="gap-2"><Shield className="w-4 h-4"/> 마스터</TabsTrigger>
+                <TabsTrigger value="admins" className="gap-2">
+                  <Shield className="w-4 h-4" /> 마스터
+                </TabsTrigger>
               )}
             </TabsList>
           </div>
-          
+
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="검색..."
               className="pl-8 h-9"
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCategoryPage(1); setManagerPage(1); setStaffPage(1); setAssignedStaffPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCategoryPage(1);
+                setManagerPage(1);
+                setStaffPage(1);
+                setAssignedStaffPage(1);
+              }}
             />
           </div>
         </div>
 
-        {(isAdmin || isManager) && <TabsContent value="equipTypes" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              {isAdmin ? '구분을 등록하고 구분 관리자를 지정합니다.' : '담당 구분을 관리합니다.'}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="gap-2" asChild>
-                <a href="/api/categories/export" download>
-                  <Download className="h-4 w-4" />
-                  다운로드
-                </a>
-              </Button>
-              <ExcelImportDialog
-                title="구분 엑셀 업로드"
-                description="엑셀 파일에서 구분 목록을 일괄 등록합니다."
-                templateUrl="/api/categories/template"
-                importUrl="/api/categories/import"
-                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/categories"] })}
-              />
-              <AddEquipTypeCategoryDialog allUsers={users} currentUser={currentUser} />
+        {(isAdmin || isManager) && (
+          <TabsContent value="equipTypes" className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                {isAdmin
+                  ? "구분을 등록하고 구분 관리자를 지정합니다."
+                  : "담당 구분을 관리합니다."}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-2" asChild>
+                  <a href="/api/categories/export" download>
+                    <Download className="h-4 w-4" />
+                    다운로드
+                  </a>
+                </Button>
+                <ExcelImportDialog
+                  title="구분 엑셀 업로드"
+                  description="엑셀 파일에서 구분 목록을 일괄 등록합니다."
+                  templateUrl="/api/categories/template"
+                  importUrl="/api/categories/import"
+                  onSuccess={() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/categories"],
+                    })
+                  }
+                />
+                <AddEquipTypeCategoryDialog
+                  allUsers={users}
+                  currentUser={currentUser}
+                />
+              </div>
             </div>
-          </div>
-          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[600px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>구분명</TableHead>
-                  <TableHead>기본 주기</TableHead>
-                  <TableHead>구분 관리자</TableHead>
-                  <TableHead>부서</TableHead>
-                  <TableHead>소속팀</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCategories.length === 0 ? (
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table className="min-w-[600px]">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      등록된 구분이 없습니다. "구분 등록" 버튼을 눌러 추가하세요.
-                    </TableCell>
+                    <TableHead>구분명</TableHead>
+                    <TableHead>기본 주기</TableHead>
+                    <TableHead>구분 관리자</TableHead>
+                    <TableHead>부서</TableHead>
+                    <TableHead>소속팀</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
                   </TableRow>
-                ) : (
-                  filteredCategories.slice((categoryPage - 1) * ITEMS_PER_PAGE, categoryPage * ITEMS_PER_PAGE).map((category) => {
-                    const categoryManagers = (category.managerIds || []).map(mid => users.find(u => u.id === mid)).filter(Boolean);
-                    return (
-                      <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
-                        <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell>{category.defaultCycleDays ? `${category.defaultCycleDays}일` : "-"}</TableCell>
-                        <TableCell>{categoryManagers.length > 0 ? categoryManagers.map(m => m!.username).join(", ") : "-"}</TableCell>
-                        <TableCell className="text-sm">{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => getDeptName(m!.teamId)).filter(v => v !== "-"))).join(", ") || "-" : "-"}</TableCell>
-                        <TableCell>{categoryManagers.length > 0 ? Array.from(new Set(categoryManagers.map(m => teams.find(t => t.id === m!.teamId)?.name).filter(Boolean))).join(", ") : "-"}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-category-menu-${category.id}`}>
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              {auth.canEditCategory(currentUser, category) && (
-                                <>
-                                  <EditCategoryDialog category={category} allUsers={users} currentUser={currentUser} />
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => deleteCategoryMutation.mutate(category.id)}
-                                    data-testid={`button-delete-category-${category.id}`}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination currentPage={categoryPage} totalItems={filteredCategories.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setCategoryPage} />
-        </TabsContent>}
-
-        {isAdmin && <TabsContent value="managers" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              전체 사용자 중 구분 관리자 역할을 부여합니다.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="gap-2" asChild>
-                <a href="/api/users/export" download>
-                  <Download className="h-4 w-4" />
-                  다운로드
-                </a>
-              </Button>
-              <ExcelImportDialog
-                title="구분 관리자 엑셀 업로드"
-                description="엑셀 파일에서 구분 관리자 목록을 일괄 등록합니다."
-                templateUrl="/api/users/template"
-                importUrl="/api/users/import"
-                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
-              />
-              <PromoteToManagerDialog users={users} teams={teams} onPromoted={pushRecentUser} />
-            </div>
-          </div>
-          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[700px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>부서</TableHead>
-                  <TableHead>소속팀</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>전화번호</TableHead>
-                  <TableHead>로그인</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredManagerUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      등록된 구분 관리자가 없습니다. "구분 관리자 배정" 버튼을 눌러 사용자를 구분 관리자로 배정하세요.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredManagerUsers.slice((managerPage - 1) * ITEMS_PER_PAGE, managerPage * ITEMS_PER_PAGE).map((user) => (
-                    <TableRow key={user.id} data-testid={`row-manager-${user.id}`}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
-                      <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>
-                        {user.email ? (
-                          user.hasPassword ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
-                          ) : (
-                            <Badge variant="outline">미설정</Badge>
-                          )
-                        ) : (
-                          <Badge variant="secondary">이메일 없음</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-manager-menu-${user.id}`}>
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>작업</DropdownMenuLabel>
-                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
-                            {user.hasPassword && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
-                                  <KeyRound className="mr-2 h-4 w-4" />
-                                  비밀번호 초기화
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => {
-                                if (confirm(`"${user.username}" 님을 구분 관리자에서 해제하시겠습니까? 사용자 계정은 유지됩니다.`)) {
-                                  handleEditUser(user.id, { role: 'staff' });
-                                }
-                              }}
-                              data-testid={`button-demote-manager-${user.id}`}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              구분 관리자 해제
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                        등록된 구분이 없습니다. "구분 등록" 버튼을 눌러
+                        추가하세요.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination currentPage={managerPage} totalItems={filteredManagerUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setManagerPage} />
-        </TabsContent>}
+                  ) : (
+                    filteredCategories
+                      .slice(
+                        (categoryPage - 1) * ITEMS_PER_PAGE,
+                        categoryPage * ITEMS_PER_PAGE,
+                      )
+                      .map((category) => {
+                        const categoryManagers = (category.managerIds || [])
+                          .map((mid) => users.find((u) => u.id === mid))
+                          .filter(Boolean);
+                        return (
+                          <TableRow
+                            key={category.id}
+                            data-testid={`row-category-${category.id}`}
+                          >
+                            <TableCell className="font-medium">
+                              {category.name}
+                            </TableCell>
+                            <TableCell>
+                              {category.defaultCycleDays
+                                ? `${category.defaultCycleDays}일`
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {categoryManagers.length > 0
+                                ? categoryManagers
+                                    .map((m) => m!.username)
+                                    .join(", ")
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {categoryManagers.length > 0
+                                ? Array.from(
+                                    new Set(
+                                      categoryManagers
+                                        .map((m) => getDeptName(m!.teamId))
+                                        .filter((v) => v !== "-"),
+                                    ),
+                                  ).join(", ") || "-"
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {categoryManagers.length > 0
+                                ? Array.from(
+                                    new Set(
+                                      categoryManagers
+                                        .map(
+                                          (m) =>
+                                            teams.find(
+                                              (t) => t.id === m!.teamId,
+                                            )?.name,
+                                        )
+                                        .filter(Boolean),
+                                    ),
+                                  ).join(", ")
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    data-testid={`button-category-menu-${category.id}`}
+                                  >
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                  {auth.canEditCategory(
+                                    currentUser,
+                                    category,
+                                  ) && (
+                                    <>
+                                      <EditCategoryDialog
+                                        category={category}
+                                        allUsers={users}
+                                        currentUser={currentUser}
+                                      />
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() =>
+                                          deleteCategoryMutation.mutate(
+                                            category.id,
+                                          )
+                                        }
+                                        data-testid={`button-delete-category-${category.id}`}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        삭제
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <Pagination
+              currentPage={categoryPage}
+              totalItems={filteredCategories.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCategoryPage}
+            />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="managers" className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                전체 사용자 중 구분 관리자 역할을 부여합니다.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-2" asChild>
+                  <a href="/api/users/export" download>
+                    <Download className="h-4 w-4" />
+                    다운로드
+                  </a>
+                </Button>
+                <ExcelImportDialog
+                  title="구분 관리자 엑셀 업로드"
+                  description="엑셀 파일에서 구분 관리자 목록을 일괄 등록합니다."
+                  templateUrl="/api/users/template"
+                  importUrl="/api/users/import"
+                  onSuccess={() =>
+                    queryClient.invalidateQueries({ queryKey: ["/api/users"] })
+                  }
+                />
+                <PromoteToManagerDialog
+                  users={users}
+                  teams={teams}
+                  onPromoted={pushRecentUser}
+                />
+              </div>
+            </div>
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table className="min-w-[700px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이름</TableHead>
+                    <TableHead>부서</TableHead>
+                    <TableHead>소속팀</TableHead>
+                    <TableHead>이메일</TableHead>
+                    <TableHead>전화번호</TableHead>
+                    <TableHead>로그인</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredManagerUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        등록된 구분 관리자가 없습니다. "구분 관리자 배정" 버튼을
+                        눌러 사용자를 구분 관리자로 배정하세요.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredManagerUsers
+                      .slice(
+                        (managerPage - 1) * ITEMS_PER_PAGE,
+                        managerPage * ITEMS_PER_PAGE,
+                      )
+                      .map((user) => (
+                        <TableRow
+                          key={user.id}
+                          data-testid={`row-manager-${user.id}`}
+                        >
+                          <TableCell className="font-medium">
+                            {user.username}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {getDeptName(user.teamId)}
+                          </TableCell>
+                          <TableCell>
+                            {teams.find((t) => t.id === user.teamId)?.name ||
+                              "-"}
+                          </TableCell>
+                          <TableCell>{user.email || "-"}</TableCell>
+                          <TableCell>{user.phone || "-"}</TableCell>
+                          <TableCell>
+                            {user.email ? (
+                              user.hasPassword ? (
+                                <Badge className="bg-green-500 hover:bg-green-600">
+                                  설정완료
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">미설정</Badge>
+                              )
+                            ) : (
+                              <Badge variant="secondary">이메일 없음</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  data-testid={`button-manager-menu-${user.id}`}
+                                >
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                <EditUserDialog
+                                  user={user}
+                                  teams={teams}
+                                  onEdit={handleEditUser}
+                                />
+                                {user.hasPassword && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleResetPassword(
+                                          user.id,
+                                          user.username,
+                                        )
+                                      }
+                                    >
+                                      <KeyRound className="mr-2 h-4 w-4" />
+                                      비밀번호 초기화
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    if (
+                                      confirm(
+                                        `"${user.username}" 님을 구분 관리자에서 해제하시겠습니까? 사용자 계정은 유지됩니다.`,
+                                      )
+                                    ) {
+                                      handleEditUser(user.id, {
+                                        role: "staff",
+                                      });
+                                    }
+                                  }}
+                                  data-testid={`button-demote-manager-${user.id}`}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  구분 관리자 해제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <Pagination
+              currentPage={managerPage}
+              totalItems={filteredManagerUsers.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setManagerPage}
+            />
+          </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="adminAssignedStaff" className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <p className="text-sm text-muted-foreground hidden sm:block">
-                구분관리자에게 배정된 담당자 내역입니다. 구분관리자를 선택하여 담당자를 추가하거나 해제할 수 있습니다.
+                구분관리자에게 배정된 담당자 내역입니다. 구분관리자를 선택하여
+                담당자를 추가하거나 해제할 수 있습니다.
               </p>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <AdminAssignStaffDialog users={users} categories={categories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} teams={teams} />
+                <AdminAssignStaffDialog
+                  users={users}
+                  categories={categories}
+                  onAssigned={() =>
+                    queryClient.invalidateQueries({ queryKey: ["/api/users"] })
+                  }
+                  teams={teams}
+                />
               </div>
             </div>
             <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
@@ -560,7 +782,9 @@ export default function Team() {
                   <TableRow>
                     <TableHead>이름</TableHead>
                     <TableHead className="hidden sm:table-cell">직책</TableHead>
-                    <TableHead className="hidden md:table-cell">부서 / 팀</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      부서 / 팀
+                    </TableHead>
                     <TableHead>담당 구분관리자</TableHead>
                     <TableHead>배정 구분</TableHead>
                     <TableHead className="text-right">관리</TableHead>
@@ -569,47 +793,86 @@ export default function Team() {
                 <TableBody>
                   {filteredAssignedStaff.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {searchTerm ? "검색 결과가 없습니다." : "배정된 담당자가 없습니다."}
+                      <TableCell
+                        colSpan={6}
+                        className="text-center text-muted-foreground py-8"
+                      >
+                        {searchTerm
+                          ? "검색 결과가 없습니다."
+                          : "배정된 담당자가 없습니다."}
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredAssignedStaff
-                      .slice((assignedStaffPage - 1) * ITEMS_PER_PAGE, assignedStaffPage * ITEMS_PER_PAGE)
+                      .slice(
+                        (assignedStaffPage - 1) * ITEMS_PER_PAGE,
+                        assignedStaffPage * ITEMS_PER_PAGE,
+                      )
                       .map((user) => {
-                        const manager = users.find(m => m.id === user.managerId);
-                        const assignedCats = (user.assignedCategoryIds || []).map(cid => categories.find(c => c.id === cid)?.name).filter(Boolean);
-                        const team = teams.find(t => t.id === user.teamId);
+                        const manager = users.find(
+                          (m) => m.id === user.managerId,
+                        );
+                        const assignedCats = (user.assignedCategoryIds || [])
+                          .map(
+                            (cid) => categories.find((c) => c.id === cid)?.name,
+                          )
+                          .filter(Boolean);
+                        const team = teams.find((t) => t.id === user.teamId);
                         return (
-                          <TableRow key={user.id} data-testid={`row-assigned-staff-${user.id}`}>
+                          <TableRow
+                            key={user.id}
+                            data-testid={`row-assigned-staff-${user.id}`}
+                          >
                             <TableCell className="font-medium">
                               <div>{user.username}</div>
-                              <div className="text-xs text-muted-foreground sm:hidden">{user.position}</div>
+                              <div className="text-xs text-muted-foreground sm:hidden">
+                                {user.position}
+                              </div>
                             </TableCell>
-                            <TableCell className="hidden sm:table-cell text-muted-foreground">{user.position || "-"}</TableCell>
+                            <TableCell className="hidden sm:table-cell text-muted-foreground">
+                              {user.position || "-"}
+                            </TableCell>
                             <TableCell className="hidden md:table-cell text-muted-foreground">
                               {team ? `${team.department} / ${team.name}` : "-"}
                             </TableCell>
                             <TableCell>
                               {manager ? (
-                                <Badge variant="secondary">{manager.username}</Badge>
-                              ) : "-"}
+                                <Badge variant="secondary">
+                                  {manager.username}
+                                </Badge>
+                              ) : (
+                                "-"
+                              )}
                             </TableCell>
                             <TableCell>
                               {assignedCats.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {assignedCats.map((name, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">{name}</Badge>
+                                    <Badge
+                                      key={i}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {name}
+                                    </Badge>
                                   ))}
                                 </div>
-                              ) : <span className="text-muted-foreground text-sm">-</span>}
+                              ) : (
+                                <span className="text-muted-foreground text-sm">
+                                  -
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <AdminUnassignStaffButton
                                 user={user}
                                 users={users}
                                 categories={categories}
-                                onUnassigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                                onUnassigned={() =>
+                                  queryClient.invalidateQueries({
+                                    queryKey: ["/api/users"],
+                                  })
+                                }
                               />
                             </TableCell>
                           </TableRow>
@@ -619,21 +882,32 @@ export default function Team() {
                 </TableBody>
               </Table>
             </div>
-            <Pagination currentPage={assignedStaffPage} totalItems={filteredAssignedStaff.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setAssignedStaffPage} />
+            <Pagination
+              currentPage={assignedStaffPage}
+              totalItems={filteredAssignedStaff.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setAssignedStaffPage}
+            />
           </TabsContent>
         )}
 
         <TabsContent value="staff" className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
-              {isAdmin 
-                ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '구분 관리자' 탭에서 관리자 역할로 배정할 수 있습니다." 
+              {isAdmin
+                ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '구분 관리자' 탭에서 관리자 역할로 배정할 수 있습니다."
                 : "배정된 담당자 목록입니다. 구분별로 필터링하거나 '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
             </p>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {isAdmin && (
                 <>
-                  <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    asChild
+                    data-testid="button-staff-export"
+                  >
                     <a href="/api/staff/export" download>
                       <Download className="h-4 w-4" />
                       다운로드
@@ -644,15 +918,31 @@ export default function Team() {
                     description="조직도를 업로드합니다. 이름, 직책, 부서, 소속팀, 이메일, 전화번호만 등록/업데이트되며, 기존 구분 및 장비 배정은 변경되지 않습니다."
                     templateUrl="/api/staff/template"
                     importUrl="/api/staff/import"
-                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                    onSuccess={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/users"],
+                      })
+                    }
                   />
-                  <AddStaffUserDialog teams={teams} onCreated={pushRecentUser} />
+                  <AddStaffUserDialog
+                    teams={teams}
+                    onCreated={pushRecentUser}
+                  />
                 </>
               )}
               {isManager && currentUser && (
                 <>
-                  <Button variant="outline" size="sm" className="gap-2" asChild data-testid="button-staff-export">
-                    <a href={`/api/staff/export?asManagerId=${currentUser.id}`} download>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    asChild
+                    data-testid="button-staff-export"
+                  >
+                    <a
+                      href={`/api/staff/export?asManagerId=${currentUser.id}`}
+                      download
+                    >
                       <Download className="h-4 w-4" />
                       다운로드
                     </a>
@@ -663,11 +953,24 @@ export default function Team() {
                     templateUrl={`/api/staff/template?asManagerId=${currentUser.id}`}
                     importUrl={`/api/staff/import?asManagerId=${currentUser.id}`}
                     onSuccess={() => {
-                      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-                      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/users"],
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/assets"],
+                      });
                     }}
                   />
-                  <AssignStaffDialog users={users} categories={myCategories} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} teams={teams} />
+                  <AssignStaffDialog
+                    users={users}
+                    categories={myCategories}
+                    onAssigned={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/users"],
+                      })
+                    }
+                    teams={teams}
+                  />
                 </>
               )}
             </div>
@@ -675,19 +978,29 @@ export default function Team() {
           {isManager && myCategories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Button
-                variant={managerCategoryFilter === "all" ? "default" : "outline"}
+                variant={
+                  managerCategoryFilter === "all" ? "default" : "outline"
+                }
                 size="sm"
-                onClick={() => { setManagerCategoryFilter("all"); setStaffPage(1); }}
+                onClick={() => {
+                  setManagerCategoryFilter("all");
+                  setStaffPage(1);
+                }}
                 data-testid="button-filter-all"
               >
                 전체
               </Button>
-              {myCategories.map(cat => (
+              {myCategories.map((cat) => (
                 <Button
                   key={cat.id}
-                  variant={managerCategoryFilter === cat.id ? "default" : "outline"}
+                  variant={
+                    managerCategoryFilter === cat.id ? "default" : "outline"
+                  }
                   size="sm"
-                  onClick={() => { setManagerCategoryFilter(cat.id); setStaffPage(1); }}
+                  onClick={() => {
+                    setManagerCategoryFilter(cat.id);
+                    setStaffPage(1);
+                  }}
                   data-testid={`button-filter-category-${cat.id}`}
                 >
                   {cat.name}
@@ -715,219 +1028,319 @@ export default function Team() {
                 {filteredStaffUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="h-24 text-center">
-                      {isAdmin 
+                      {isAdmin
                         ? '등록된 사용자가 없습니다. "사용자 추가" 버튼을 눌러 추가하세요.'
                         : '배정된 담당자가 없습니다. "사용자 배정" 버튼을 눌러 추가하세요.'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredStaffUsers.slice((staffPage - 1) * ITEMS_PER_PAGE, staffPage * ITEMS_PER_PAGE).map((user) => (
-                    <TableRow key={user.id} data-testid={`row-staff-${user.id}`}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell>{user.position || "-"}</TableCell>
-                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
-                      <TableCell>
-                        {teams.find((t) => t.id === user.teamId)?.name || "-"}
-                      </TableCell>
-                      <TableCell>
-                        {userAssetCategoryMap[user.id]
-                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, names], idx) => {
-                              const catName = categories.find(c => c.id === catId)?.name || catId;
-                              return <div key={catId}>{catName}</div>;
-                            })
-                          : <span className="text-muted-foreground">-</span>}
-                      </TableCell>
-                      <TableCell>
-                        {userAssetCategoryMap[user.id]
-                          ? Object.entries(userAssetCategoryMap[user.id]).map(([catId, names]) => (
-                              <div key={catId}>{names.join(", ")}</div>
-                            ))
-                          : <span className="text-muted-foreground">-</span>}
-                      </TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>
-                        {user.email ? (
-                          user.hasPassword ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
+                  filteredStaffUsers
+                    .slice(
+                      (staffPage - 1) * ITEMS_PER_PAGE,
+                      staffPage * ITEMS_PER_PAGE,
+                    )
+                    .map((user) => (
+                      <TableRow
+                        key={user.id}
+                        data-testid={`row-staff-${user.id}`}
+                      >
+                        <TableCell className="font-medium">
+                          {user.username}
+                        </TableCell>
+                        <TableCell>{user.position || "-"}</TableCell>
+                        <TableCell className="text-sm">
+                          {getDeptName(user.teamId)}
+                        </TableCell>
+                        <TableCell>
+                          {teams.find((t) => t.id === user.teamId)?.name || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {userAssetCategoryMap[user.id] ? (
+                            Object.entries(userAssetCategoryMap[user.id]).map(
+                              ([catId, names], idx) => {
+                                const catName =
+                                  categories.find((c) => c.id === catId)
+                                    ?.name || catId;
+                                return <div key={catId}>{catName}</div>;
+                              },
+                            )
                           ) : (
-                            <Badge variant="outline">미설정</Badge>
-                          )
-                        ) : (
-                          <Badge variant="secondary">이메일 없음</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>작업</DropdownMenuLabel>
-                              <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
-                              {isAdmin && user.hasPassword && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
-                                    <KeyRound className="mr-2 h-4 w-4" />
-                                    비밀번호 초기화
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {isAdmin && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => handleDeleteUser(user.id)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {isManager && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => handleEditUser(user.id, { managerId: null, assignedCategoryIds: [] })}
-                                  >
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    배정 해제
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {userAssetCategoryMap[user.id] ? (
+                            Object.entries(userAssetCategoryMap[user.id]).map(
+                              ([catId, names]) => (
+                                <div key={catId}>{names.join(", ")}</div>
+                              ),
+                            )
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{user.email || "-"}</TableCell>
+                        <TableCell>{user.phone || "-"}</TableCell>
+                        <TableCell>
+                          {user.email ? (
+                            user.hasPassword ? (
+                              <Badge className="bg-green-500 hover:bg-green-600">
+                                설정완료
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">미설정</Badge>
+                            )
+                          ) : (
+                            <Badge variant="secondary">이메일 없음</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                <EditUserDialog
+                                  user={user}
+                                  teams={teams}
+                                  onEdit={handleEditUser}
+                                />
+                                {isAdmin && user.hasPassword && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleResetPassword(
+                                          user.id,
+                                          user.username,
+                                        )
+                                      }
+                                    >
+                                      <KeyRound className="mr-2 h-4 w-4" />
+                                      비밀번호 초기화
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {isAdmin && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleDeleteUser(user.id)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      삭제
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {isManager && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() =>
+                                        handleEditUser(user.id, {
+                                          managerId: null,
+                                          assignedCategoryIds: [],
+                                        })
+                                      }
+                                    >
+                                      <UserPlus className="mr-2 h-4 w-4" />
+                                      배정 해제
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
                 )}
               </TableBody>
             </Table>
           </div>
-          <Pagination currentPage={staffPage} totalItems={filteredStaffUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setStaffPage} />
+          <Pagination
+            currentPage={staffPage}
+            totalItems={filteredStaffUsers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setStaffPage}
+          />
         </TabsContent>
 
-        {isAdmin && <TabsContent value="admins" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              시스템 최고 관리자(마스터) 계정을 직접 생성합니다. 마스터는 모든 기능에 접근할 수 있습니다.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <AddMasterDialog teams={teams} onCreated={pushRecentUser} />
+        {isAdmin && (
+          <TabsContent value="admins" className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                시스템 최고 관리자(마스터) 계정을 직접 생성합니다. 마스터는 모든
+                기능에 접근할 수 있습니다.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <AddMasterDialog teams={teams} onCreated={pushRecentUser} />
+              </div>
             </div>
-          </div>
-          <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
-            <Table className="min-w-[700px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>부서</TableHead>
-                  <TableHead>소속팀</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>전화번호</TableHead>
-                  <TableHead>로그인</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAdminUsers.length === 0 ? (
+            <div className="rounded-md border bg-card shadow-sm overflow-x-auto">
+              <Table className="min-w-[700px]">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      등록된 마스터 계정이 없습니다.
-                    </TableCell>
+                    <TableHead>이름</TableHead>
+                    <TableHead>부서</TableHead>
+                    <TableHead>소속팀</TableHead>
+                    <TableHead>이메일</TableHead>
+                    <TableHead>전화번호</TableHead>
+                    <TableHead>로그인</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
                   </TableRow>
-                ) : (
-                  filteredAdminUsers.slice((adminPage - 1) * ITEMS_PER_PAGE, adminPage * ITEMS_PER_PAGE).map((user) => (
-                    <TableRow key={user.id} data-testid={`row-admin-${user.id}`}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell className="text-sm">{getDeptName(user.teamId)}</TableCell>
-                      <TableCell>{teams.find(t => t.id === user.teamId)?.name || "-"}</TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>
-                        {user.email ? (
-                          user.hasPassword ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">설정완료</Badge>
-                          ) : (
-                            <Badge variant="outline">미설정</Badge>
-                          )
-                        ) : (
-                          <Badge variant="secondary">이메일 없음</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-admin-menu-${user.id}`}>
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>작업</DropdownMenuLabel>
-                            <EditUserDialog user={user} teams={teams} onEdit={handleEditUser} />
-                            {user.hasPassword && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleResetPassword(user.id, user.username)}>
-                                  <KeyRound className="mr-2 h-4 w-4" />
-                                  비밀번호 초기화
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {currentUser?.id !== user.id && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => {
-                                    if (confirm(`"${user.username}" 님의 마스터 권한을 해제하시겠습니까?`)) {
-                                      handleEditUser(user.id, { role: 'staff' });
-                                    }
-                                  }}
-                                  data-testid={`button-demote-admin-${user.id}`}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  마스터 해제
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {filteredAdminUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        등록된 마스터 계정이 없습니다.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <Pagination currentPage={adminPage} totalItems={filteredAdminUsers.length} itemsPerPage={ITEMS_PER_PAGE} onPageChange={setAdminPage} />
-        </TabsContent>}
-
+                  ) : (
+                    filteredAdminUsers
+                      .slice(
+                        (adminPage - 1) * ITEMS_PER_PAGE,
+                        adminPage * ITEMS_PER_PAGE,
+                      )
+                      .map((user) => (
+                        <TableRow
+                          key={user.id}
+                          data-testid={`row-admin-${user.id}`}
+                        >
+                          <TableCell className="font-medium">
+                            {user.username}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {getDeptName(user.teamId)}
+                          </TableCell>
+                          <TableCell>
+                            {teams.find((t) => t.id === user.teamId)?.name ||
+                              "-"}
+                          </TableCell>
+                          <TableCell>{user.email || "-"}</TableCell>
+                          <TableCell>{user.phone || "-"}</TableCell>
+                          <TableCell>
+                            {user.email ? (
+                              user.hasPassword ? (
+                                <Badge className="bg-green-500 hover:bg-green-600">
+                                  설정완료
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">미설정</Badge>
+                              )
+                            ) : (
+                              <Badge variant="secondary">이메일 없음</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  data-testid={`button-admin-menu-${user.id}`}
+                                >
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>작업</DropdownMenuLabel>
+                                <EditUserDialog
+                                  user={user}
+                                  teams={teams}
+                                  onEdit={handleEditUser}
+                                />
+                                {user.hasPassword && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleResetPassword(
+                                          user.id,
+                                          user.username,
+                                        )
+                                      }
+                                    >
+                                      <KeyRound className="mr-2 h-4 w-4" />
+                                      비밀번호 초기화
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {currentUser?.id !== user.id && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => {
+                                        if (
+                                          confirm(
+                                            `"${user.username}" 님의 마스터 권한을 해제하시겠습니까?`,
+                                          )
+                                        ) {
+                                          handleEditUser(user.id, {
+                                            role: "staff",
+                                          });
+                                        }
+                                      }}
+                                      data-testid={`button-demote-admin-${user.id}`}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      마스터 해제
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <Pagination
+              currentPage={adminPage}
+              totalItems={filteredAdminUsers.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setAdminPage}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
 }
 
-function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[], onEdit: (id: string, data: Partial<User>) => void }) {
+function EditUserDialog({
+  user,
+  teams,
+  onEdit,
+}: {
+  user: User;
+  teams: TeamType[];
+  onEdit: (id: string, data: Partial<User>) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
-  const [selectedTeamId, setSelectedTeamId] = useState<string>(user.teamId || "");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>(
+    user.teamId || "",
+  );
   const [isNewTeam, setIsNewTeam] = useState(false);
   const [newDept, setNewDept] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
 
   const departments = useMemo(() => {
     const depts = new Set<string>();
-    teams.forEach(t => {
+    teams.forEach((t) => {
       if (t.department) depts.add(t.department);
     });
     return Array.from(depts).sort();
@@ -935,7 +1348,9 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
 
   const filteredTeams = useMemo(() => {
     if (!selectedDept) return [];
-    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+    return teams
+      .filter((t) => t.department === selectedDept)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [teams, selectedDept]);
 
   const { register, handleSubmit, reset } = useForm({
@@ -945,9 +1360,9 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
       position: user.position || "",
       email: user.email || "",
       phone: user.phone || "",
-    }
+    },
   });
-  const isStaffUser = user.role === 'staff';
+  const isStaffUser = user.role === "staff";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -956,19 +1371,26 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
 
     if (isNewTeam) {
       if (!newDept.trim() || !newTeamName.trim()) {
-        toast({ title: "새 부서와 팀명을 입력해주세요.", variant: "destructive" });
+        toast({
+          title: "새 부서와 팀명을 입력해주세요.",
+          variant: "destructive",
+        });
         return;
       }
       try {
         const team = await api.teams.create({
           department: newDept.trim(),
           name: newTeamName.trim(),
-          isNew: true
+          isNew: true,
         } as any);
         finalTeamId = team.id;
         queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       } catch (err: any) {
-        toast({ title: "팀 생성 실패", description: err.message, variant: "destructive" });
+        toast({
+          title: "팀 생성 실패",
+          description: err.message,
+          variant: "destructive",
+        });
         return;
       }
     } else if (!finalTeamId) {
@@ -990,7 +1412,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      const currentTeam = teams.find(t => t.id === user.teamId);
+      const currentTeam = teams.find((t) => t.id === user.teamId);
       if (currentTeam) {
         setSelectedDept(currentTeam.department || "");
         setSelectedTeamId(user.teamId);
@@ -1068,7 +1490,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                   <Input
                     placeholder="부서 직접 입력"
                     value={newDept}
-                    onChange={e => setNewDept(e.target.value)}
+                    onChange={(e) => setNewDept(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -1077,7 +1499,7 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
                   <Input
                     placeholder="팀 직접 입력"
                     value={newTeamName}
-                    onChange={e => setNewTeamName(e.target.value)}
+                    onChange={(e) => setNewTeamName(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -1086,26 +1508,43 @@ function EditUserDialog({ user, teams, onEdit }: { user: User, teams: TeamType[]
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">부서</Label>
-                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                  <Select
+                    value={selectedDept}
+                    onValueChange={(val) => {
+                      setSelectedDept(val);
+                      setSelectedTeamId("");
+                    }}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(dept => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                      {departments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">팀</Label>
-                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
-                    <SelectTrigger className="h-9" data-testid="select-edit-team">
+                  <Select
+                    value={selectedTeamId}
+                    onValueChange={setSelectedTeamId}
+                    disabled={!selectedDept}
+                  >
+                    <SelectTrigger
+                      className="h-9"
+                      data-testid="select-edit-team"
+                    >
                       <SelectValue placeholder="팀 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {filteredTeams.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                      {filteredTeams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1154,7 +1593,13 @@ const CYCLE_PRESETS = [
   { value: "custom", label: "직접 지정" },
 ];
 
-function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[], currentUser: User | null }) {
+function AddEquipTypeCategoryDialog({
+  allUsers,
+  currentUser,
+}: {
+  allUsers: User[];
+  currentUser: User | null;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
@@ -1164,18 +1609,30 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isManagerUser = currentUser?.role === 'manager';
-  const selectableUsers = allUsers.filter(u => u.role !== 'admin');
-  const filteredUsers = selectableUsers.filter(u =>
-    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
-    (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+  const isManagerUser = currentUser?.role === "manager";
+  const selectableUsers = allUsers.filter((u) => u.role !== "admin");
+  const filteredUsers = selectableUsers.filter(
+    (u) =>
+      u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(userSearch.toLowerCase()),
   );
 
-  const effectiveCycleDays = cycleSelectValue === "custom" ? (parseInt(customCycleDays) || null) : (cycleSelectValue && cycleSelectValue !== "none" ? parseInt(cycleSelectValue) : null);
-  const finalManagerIds = isManagerUser && currentUser ? [currentUser.id] : selectedManagerIds;
+  const effectiveCycleDays =
+    cycleSelectValue === "custom"
+      ? parseInt(customCycleDays) || null
+      : cycleSelectValue && cycleSelectValue !== "none"
+        ? parseInt(cycleSelectValue)
+        : null;
+  const finalManagerIds =
+    isManagerUser && currentUser ? [currentUser.id] : selectedManagerIds;
 
   const createMutation = useMutation({
-    mutationFn: () => api.categories.create({ name, managerIds: finalManagerIds, defaultCycleDays: effectiveCycleDays }),
+    mutationFn: () =>
+      api.categories.create({
+        name,
+        managerIds: finalManagerIds,
+        defaultCycleDays: effectiveCycleDays,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
@@ -1184,15 +1641,24 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
       setUserSearch("");
       setCycleSelectValue("none");
       setCustomCycleDays("");
-      toast({ title: "구분 등록 완료", description: "새로운 구분이 등록되었습니다." });
+      toast({
+        title: "구분 등록 완료",
+        description: "새로운 구분이 등록되었습니다.",
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "등록 실패", description: error.message, variant: "destructive" });
+      toast({
+        title: "등록 실패",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   const toggleManager = (id: string) => {
-    setSelectedManagerIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+    setSelectedManagerIds((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -1222,7 +1688,10 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>구분 등록</DialogTitle>
-          <DialogDescription>구분을 등록한 뒤, AI 업무 알림 서비스 페이지에서 해당 구분에 대상을 등록할 수 있습니다.</DialogDescription>
+          <DialogDescription>
+            구분을 등록한 뒤, AI 업무 알림 서비스 페이지에서 해당 구분에 대상을
+            등록할 수 있습니다.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -1238,14 +1707,21 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
           </div>
           <div className="space-y-2">
             <Label>기본 점검 주기</Label>
-            <p className="text-xs text-muted-foreground">AI 업무 알림 서비스에서 이 구분을 선택하면 기본값으로 적용됩니다.</p>
-            <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
+            <p className="text-xs text-muted-foreground">
+              AI 업무 알림 서비스에서 이 구분을 선택하면 기본값으로 적용됩니다.
+            </p>
+            <Select
+              value={cycleSelectValue}
+              onValueChange={setCycleSelectValue}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="주기 선택 (선택사항)" />
               </SelectTrigger>
               <SelectContent>
-                {CYCLE_PRESETS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                {CYCLE_PRESETS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1262,7 +1738,9 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
           {isManagerUser ? (
             <div className="space-y-2">
               <Label>구분 관리자</Label>
-              <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
+              <p className="text-sm text-muted-foreground border rounded-md p-2">
+                {currentUser?.username} (본인)
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1273,14 +1751,22 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
                 onChange={(e) => setUserSearch(e.target.value)}
                 className="mb-2 h-8 text-sm"
               />
-              <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-category-managers">
+              <div
+                className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1"
+                data-testid="select-category-managers"
+              >
                 {filteredUsers.length === 0 ? (
                   <p className="text-sm text-muted-foreground p-1">
-                    {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                    {userSearch
+                      ? "검색 결과가 없습니다."
+                      : "등록된 사용자가 없습니다."}
                   </p>
                 ) : (
                   filteredUsers.map((u) => (
-                    <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                    <label
+                      key={u.id}
+                      className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedManagerIds.includes(u.id)}
@@ -1289,18 +1775,28 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
                         data-testid={`checkbox-manager-${u.id}`}
                       />
                       <span className="text-sm">{u.username}</span>
-                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '구분 관리자' : '사용자'})</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({u.role === "manager" ? "구분 관리자" : "사용자"})
+                      </span>
                     </label>
                   ))
                 )}
               </div>
               {selectedManagerIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedManagerIds.length}명 선택됨
+                </p>
               )}
             </div>
           )}
           <DialogFooter className="mt-4">
-            <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-category">등록</Button>
+            <Button
+              type="submit"
+              disabled={createMutation.isPending}
+              data-testid="button-submit-category"
+            >
+              등록
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -1308,22 +1804,44 @@ function AddEquipTypeCategoryDialog({ allUsers, currentUser }: { allUsers: User[
   );
 }
 
-function EditCategoryDialog({ category, allUsers, currentUser }: { category: Category, allUsers: User[], currentUser: User | null }) {
+function EditCategoryDialog({
+  category,
+  allUsers,
+  currentUser,
+}: {
+  category: Category;
+  allUsers: User[];
+  currentUser: User | null;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(category.name);
-  const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(category.managerIds || []);
+  const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>(
+    category.managerIds || [],
+  );
   const [userSearch, setUserSearch] = useState("");
   const currentDays = category.defaultCycleDays;
-  const presetMatch = currentDays ? CYCLE_PRESETS.find(o => o.value !== "custom" && o.value !== "none" && parseInt(o.value) === currentDays) : null;
-  const [cycleSelectValue, setCycleSelectValue] = useState<string>(presetMatch ? presetMatch.value : (currentDays ? "custom" : "none"));
-  const [customCycleDays, setCustomCycleDays] = useState<string>(presetMatch ? "" : (currentDays ? String(currentDays) : ""));
+  const presetMatch = currentDays
+    ? CYCLE_PRESETS.find(
+        (o) =>
+          o.value !== "custom" &&
+          o.value !== "none" &&
+          parseInt(o.value) === currentDays,
+      )
+    : null;
+  const [cycleSelectValue, setCycleSelectValue] = useState<string>(
+    presetMatch ? presetMatch.value : currentDays ? "custom" : "none",
+  );
+  const [customCycleDays, setCustomCycleDays] = useState<string>(
+    presetMatch ? "" : currentDays ? String(currentDays) : "",
+  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const selectableUsers = allUsers.filter(u => u.role !== 'admin');
-  const filteredUsers = selectableUsers.filter(u =>
-    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
-    (u.email || '').toLowerCase().includes(userSearch.toLowerCase())
+  const selectableUsers = allUsers.filter((u) => u.role !== "admin");
+  const filteredUsers = selectableUsers.filter(
+    (u) =>
+      u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(userSearch.toLowerCase()),
   );
 
   const selectedFirst = [...filteredUsers].sort((a, b) => {
@@ -1332,22 +1850,41 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
     return aSelected - bSelected;
   });
 
-  const effectiveCycleDays = cycleSelectValue === "custom" ? (parseInt(customCycleDays) || null) : (cycleSelectValue && cycleSelectValue !== "none" ? parseInt(cycleSelectValue) : null);
+  const effectiveCycleDays =
+    cycleSelectValue === "custom"
+      ? parseInt(customCycleDays) || null
+      : cycleSelectValue && cycleSelectValue !== "none"
+        ? parseInt(cycleSelectValue)
+        : null;
 
   const updateMutation = useMutation({
-    mutationFn: () => api.categories.update(category.id, { name, managerIds: selectedManagerIds, defaultCycleDays: effectiveCycleDays }),
+    mutationFn: () =>
+      api.categories.update(category.id, {
+        name,
+        managerIds: selectedManagerIds,
+        defaultCycleDays: effectiveCycleDays,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setOpen(false);
-      toast({ title: "구분 수정됨", description: "구분 정보가 업데이트되었습니다." });
+      toast({
+        title: "구분 수정됨",
+        description: "구분 정보가 업데이트되었습니다.",
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "수정 실패", description: error.message, variant: "destructive" });
+      toast({
+        title: "수정 실패",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   const toggleManager = (id: string) => {
-    setSelectedManagerIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+    setSelectedManagerIds((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -1363,16 +1900,26 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
       setSelectedManagerIds(category.managerIds || []);
       setUserSearch("");
       const cd = category.defaultCycleDays;
-      const pm = cd ? CYCLE_PRESETS.find(o => o.value !== "custom" && o.value !== "none" && parseInt(o.value) === cd) : null;
-      setCycleSelectValue(pm ? pm.value : (cd ? "custom" : "none"));
-      setCustomCycleDays(pm ? "" : (cd ? String(cd) : ""));
+      const pm = cd
+        ? CYCLE_PRESETS.find(
+            (o) =>
+              o.value !== "custom" &&
+              o.value !== "none" &&
+              parseInt(o.value) === cd,
+          )
+        : null;
+      setCycleSelectValue(pm ? pm.value : cd ? "custom" : "none");
+      setCustomCycleDays(pm ? "" : cd ? String(cd) : "");
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} data-testid={`button-edit-category-${category.id}`}>
+        <DropdownMenuItem
+          onSelect={(e) => e.preventDefault()}
+          data-testid={`button-edit-category-${category.id}`}
+        >
           <Pencil className="mr-2 h-4 w-4" />
           수정
         </DropdownMenuItem>
@@ -1395,13 +1942,18 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
           </div>
           <div className="space-y-2">
             <Label>기본 점검 주기</Label>
-            <Select value={cycleSelectValue} onValueChange={setCycleSelectValue}>
+            <Select
+              value={cycleSelectValue}
+              onValueChange={setCycleSelectValue}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="주기 선택 (선택사항)" />
               </SelectTrigger>
               <SelectContent>
-                {CYCLE_PRESETS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                {CYCLE_PRESETS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1415,10 +1967,12 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
               />
             )}
           </div>
-          {currentUser?.role === 'manager' ? (
+          {currentUser?.role === "manager" ? (
             <div className="space-y-2">
               <Label>구분 관리자</Label>
-              <p className="text-sm text-muted-foreground border rounded-md p-2">{currentUser?.username} (본인)</p>
+              <p className="text-sm text-muted-foreground border rounded-md p-2">
+                {currentUser?.username} (본인)
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1429,14 +1983,22 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
                 onChange={(e) => setUserSearch(e.target.value)}
                 className="mb-2 h-8 text-sm"
               />
-              <div className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1" data-testid="select-edit-category-managers">
+              <div
+                className="border rounded-md p-2 max-h-48 overflow-y-auto space-y-1"
+                data-testid="select-edit-category-managers"
+              >
                 {selectedFirst.length === 0 ? (
                   <p className="text-sm text-muted-foreground p-1">
-                    {userSearch ? "검색 결과가 없습니다." : "등록된 사용자가 없습니다."}
+                    {userSearch
+                      ? "검색 결과가 없습니다."
+                      : "등록된 사용자가 없습니다."}
                   </p>
                 ) : (
                   selectedFirst.map((u) => (
-                    <label key={u.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer">
+                    <label
+                      key={u.id}
+                      className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedManagerIds.includes(u.id)}
@@ -1445,18 +2007,28 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
                         data-testid={`checkbox-edit-manager-${u.id}`}
                       />
                       <span className="text-sm">{u.username}</span>
-                      <span className="text-xs text-muted-foreground">({u.role === 'manager' ? '구분 관리자' : '사용자'})</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({u.role === "manager" ? "구분 관리자" : "사용자"})
+                      </span>
                     </label>
                   ))
                 )}
               </div>
               {selectedManagerIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">{selectedManagerIds.length}명 선택됨</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedManagerIds.length}명 선택됨
+                </p>
               )}
             </div>
           )}
           <DialogFooter className="mt-4">
-            <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit-category">저장</Button>
+            <Button
+              type="submit"
+              disabled={updateMutation.isPending}
+              data-testid="button-submit-edit-category"
+            >
+              저장
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -1464,7 +2036,15 @@ function EditCategoryDialog({ category, allUsers, currentUser }: { category: Cat
   );
 }
 
-function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], teams: TeamType[], onPromoted?: (id: string) => void }) {
+function PromoteToManagerDialog({
+  users,
+  teams,
+  onPromoted,
+}: {
+  users: User[];
+  teams: TeamType[];
+  onPromoted?: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1472,19 +2052,21 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const staffUsers = users.filter(u => u.role === 'staff');
-  const filteredUsers = staffUsers.filter(u => {
+  const staffUsers = users.filter((u) => u.role === "staff");
+  const filteredUsers = staffUsers.filter((u) => {
     const search = searchTerm.toLowerCase();
     return (
       u.username.toLowerCase().includes(search) ||
-      (u.email || '').toLowerCase().includes(search) ||
-      (teams.find(t => t.id === u.teamId)?.name || '').toLowerCase().includes(search)
+      (u.email || "").toLowerCase().includes(search) ||
+      (teams.find((t) => t.id === u.teamId)?.name || "")
+        .toLowerCase()
+        .includes(search)
     );
   });
 
   const toggleSelection = (id: string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
     );
   };
 
@@ -1493,16 +2075,23 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
     setIsPromoting(true);
     try {
       for (const id of selectedIds) {
-        await api.users.update(id, { role: 'manager' } as any);
+        await api.users.update(id, { role: "manager" } as any);
         if (onPromoted) onPromoted(id);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setOpen(false);
       setSearchTerm("");
       setSelectedIds([]);
-      toast({ title: "구분 관리자 배정 완료", description: `${selectedIds.length}명의 사용자가 구분 관리자로 배정되었습니다.` });
+      toast({
+        title: "구분 관리자 배정 완료",
+        description: `${selectedIds.length}명의 사용자가 구분 관리자로 배정되었습니다.`,
+      });
     } catch (error: any) {
-      toast({ title: "배정 실패", description: error.message, variant: "destructive" });
+      toast({
+        title: "배정 실패",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsPromoting(false);
     }
@@ -1526,7 +2115,10 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>구분 관리자 배정</DialogTitle>
-          <DialogDescription>사용자 목록에서 구분 관리자로 배정할 사용자를 선택하세요. 여러 명을 동시에 선택할 수 있습니다.</DialogDescription>
+          <DialogDescription>
+            사용자 목록에서 구분 관리자로 배정할 사용자를 선택하세요. 여러 명을
+            동시에 선택할 수 있습니다.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
@@ -1547,7 +2139,9 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
           <div className="rounded-md border max-h-[300px] overflow-auto">
             {filteredUsers.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                {staffUsers.length === 0 ? "배정 가능한 사용자가 없습니다. 먼저 사용자 탭에서 사용자를 추가하세요." : "검색 결과가 없습니다."}
+                {staffUsers.length === 0
+                  ? "배정 가능한 사용자가 없습니다. 먼저 사용자 탭에서 사용자를 추가하세요."
+                  : "검색 결과가 없습니다."}
               </div>
             ) : (
               filteredUsers.map((user) => {
@@ -1555,19 +2149,34 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
                 return (
                   <div
                     key={user.id}
-                    className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-accent border-b last:border-b-0 ${isSelected ? 'bg-accent' : ''}`}
+                    className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-accent border-b last:border-b-0 ${isSelected ? "bg-accent" : ""}`}
                     onClick={() => toggleSelection(user.id)}
                     data-testid={`promote-user-${user.id}`}
                   >
-                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelection(user.id)} className="h-4 w-4 rounded border-gray-300" />
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelection(user.id)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
                     <div className="flex-1 flex flex-col">
                       <span className="font-medium">{user.username}</span>
                       <span className="text-xs text-muted-foreground">
-                        {(() => { const t = teams.find(t => t.id === user.teamId); return t?.department ? `${t.department} / ${t.name}` : (t?.name || "-"); })()} {user.position ? `· ${user.position}` : ''}
+                        {(() => {
+                          const t = teams.find((t) => t.id === user.teamId);
+                          return t?.department
+                            ? `${t.department} / ${t.name}`
+                            : t?.name || "-";
+                        })()}{" "}
+                        {user.position ? `· ${user.position}` : ""}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
+                      {user.email && (
+                        <span className="text-xs text-muted-foreground">
+                          {user.email}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -1580,7 +2189,9 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
               disabled={selectedIds.length === 0 || isPromoting}
               data-testid="button-submit-promote"
             >
-              {isPromoting ? "배정 중..." : `구분 관리자로 배정 (${selectedIds.length}명)`}
+              {isPromoting
+                ? "배정 중..."
+                : `구분 관리자로 배정 (${selectedIds.length}명)`}
             </Button>
           </DialogFooter>
         </div>
@@ -1589,7 +2200,17 @@ function PromoteToManagerDialog({ users, teams, onPromoted }: { users: User[], t
   );
 }
 
-function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: User[], categories: Category[], onAssigned: () => void, teams?: TeamType[] }) {
+function AssignStaffDialog({
+  users,
+  categories,
+  onAssigned,
+  teams,
+}: {
+  users: User[];
+  categories: Category[];
+  onAssigned: () => void;
+  teams?: TeamType[];
+}) {
   const { currentUser } = useUser();
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1597,21 +2218,26 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const unassignedStaff = users.filter(u => {
-    if (u.role !== 'staff') return false;
+  const unassignedStaff = users.filter((u) => {
+    if (u.role !== "staff") return false;
     if (selectedCategoryId) {
-      const alreadyAssignedToCategory = u.managerId === currentUser?.id && (u.assignedCategoryIds || []).includes(selectedCategoryId);
+      const alreadyAssignedToCategory =
+        u.managerId === currentUser?.id &&
+        (u.assignedCategoryIds || []).includes(selectedCategoryId);
       if (alreadyAssignedToCategory) return false;
     }
     if (!u.managerId || u.managerId === currentUser?.id) {
       const search = searchTerm.toLowerCase();
-      return u.username.toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search);
+      return (
+        u.username.toLowerCase().includes(search) ||
+        (u.email || "").toLowerCase().includes(search)
+      );
     }
     return false;
   });
 
   const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -1621,12 +2247,13 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      const promises = Array.from(selectedIds).map(id => {
-        const user = users.find(u => u.id === id);
+      const promises = Array.from(selectedIds).map((id) => {
+        const user = users.find((u) => u.id === id);
         const existingCats = user?.assignedCategoryIds || [];
-        const newCats = selectedCategoryId && !existingCats.includes(selectedCategoryId)
-          ? [...existingCats, selectedCategoryId]
-          : existingCats;
+        const newCats =
+          selectedCategoryId && !existingCats.includes(selectedCategoryId)
+            ? [...existingCats, selectedCategoryId]
+            : existingCats;
         return api.users.update(id, {
           managerId: currentUser?.id,
           assignedCategoryIds: newCats,
@@ -1673,19 +2300,26 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>사용자 배정</DialogTitle>
-          <DialogDescription>담당자를 선택한 구분에 배정합니다.</DialogDescription>
+          <DialogDescription>
+            담당자를 선택한 구분에 배정합니다.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {categories.length > 0 && (
             <div className="space-y-2">
               <Label>배정 구분</Label>
-              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+              <Select
+                value={selectedCategoryId}
+                onValueChange={setSelectedCategoryId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="구분을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1704,13 +2338,15 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
           <div className="border rounded-md max-h-[300px] overflow-auto">
             {unassignedStaff.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                {selectedCategoryId ? "배정 가능한 담당자가 없습니다." : "구분을 먼저 선택해주세요."}
+                {selectedCategoryId
+                  ? "배정 가능한 담당자가 없습니다."
+                  : "구분을 먼저 선택해주세요."}
               </div>
             ) : (
-              unassignedStaff.map(u => (
+              unassignedStaff.map((u) => (
                 <div
                   key={u.id}
-                  className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? 'bg-accent' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? "bg-accent" : ""}`}
                   onClick={() => toggleSelect(u.id)}
                   data-testid={`assign-user-${u.id}`}
                 >
@@ -1723,29 +2359,48 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{u.username}</div>
                     <div className="text-xs text-muted-foreground">
-                      {(() => { const t = teams?.find(t => t.id === u.teamId); return t?.department ? `${t.department} / ${t.name}` : (t?.name || ''); })()}
-                      {u.email ? ` · ${u.email}` : ''}
+                      {(() => {
+                        const t = teams?.find((t) => t.id === u.teamId);
+                        return t?.department
+                          ? `${t.department} / ${t.name}`
+                          : t?.name || "";
+                      })()}
+                      {u.email ? ` · ${u.email}` : ""}
                     </div>
                   </div>
                   {u.managerId === currentUser?.id && (
-                    <Badge variant="secondary" className="text-xs">이미 배정됨</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      이미 배정됨
+                    </Badge>
                   )}
-                  {u.position && <Badge variant="outline" className="text-xs">{u.position}</Badge>}
+                  {u.position && (
+                    <Badge variant="outline" className="text-xs">
+                      {u.position}
+                    </Badge>
+                  )}
                 </div>
               ))
             )}
           </div>
           {selectedIds.size > 0 && (
-            <p className="text-sm text-muted-foreground">{selectedIds.size}명 선택됨</p>
+            <p className="text-sm text-muted-foreground">
+              {selectedIds.size}명 선택됨
+            </p>
           )}
         </div>
         <DialogFooter className="mt-2">
           <Button
             onClick={() => assignMutation.mutate()}
-            disabled={selectedIds.size === 0 || !selectedCategoryId || assignMutation.isPending}
+            disabled={
+              selectedIds.size === 0 ||
+              !selectedCategoryId ||
+              assignMutation.isPending
+            }
             data-testid="button-submit-assign"
           >
-            {assignMutation.isPending ? "배정 중..." : `배정 (${selectedIds.size}명)`}
+            {assignMutation.isPending
+              ? "배정 중..."
+              : `배정 (${selectedIds.size}명)`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1753,7 +2408,13 @@ function AssignStaffDialog({ users, categories, onAssigned, teams }: { users: Us
   );
 }
 
-function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddStaffUserDialog({
+  teams,
+  onCreated,
+}: {
+  teams: TeamType[];
+  onCreated?: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
@@ -1763,7 +2424,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
 
   const departments = useMemo(() => {
     const depts = new Set<string>();
-    teams.forEach(t => {
+    teams.forEach((t) => {
       if (t.department) depts.add(t.department);
     });
     return Array.from(depts).sort();
@@ -1771,7 +2432,9 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
 
   const filteredTeams = useMemo(() => {
     if (!selectedDept) return [];
-    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+    return teams
+      .filter((t) => t.department === selectedDept)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [teams, selectedDept]);
 
   const { register, handleSubmit, reset } = useForm();
@@ -1788,7 +2451,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
         const team = await api.teams.create({
           department: newDept.trim(),
           name: newTeamName.trim(),
-          isNew: true
+          isNew: true,
         } as any);
         finalTeamId = team.id;
         queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
@@ -1802,7 +2465,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
         position: data.position || undefined,
         email: data.email || undefined,
         phone: data.phone || undefined,
-        role: 'staff',
+        role: "staff",
         teamId: finalTeamId,
       });
     },
@@ -1856,7 +2519,10 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>사용자 추가</DialogTitle>
-          <DialogDescription>사용자 계정을 추가합니다. 이메일을 입력하면 해당 이메일로 로그인할 수 있습니다.</DialogDescription>
+          <DialogDescription>
+            사용자 계정을 추가합니다. 이메일을 입력하면 해당 이메일로 로그인할
+            수 있습니다.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -1901,7 +2567,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
                   <Input
                     placeholder="부서 직접 입력"
                     value={newDept}
-                    onChange={e => setNewDept(e.target.value)}
+                    onChange={(e) => setNewDept(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -1910,7 +2576,7 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
                   <Input
                     placeholder="팀 직접 입력"
                     value={newTeamName}
-                    onChange={e => setNewTeamName(e.target.value)}
+                    onChange={(e) => setNewTeamName(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -1919,26 +2585,49 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">부서</Label>
-                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                  <Select
+                    value={selectedDept}
+                    onValueChange={(val) => {
+                      setSelectedDept(val);
+                      setSelectedTeamId("");
+                    }}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(dept => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
+                      {departments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">팀</Label>
-                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
-                    <SelectTrigger className="h-9" data-testid="select-staff-team">
+                  <Select
+                    value={selectedTeamId}
+                    onValueChange={setSelectedTeamId}
+                    disabled={!selectedDept}
+                  >
+                    <SelectTrigger
+                      className="h-9"
+                      data-testid="select-staff-team"
+                    >
                       <SelectValue placeholder="팀 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {filteredTeams.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectContent
+                      position="popper"
+                      className="max-h-60 overflow-y-auto"
+                    >
+                      {filteredTeams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1967,7 +2656,9 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button type="submit" data-testid="button-submit-staff">추가</Button>
+            <Button type="submit" data-testid="button-submit-staff">
+              추가
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -1975,7 +2666,13 @@ function AddStaffUserDialog({ teams, onCreated }: { teams: TeamType[], onCreated
   );
 }
 
-function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: (id: string) => void }) {
+function AddMasterDialog({
+  teams,
+  onCreated,
+}: {
+  teams: TeamType[];
+  onCreated?: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
@@ -1985,7 +2682,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
 
   const departments = useMemo(() => {
     const depts = new Set<string>();
-    teams.forEach(t => {
+    teams.forEach((t) => {
       if (t.department) depts.add(t.department);
     });
     return Array.from(depts).sort();
@@ -1993,7 +2690,9 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
 
   const filteredTeams = useMemo(() => {
     if (!selectedDept) return [];
-    return teams.filter(t => t.department === selectedDept).sort((a, b) => a.name.localeCompare(b.name));
+    return teams
+      .filter((t) => t.department === selectedDept)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [teams, selectedDept]);
 
   const { register, handleSubmit, reset } = useForm();
@@ -2010,7 +2709,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
         const team = await api.teams.create({
           department: newDept.trim(),
           name: newTeamName.trim(),
-          isNew: true
+          isNew: true,
         } as any);
         finalTeamId = team.id;
         queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
@@ -2022,7 +2721,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
         username: data.username,
         email: data.email || undefined,
         phone: data.phone || undefined,
-        role: 'admin',
+        role: "admin",
         teamId: finalTeamId,
       });
     },
@@ -2036,10 +2735,17 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
       setIsNewTeam(false);
       setNewDept("");
       setNewTeamName("");
-      toast({ title: "마스터 추가 완료", description: "새로운 마스터 계정이 생성되었습니다." });
+      toast({
+        title: "마스터 추가 완료",
+        description: "새로운 마스터 계정이 생성되었습니다.",
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "마스터 추가 실패", description: error.message, variant: "destructive" });
+      toast({
+        title: "마스터 추가 실패",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -2069,7 +2775,9 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>마스터 추가</DialogTitle>
-          <DialogDescription>시스템 최고 관리자(마스터) 계정을 추가합니다.</DialogDescription>
+          <DialogDescription>
+            시스템 최고 관리자(마스터) 계정을 추가합니다.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
@@ -2103,7 +2811,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
                   <Input
                     placeholder="부서 직접 입력"
                     value={newDept}
-                    onChange={e => setNewDept(e.target.value)}
+                    onChange={(e) => setNewDept(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -2112,7 +2820,7 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
                   <Input
                     placeholder="팀 직접 입력"
                     value={newTeamName}
-                    onChange={e => setNewTeamName(e.target.value)}
+                    onChange={(e) => setNewTeamName(e.target.value)}
                     className="h-9"
                   />
                 </div>
@@ -2121,26 +2829,43 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">부서</Label>
-                  <Select value={selectedDept} onValueChange={(val) => { setSelectedDept(val); setSelectedTeamId(""); }}>
+                  <Select
+                    value={selectedDept}
+                    onValueChange={(val) => {
+                      setSelectedDept(val);
+                      setSelectedTeamId("");
+                    }}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="부서 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(dept => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                      {departments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">팀</Label>
-                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedDept}>
-                    <SelectTrigger className="h-9" data-testid="select-master-team">
+                  <Select
+                    value={selectedTeamId}
+                    onValueChange={setSelectedTeamId}
+                    disabled={!selectedDept}
+                  >
+                    <SelectTrigger
+                      className="h-9"
+                      data-testid="select-master-team"
+                    >
                       <SelectValue placeholder="팀 선택" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {filteredTeams.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectContent position="popper" className="max-h-60 overflow-y-auto">
+                      {filteredTeams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -2169,7 +2894,9 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button type="submit" data-testid="button-submit-master">추가</Button>
+            <Button type="submit" data-testid="button-submit-master">
+              추가
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -2177,7 +2904,15 @@ function AddMasterDialog({ teams, onCreated }: { teams: TeamType[], onCreated?: 
   );
 }
 
-function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamType[], onEdit: (id: string, data: Partial<TeamType>) => void }) {
+function EditTeamDialog({
+  team,
+  teams,
+  onEdit,
+}: {
+  team: TeamType;
+  teams: TeamType[];
+  onEdit: (id: string, data: Partial<TeamType>) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [teamNameOpen, setTeamNameOpen] = useState(false);
   const [teamNameSearch, setTeamNameSearch] = useState(team.name);
@@ -2188,14 +2923,16 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
       contactEmail: team.contactEmail,
       phone: team.phone || "",
       staffEmail: team.staffEmail || "",
-      staffPhone: team.staffPhone || ""
-    }
+      staffPhone: team.staffPhone || "",
+    },
   });
 
   const nameValue = watch("name");
 
-  const filteredTeamNames = teams.filter(t => 
-    t.name.toLowerCase().includes(teamNameSearch.toLowerCase()) && t.id !== team.id
+  const filteredTeamNames = teams.filter(
+    (t) =>
+      t.name.toLowerCase().includes(teamNameSearch.toLowerCase()) &&
+      t.id !== team.id,
   );
 
   const onSubmit = (data: any) => {
@@ -2244,7 +2981,10 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
                 </div>
               </PopoverTrigger>
               {filteredTeamNames.length > 0 && (
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <PopoverContent
+                  className="w-[--radix-popover-trigger-width] p-0"
+                  align="start"
+                >
                   <div className="max-h-[200px] overflow-auto">
                     {filteredTeamNames.map((t) => (
                       <div
@@ -2266,31 +3006,54 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-team-department">소속 부서</Label>
-            <Input id="edit-team-department" {...register("department")} placeholder="부서명 입력" />
+            <Input
+              id="edit-team-department"
+              {...register("department")}
+              placeholder="부서명 입력"
+            />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">팀장 연락처</Label>
+            <Label className="text-sm font-medium text-muted-foreground">
+              팀장 연락처
+            </Label>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-team-email">이메일</Label>
-                <Input id="edit-team-email" {...register("contactEmail", { required: true })} />
+                <Input
+                  id="edit-team-email"
+                  {...register("contactEmail", { required: true })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-team-phone">전화번호</Label>
-                <Input id="edit-team-phone" {...register("phone")} placeholder="010-0000-0000" />
+                <Input
+                  id="edit-team-phone"
+                  {...register("phone")}
+                  placeholder="010-0000-0000"
+                />
               </div>
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">담당자 연락처</Label>
+            <Label className="text-sm font-medium text-muted-foreground">
+              담당자 연락처
+            </Label>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-staff-email">이메일</Label>
-                <Input id="edit-staff-email" {...register("staffEmail")} placeholder="staff@example.com" />
+                <Input
+                  id="edit-staff-email"
+                  {...register("staffEmail")}
+                  placeholder="staff@example.com"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-staff-phone">전화번호</Label>
-                <Input id="edit-staff-phone" {...register("staffPhone")} placeholder="010-0000-0000" />
+                <Input
+                  id="edit-staff-phone"
+                  {...register("staffPhone")}
+                  placeholder="010-0000-0000"
+                />
               </div>
             </div>
           </div>
@@ -2303,8 +3066,17 @@ function EditTeamDialog({ team, teams, onEdit }: { team: TeamType, teams: TeamTy
   );
 }
 
-
-function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { currentPage: number, totalItems: number, itemsPerPage: number, onPageChange: (page: number) => void }) {
+function Pagination({
+  currentPage,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+}) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   if (totalPages <= 1) return null;
 
@@ -2314,11 +3086,15 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       pages.push(1);
-      if (currentPage > 3) pages.push('...');
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      if (currentPage > 3) pages.push("...");
+      for (
+        let i = Math.max(2, currentPage - 1);
+        i <= Math.min(totalPages - 1, currentPage + 1);
+        i++
+      ) {
         pages.push(i);
       }
-      if (currentPage < totalPages - 2) pages.push('...');
+      if (currentPage < totalPages - 2) pages.push("...");
       pages.push(totalPages);
     }
     return pages;
@@ -2327,7 +3103,8 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
   return (
     <div className="flex items-center justify-between" data-testid="pagination">
       <p className="text-sm text-muted-foreground">
-        총 {totalItems}건 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, totalItems)}건
+        총 {totalItems}건 중 {(currentPage - 1) * itemsPerPage + 1}-
+        {Math.min(currentPage * itemsPerPage, totalItems)}건
       </p>
       <div className="flex items-center gap-1">
         <Button
@@ -2340,8 +3117,8 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        {getPageNumbers().map((page, idx) => (
-          typeof page === 'number' ? (
+        {getPageNumbers().map((page, idx) =>
+          typeof page === "number" ? (
             <Button
               key={idx}
               variant={page === currentPage ? "default" : "outline"}
@@ -2353,9 +3130,11 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
               {page}
             </Button>
           ) : (
-            <span key={idx} className="px-1 text-muted-foreground">...</span>
-          )
-        ))}
+            <span key={idx} className="px-1 text-muted-foreground">
+              ...
+            </span>
+          ),
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -2371,7 +3150,17 @@ function Pagination({ currentPage, totalItems, itemsPerPage, onPageChange }: { c
   );
 }
 
-function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { users: User[], categories: Category[], onAssigned: () => void, teams?: TeamType[] }) {
+function AdminAssignStaffDialog({
+  users,
+  categories,
+  onAssigned,
+  teams,
+}: {
+  users: User[];
+  categories: Category[];
+  onAssigned: () => void;
+  teams?: TeamType[];
+}) {
   const [open, setOpen] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -2379,39 +3168,51 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const managerUsers = users.filter(u => u.role === 'manager');
+  const managerUsers = users.filter((u) => u.role === "manager");
   const managerCategories = selectedManagerId
-    ? categories.filter(c => (c.managerIds || []).includes(selectedManagerId))
+    ? categories.filter((c) => (c.managerIds || []).includes(selectedManagerId))
     : [];
 
-  const candidateStaff = users.filter(u => {
-    if (u.role !== 'staff') return false;
+  const candidateStaff = users.filter((u) => {
+    if (u.role !== "staff") return false;
     if (!selectedManagerId) return false;
     if (u.managerId && u.managerId !== selectedManagerId) return false;
     if (selectedCategoryId) {
-      if (u.managerId === selectedManagerId && (u.assignedCategoryIds || []).includes(selectedCategoryId)) return false;
+      if (
+        u.managerId === selectedManagerId &&
+        (u.assignedCategoryIds || []).includes(selectedCategoryId)
+      )
+        return false;
     }
     const search = searchTerm.toLowerCase();
-    return u.username.toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search);
+    return (
+      u.username.toLowerCase().includes(search) ||
+      (u.email || "").toLowerCase().includes(search)
+    );
   });
 
   const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      const promises = Array.from(selectedIds).map(id => {
-        const user = users.find(u => u.id === id);
+      const promises = Array.from(selectedIds).map((id) => {
+        const user = users.find((u) => u.id === id);
         const existingCats = user?.assignedCategoryIds || [];
-        const newCats = selectedCategoryId && !existingCats.includes(selectedCategoryId)
-          ? [...existingCats, selectedCategoryId]
-          : existingCats;
-        return api.users.update(id, { managerId: selectedManagerId, assignedCategoryIds: newCats });
+        const newCats =
+          selectedCategoryId && !existingCats.includes(selectedCategoryId)
+            ? [...existingCats, selectedCategoryId]
+            : existingCats;
+        return api.users.update(id, {
+          managerId: selectedManagerId,
+          assignedCategoryIds: newCats,
+        });
       });
       await Promise.all(promises);
     },
@@ -2422,16 +3223,28 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
       setSearchTerm("");
       setSelectedCategoryId("");
       setSelectedManagerId("");
-      toast({ title: "배정 완료", description: `${selectedIds.size}명의 담당자가 배정되었습니다.` });
+      toast({
+        title: "배정 완료",
+        description: `${selectedIds.size}명의 담당자가 배정되었습니다.`,
+      });
     },
     onError: () => {
-      toast({ title: "배정 실패", description: "담당자 배정 중 오류가 발생했습니다.", variant: "destructive" });
+      toast({
+        title: "배정 실패",
+        description: "담당자 배정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     },
   });
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    if (!isOpen) { setSelectedIds(new Set()); setSearchTerm(""); setSelectedCategoryId(""); setSelectedManagerId(""); }
+    if (!isOpen) {
+      setSelectedIds(new Set());
+      setSearchTerm("");
+      setSelectedCategoryId("");
+      setSelectedManagerId("");
+    }
   };
 
   return (
@@ -2444,18 +3257,29 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>담당자 배정</DialogTitle>
-          <DialogDescription>구분관리자와 구분을 선택 후 담당자를 배정합니다.</DialogDescription>
+          <DialogDescription>
+            구분관리자와 구분을 선택 후 담당자를 배정합니다.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>구분관리자 선택</Label>
-            <Select value={selectedManagerId} onValueChange={v => { setSelectedManagerId(v); setSelectedCategoryId(""); setSelectedIds(new Set()); }}>
+            <Select
+              value={selectedManagerId}
+              onValueChange={(v) => {
+                setSelectedManagerId(v);
+                setSelectedCategoryId("");
+                setSelectedIds(new Set());
+              }}
+            >
               <SelectTrigger data-testid="select-admin-assign-manager">
                 <SelectValue placeholder="구분관리자를 선택하세요" />
               </SelectTrigger>
               <SelectContent>
-                {managerUsers.map(m => (
-                  <SelectItem key={m.id} value={m.id}>{m.username}</SelectItem>
+                {managerUsers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.username}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -2463,13 +3287,21 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
           {selectedManagerId && (
             <div className="space-y-2">
               <Label>배정 구분</Label>
-              <Select value={selectedCategoryId} onValueChange={v => { setSelectedCategoryId(v); setSelectedIds(new Set()); }}>
+              <Select
+                value={selectedCategoryId}
+                onValueChange={(v) => {
+                  setSelectedCategoryId(v);
+                  setSelectedIds(new Set());
+                }}
+              >
                 <SelectTrigger data-testid="select-admin-assign-category">
                   <SelectValue placeholder="구분을 선택하세요 (선택사항)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {managerCategories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  {managerCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2489,26 +3321,45 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
               </div>
               <div className="border rounded-md max-h-[280px] overflow-auto">
                 {candidateStaff.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">배정 가능한 담당자가 없습니다.</div>
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    배정 가능한 담당자가 없습니다.
+                  </div>
                 ) : (
-                  candidateStaff.map(u => {
-                    const team = teams?.find(t => t.id === u.teamId);
+                  candidateStaff.map((u) => {
+                    const team = teams?.find((t) => t.id === u.teamId);
                     return (
                       <div
                         key={u.id}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? 'bg-accent' : ''}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent border-b last:border-b-0 ${selectedIds.has(u.id) ? "bg-accent" : ""}`}
                         onClick={() => toggleSelect(u.id)}
                         data-testid={`admin-assign-user-${u.id}`}
                       >
-                        <input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)} className="rounded" />
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(u.id)}
+                          onChange={() => toggleSelect(u.id)}
+                          className="rounded"
+                        />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{u.username}</div>
+                          <div className="font-medium text-sm">
+                            {u.username}
+                          </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {[u.position, team ? `${team.department} / ${team.name}` : null].filter(Boolean).join(' · ')}
+                            {[
+                              u.position,
+                              team ? `${team.department} / ${team.name}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </div>
                         </div>
                         {u.managerId === selectedManagerId && (
-                          <Badge variant="secondary" className="text-xs shrink-0">이미 배정</Badge>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs shrink-0"
+                          >
+                            이미 배정
+                          </Badge>
                         )}
                       </div>
                     );
@@ -2519,13 +3370,17 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>취소</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            취소
+          </Button>
           <Button
             onClick={() => assignMutation.mutate()}
             disabled={selectedIds.size === 0 || assignMutation.isPending}
             data-testid="button-admin-assign-confirm"
           >
-            {assignMutation.isPending ? "배정 중..." : `${selectedIds.size}명 배정`}
+            {assignMutation.isPending
+              ? "배정 중..."
+              : `${selectedIds.size}명 배정`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2533,18 +3388,38 @@ function AdminAssignStaffDialog({ users, categories, onAssigned, teams }: { user
   );
 }
 
-function AdminUnassignStaffButton({ user, users, categories, onUnassigned }: { user: User, users: User[], categories: Category[], onUnassigned: () => void }) {
+function AdminUnassignStaffButton({
+  user,
+  users,
+  categories,
+  onUnassigned,
+}: {
+  user: User;
+  users: User[];
+  categories: Category[];
+  onUnassigned: () => void;
+}) {
   const { toast } = useToast();
   const unassignMutation = useMutation({
     mutationFn: async () => {
-      await api.users.update(user.id, { managerId: null, assignedCategoryIds: [] });
+      await api.users.update(user.id, {
+        managerId: null,
+        assignedCategoryIds: [],
+      });
     },
     onSuccess: () => {
       onUnassigned();
-      toast({ title: "배정 해제 완료", description: `${user.username} 님의 배정이 해제되었습니다.` });
+      toast({
+        title: "배정 해제 완료",
+        description: `${user.username} 님의 배정이 해제되었습니다.`,
+      });
     },
     onError: () => {
-      toast({ title: "배정 해제 실패", description: "오류가 발생했습니다.", variant: "destructive" });
+      toast({
+        title: "배정 해제 실패",
+        description: "오류가 발생했습니다.",
+        variant: "destructive",
+      });
     },
   });
 
