@@ -227,6 +227,7 @@ export default function Assets() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [globalHistoryOpen, setGlobalHistoryOpen] = useState(false);
+  const [assetPopupDate, setAssetPopupDate] = useState<Date | null>(null); // 2026-04-08 장비캘린더 날짜팝업
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const d = new Date();
@@ -563,7 +564,7 @@ export default function Assets() {
           onPrevMonth={() => setCalendarMonth((prev) => addMonths(prev, -1))}
           onNextMonth={() => setCalendarMonth((prev) => addMonths(prev, 1))}
           onToday={() => setCalendarMonth(startOfMonth(new Date()))}
-          onDateClick={() => {}}
+          onDateClick={(date) => setAssetPopupDate(date)} // 2026-04-08 장비캘린더 날짜팝업
           onTaskClick={() => {}}
         />
       ) : (
@@ -868,6 +869,73 @@ export default function Assets() {
         categories={categories}
         teams={teams}
       />
+
+      {/* 2026-04-08 장비캘린더 날짜클릭 팝업 */}
+      <Dialog
+        open={!!assetPopupDate}
+        onOpenChange={(open) => !open && setAssetPopupDate(null)}
+      >
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {assetPopupDate &&
+                format(assetPopupDate, "yyyy년 M월 d일 (EEE)", {
+                  locale: ko,
+                })}{" "}
+              장비 점검
+            </DialogTitle>
+            <DialogDescription>
+              해당 날짜에 점검 예정인 장비 목록입니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[400px]">
+            {(() => {
+              const dateKey = assetPopupDate
+                ? format(assetPopupDate, "yyyy-MM-dd")
+                : "";
+              const dueAssets = assets.filter(
+                (a) => a.status !== "suspended" && a.nextDueDate === dateKey,
+              );
+              if (dueAssets.length === 0) {
+                return (
+                  <p className="text-center py-8 text-muted-foreground">
+                    해당 날짜에 점검 예정인 장비가 없습니다.
+                  </p>
+                );
+              }
+              return (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>대상</TableHead>
+                      <TableHead>구분</TableHead>
+                      <TableHead>담당자</TableHead>
+                      <TableHead>부서</TableHead>
+                      <TableHead>담당팀</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dueAssets.map((asset) => (
+                      <TableRow key={asset.id}>
+                        <TableCell className="font-medium">
+                          {asset.name}
+                        </TableCell>
+                        <TableCell>
+                          {categories.find((c) => c.id === asset.categoryId)
+                            ?.name || "-"}
+                        </TableCell>
+                        <TableCell>{getUserName(asset.staffId)}</TableCell>
+                        <TableCell>{getDeptName(asset.teamId)}</TableCell>
+                        <TableCell>{getTeamName(asset.teamId)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <GlobalHistoryDialog
         open={globalHistoryOpen}
@@ -1984,7 +2052,10 @@ function AddAssetDialog({
                 <SelectTrigger data-testid="select-asset-dept">
                   <SelectValue placeholder="부서 선택" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  position="popper"
+                  className="max-h-60 overflow-y-auto"
+                >
                   {departments.map((dept) => (
                     <SelectItem key={dept} value={dept}>
                       {dept}

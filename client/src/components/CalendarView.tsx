@@ -150,7 +150,7 @@ export default function CalendarView({
           key={`asset-${asset.id}`}
           className="text-[10px] leading-4 px-1 py-0 bg-amber-100 text-amber-800 border border-amber-300 rounded-sm truncate"
         >
-          {asset.name.length > 8 ? asset.name.slice(0, 8) + "…" : asset.name}
+          {asset.name.length > 12 ? asset.name.slice(0, 12) + "…" : asset.name}
         </div>,
       );
     }
@@ -206,7 +206,7 @@ export default function CalendarView({
           </div>
         </div>
         <div className="flex gap-3 text-xs text-muted-foreground">
-          {allTasks.length > 0 && (
+          {allTasks.length > 0 && ( // 2026-04-08 tasks 있을때만 표시
             <>
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
