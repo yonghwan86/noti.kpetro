@@ -557,7 +557,7 @@ export default function Assets() {
         <CalendarView
           tasks={[]}
           allTasks={[]}
-          assets={myAssets}
+          assets={assets}
           filter="all"
           calendarMonth={calendarMonth}
           onPrevMonth={() => setCalendarMonth((prev) => addMonths(prev, -1))}

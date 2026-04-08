@@ -206,14 +206,18 @@ export default function CalendarView({
           </div>
         </div>
         <div className="flex gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
-            내 일정
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-            공유받은
-          </span>
+          {allTasks.length > 0 && (
+            <>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
+                내 일정
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                공유받은
+              </span>
+            </>
+          )}
           {assets.length > 0 && (
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
