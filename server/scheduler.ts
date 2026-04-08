@@ -460,15 +460,15 @@ async function checkPersonalTasksReminder() {
       if (task.completed) continue;
 
       const scheduledDate = parseISO(task.scheduledAt);
-      const tenMinsBefore = subMinutes(scheduledDate, 10);
+      const thirtyMinsBefore = subMinutes(scheduledDate, 30);
 
-      if (now >= tenMinsBefore && now < scheduledDate) {
+      if (now >= thirtyMinsBefore && now < scheduledDate) {
         const ownerName =
           users.find((u) => u.id === task.userId)?.username || "알 수 없음";
 
         await sendPushToUser(
           task.userId,
-          `⏰ 10분 후 일정: ${task.title}`,
+          `⏰ 30분 후 일정: ${task.title}`,
           `곧 시작되는 일정이 있습니다.`,
           "/schedule",
         );
@@ -476,7 +476,7 @@ async function checkPersonalTasksReminder() {
         for (const targetId of getSharedTargetUserIds(task, users)) {
           await sendPushToUser(
             targetId,
-            `⏰ 10분 후 공유 일정: ${task.title}`,
+            `⏰ 30분 후 공유 일정: ${task.title}`,
             `${ownerName}님의 일정이 곧 시작됩니다.`,
             "/schedule",
           );
@@ -492,7 +492,7 @@ async function checkPersonalTasksReminder() {
 
 export function startScheduler() {
   cron.schedule(
-    "0 6 * * *",
+    "0 9 * * *",
     () => {
       console.log("[SCHEDULER] 6 AM KST - running daily digest");
       sendDailyDigest();
@@ -532,7 +532,7 @@ export function startScheduler() {
     }),
   );
 
-  if (kstHour >= 6) {
+  if (kstHour >= 9) {
     console.log(
       `[SCHEDULER] Server started at KST hour ${kstHour} - running morning catch-up`,
     );
