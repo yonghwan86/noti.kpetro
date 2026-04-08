@@ -1,21 +1,66 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { PersonalTask, Team, User, ShareScope, RepeatType, Asset, CreatePersonalTaskPayload, UpdatePersonalTaskPayload, TaskFilter } from "@/lib/types";
+import {
+  PersonalTask,
+  Team,
+  User,
+  ShareScope,
+  RepeatType,
+  Asset,
+  CreatePersonalTaskPayload,
+  UpdatePersonalTaskPayload,
+  TaskFilter,
+} from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO, isToday, isThisWeek, isPast, isFuture, addMonths, startOfMonth } from "date-fns";
+import {
+  format,
+  parseISO,
+  isToday,
+  isThisWeek,
+  isPast,
+  isFuture,
+  addMonths,
+  startOfMonth,
+} from "date-fns";
 import { ko } from "date-fns/locale";
 import {
-  Plus, Calendar, Check, Trash2, Edit, Users, Lock, Building, Share2, Clock, CalendarCheck, Filter, Repeat, List, CalendarDays
+  Plus,
+  Calendar,
+  Check,
+  Trash2,
+  Edit,
+  Users,
+  Lock,
+  Building,
+  Share2,
+  Clock,
+  CalendarCheck,
+  Filter,
+  Repeat,
+  List,
+  CalendarDays,
 } from "lucide-react";
 import ShareTargetSelector from "@/components/ShareTargetSelector";
 import CalendarView from "@/components/CalendarView";
@@ -23,7 +68,7 @@ import CalendarView from "@/components/CalendarView";
 type TaskWithShared = PersonalTask & { isShared?: boolean };
 
 const formatDateShort = (dateStr: string) => {
-  const [, m, d] = dateStr.split('-');
+  const [, m, d] = dateStr.split("-");
   return `${parseInt(m)}/${parseInt(d)}`;
 };
 
@@ -34,7 +79,7 @@ export default function MySchedule() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithShared | null>(null);
-  const [filter, setFilter] = useState<TaskFilter>('all');
+  const [filter, setFilter] = useState<TaskFilter>("all");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -47,7 +92,7 @@ export default function MySchedule() {
   const [scheduledEndAt, setScheduledEndAt] = useState("");
   const [label, setLabel] = useState<string | null>(null);
   const [priority, setPriority] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -74,29 +119,40 @@ export default function MySchedule() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CreatePersonalTaskPayload) => api.personalTasks.create(data),
+    mutationFn: (data: CreatePersonalTaskPayload) =>
+      api.personalTasks.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
       toast({ title: "일정이 등록되었습니다." });
       closeDialog();
     },
-    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+    onError: (e: any) =>
+      toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdatePersonalTaskPayload }) => api.personalTasks.update(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdatePersonalTaskPayload;
+    }) => api.personalTasks.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
       toast({ title: "일정이 수정되었습니다." });
       closeDialog();
     },
-    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+    onError: (e: any) =>
+      toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => api.personalTasks.toggleComplete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] }),
-    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] }),
+    onError: (e: any) =>
+      toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -105,7 +161,8 @@ export default function MySchedule() {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
       toast({ title: "일정이 삭제되었습니다." });
     },
-    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+    onError: (e: any) =>
+      toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
   const checklistMutation = useMutation({
@@ -114,7 +171,8 @@ export default function MySchedule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/personal-tasks"] });
     },
-    onError: (e: any) => toast({ title: "오류", description: e.message, variant: "destructive" }),
+    onError: (e: any) =>
+      toast({ title: "오류", description: e.message, variant: "destructive" }),
   });
 
   const closeDialog = () => {
@@ -137,8 +195,8 @@ export default function MySchedule() {
     closeDialog();
     if (date) {
       const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
       setScheduledAt(`${y}-${m}-${d}T09:00`);
     }
     setDialogOpen(true);
@@ -151,7 +209,10 @@ export default function MySchedule() {
     setScheduledAt(task.scheduledAt);
     setRepeatType(task.repeatType as RepeatType);
     const scope = task.shareScope;
-    const mappedScope: ShareScope = (scope === 'team' || scope === 'department' || scope === 'custom') ? 'selected' : (scope as ShareScope);
+    const mappedScope: ShareScope =
+      scope === "team" || scope === "department" || scope === "custom"
+        ? "selected"
+        : (scope as ShareScope);
     setShareScope(mappedScope);
     setShareTeamIds(task.shareTeamIds || []);
     setShareUserIds(task.shareUserIds || []);
@@ -164,7 +225,10 @@ export default function MySchedule() {
 
   const handleSubmit = () => {
     if (!title.trim() || !scheduledAt) {
-      toast({ title: "제목과 일정 시간을 입력해주세요.", variant: "destructive" });
+      toast({
+        title: "제목과 일정 시간을 입력해주세요.",
+        variant: "destructive",
+      });
       return;
     }
     if (isRangeEnabled && !scheduledEndAt) {
@@ -175,11 +239,11 @@ export default function MySchedule() {
       title: title.trim(),
       description: description.trim() || null,
       scheduledAt,
-      repeatType: isRangeEnabled ? 'none' : repeatType,
+      repeatType: isRangeEnabled ? "none" : repeatType,
       scheduledEndAt: isRangeEnabled && scheduledEndAt ? scheduledEndAt : null,
       shareScope,
-      shareTeamIds: shareScope === 'selected' ? shareTeamIds : [],
-      shareUserIds: shareScope === 'selected' ? shareUserIds : [],
+      shareTeamIds: shareScope === "selected" ? shareTeamIds : [],
+      shareUserIds: shareScope === "selected" ? shareUserIds : [],
       label,
       priority,
     };
@@ -187,93 +251,127 @@ export default function MySchedule() {
     if (editingTask) {
       updateMutation.mutate({ id: editingTask.id, data });
     } else {
-      data.userId = currentUser?.id || '';
+      data.userId = currentUser?.id || "";
       data.completed = false;
       createMutation.mutate(data);
     }
   };
 
-  const filteredTasks = tasks.filter(t => {
-    if (filter === 'mine') return !t.isShared;
-    if (filter === 'shared') return t.isShared;
-    if (filter === 'today') {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const start = format(parseISO(t.scheduledAt), 'yyyy-MM-dd');
+  const filteredTasks = tasks.filter((t) => {
+    if (filter === "mine") return !t.isShared;
+    if (filter === "shared") return t.isShared;
+    if (filter === "today") {
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      const start = format(parseISO(t.scheduledAt), "yyyy-MM-dd");
       const end = t.scheduledEndAt ?? start;
       return start <= todayStr && todayStr <= end;
     }
-    if (filter === 'completed') return t.completed;
+    if (filter === "completed") return t.completed;
     return true;
   });
 
-  const incompleteTasks = filteredTasks.filter(t => !t.completed).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
-  const completedTasks = filteredTasks.filter(t => t.completed);
+  const incompleteTasks = filteredTasks
+    .filter((t) => !t.completed)
+    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  const completedTasks = filteredTasks.filter((t) => t.completed);
 
   const getShareIcon = (scope: string) => {
-    if (scope === 'private') return <Lock className="h-3 w-3" />;
+    if (scope === "private") return <Lock className="h-3 w-3" />;
     return <Share2 className="h-3 w-3" />;
   };
 
   const getShareLabel = (scope: string) => {
-    if (scope === 'private') return '나만 보기';
-    return '공유';
+    if (scope === "private") return "나만 보기";
+    return "공유";
   };
 
   const getRepeatLabel = (type: string) => {
     switch (type) {
-      case 'daily': return '매일';
-      case 'weekly': return '매주';
-      case 'monthly': return '매월';
-      default: return null;
+      case "daily":
+        return "매일";
+      case "weekly":
+        return "매주";
+      case "monthly":
+        return "매월";
+      default:
+        return null;
     }
   };
 
-  const getUserName = (userId: string) => users.find(u => u.id === userId)?.username || '알 수 없음';
+  const getUserName = (userId: string) =>
+    users.find((u) => u.id === userId)?.username || "알 수 없음";
 
   const getScheduleStatus = (task: TaskWithShared) => {
-    if (task.completed) return { label: '완료', color: 'bg-green-100 text-green-800' };
+    if (task.completed)
+      return { label: "완료", color: "bg-green-100 text-green-800" };
     if (task.scheduledEndAt) {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const startStr = format(parseISO(task.scheduledAt), 'yyyy-MM-dd');
-      if (task.scheduledEndAt < todayStr) return { label: '지남', color: 'bg-red-100 text-red-800' };
-      if (startStr <= todayStr && todayStr <= task.scheduledEndAt) return { label: '진행중', color: 'bg-purple-100 text-purple-800' };
-      return { label: '예정', color: 'bg-gray-100 text-gray-800' };
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      const startStr = format(parseISO(task.scheduledAt), "yyyy-MM-dd");
+      if (task.scheduledEndAt < todayStr)
+        return { label: "지남", color: "bg-red-100 text-red-800" };
+      if (startStr <= todayStr && todayStr <= task.scheduledEndAt)
+        return { label: "진행중", color: "bg-purple-100 text-purple-800" };
+      return { label: "예정", color: "bg-gray-100 text-gray-800" };
     }
     const date = parseISO(task.scheduledAt);
-    if (isPast(date)) return { label: '지남', color: 'bg-red-100 text-red-800' };
-    if (isToday(date)) return { label: '오늘', color: 'bg-blue-100 text-blue-800' };
-    if (isThisWeek(date)) return { label: '이번주', color: 'bg-yellow-100 text-yellow-800' };
-    return { label: '예정', color: 'bg-gray-100 text-gray-800' };
+    if (isPast(date))
+      return { label: "지남", color: "bg-red-100 text-red-800" };
+    if (isToday(date))
+      return { label: "오늘", color: "bg-blue-100 text-blue-800" };
+    if (isThisWeek(date))
+      return { label: "이번주", color: "bg-yellow-100 text-yellow-800" };
+    return { label: "예정", color: "bg-gray-100 text-gray-800" };
   };
 
   const labelConfig: Record<string, { label: string; className: string }> = {
-    inspection: { label: '장비 점검', className: 'bg-amber-100 text-amber-800' },
-    meeting:    { label: '회의',      className: 'bg-blue-100 text-blue-800' },
-    trip:       { label: '출장',      className: 'bg-green-100 text-green-800' },
-    training:   { label: '교육',      className: 'bg-purple-100 text-purple-800' },
-    other:      { label: '기타',      className: 'bg-gray-100 text-gray-800' },
+    inspection: {
+      label: "장비 점검",
+      className: "bg-amber-100 text-amber-800",
+    },
+    meeting: { label: "회의", className: "bg-blue-100 text-blue-800" },
+    trip: { label: "출장", className: "bg-green-100 text-green-800" },
+    training: { label: "교육", className: "bg-purple-100 text-purple-800" },
+    other: { label: "기타", className: "bg-gray-100 text-gray-800" },
   };
 
   const getPriorityBadge = (p: number) => {
-    if (p === 3) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-100 text-red-800">긴급</Badge>;
-    if (p === 2) return <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-800">높음</Badge>;
+    if (p === 3)
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 py-0 bg-red-100 text-red-800"
+        >
+          긴급
+        </Badge>
+      );
+    if (p === 2)
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-800"
+        >
+          높음
+        </Badge>
+      );
     return null;
   };
 
   const renderDescription = (task: TaskWithShared, isOwner: boolean) => {
     const desc = task.description;
     if (!desc) return null;
-    const lines = desc.split('\n');
-    const hasChecklist = lines.some(l => /^- \[[ x]\]/.test(l));
+    const lines = desc.split("\n");
+    const hasChecklist = lines.some((l) => /^- \[[ x]\]/.test(l));
     if (!hasChecklist) {
-      return <p className="text-xs text-muted-foreground mt-1 truncate">{desc}</p>;
+      return (
+        <p className="text-xs text-muted-foreground mt-1 truncate">{desc}</p>
+      );
     }
     return (
       <div className="mt-1 space-y-0.5">
         {lines.map((line, i) => {
           const checkedMatch = line.match(/^- \[( |x)\] (.*)/);
           if (checkedMatch) {
-            const checked = checkedMatch[1] === 'x';
+            const checked = checkedMatch[1] === "x";
             const text = checkedMatch[2];
             return (
               <div key={i} className="flex items-center gap-1.5">
@@ -286,14 +384,26 @@ export default function MySchedule() {
                   onChange={() => {
                     const newLines = [...lines];
                     newLines[i] = checked ? `- [ ] ${text}` : `- [x] ${text}`;
-                    checklistMutation.mutate({ id: task.id, description: newLines.join('\n') });
+                    checklistMutation.mutate({
+                      id: task.id,
+                      description: newLines.join("\n"),
+                    });
                   }}
                 />
-                <span className={`text-xs ${checked ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{text}</span>
+                <span
+                  className={`text-xs ${checked ? "line-through text-muted-foreground" : "text-foreground"}`}
+                >
+                  {text}
+                </span>
               </div>
             );
           }
-          if (line.trim()) return <p key={i} className="text-xs text-muted-foreground">{line}</p>;
+          if (line.trim())
+            return (
+              <p key={i} className="text-xs text-muted-foreground">
+                {line}
+              </p>
+            );
           return null;
         })}
       </div>
@@ -309,7 +419,7 @@ export default function MySchedule() {
         key={task.id}
         data-testid={`task-item-${task.id}`}
         className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-          task.completed ? 'bg-muted/50 opacity-60' : 'hover:bg-accent/50'
+          task.completed ? "bg-muted/50 opacity-60" : "hover:bg-accent/50"
         }`}
       >
         {isOwner && (
@@ -317,7 +427,9 @@ export default function MySchedule() {
             data-testid={`toggle-task-${task.id}`}
             onClick={() => toggleMutation.mutate(task.id)}
             className={`mt-0.5 flex-shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-              task.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-primary'
+              task.completed
+                ? "bg-green-500 border-green-500 text-white"
+                : "border-gray-300 hover:border-primary"
             }`}
           >
             {task.completed && <Check className="h-3 w-3" />}
@@ -331,31 +443,48 @@ export default function MySchedule() {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-sm font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+            <span
+              className={`text-sm font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}
+            >
               {task.title}
             </span>
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${status.color}`}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] px-1.5 py-0 ${status.color}`}
+            >
               {status.label}
             </Badge>
             {task.isShared && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700">
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700"
+              >
                 공유받음
               </Badge>
             )}
-            {!task.isShared && task.shareScope !== 'private' && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+            {!task.isShared && task.shareScope !== "private" && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 gap-0.5"
+              >
                 {getShareIcon(task.shareScope)}
                 {getShareLabel(task.shareScope)}
               </Badge>
             )}
             {getRepeatLabel(task.repeatType) && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 gap-0.5"
+              >
                 <Repeat className="h-3 w-3" />
                 {getRepeatLabel(task.repeatType)}
               </Badge>
             )}
             {task.label && labelConfig[task.label] && (
-              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${labelConfig[task.label].className}`}>
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-1.5 py-0 ${labelConfig[task.label].className}`}
+              >
                 {labelConfig[task.label].label}
               </Badge>
             )}
@@ -366,13 +495,12 @@ export default function MySchedule() {
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {task.scheduledEndAt
-                ? `${formatDateShort(format(parseISO(task.scheduledAt), 'yyyy-MM-dd'))} ~ ${formatDateShort(task.scheduledEndAt)}`
-                : format(parseISO(task.scheduledAt), 'yyyy-MM-dd HH:mm', { locale: ko })
-              }
+                ? `${formatDateShort(format(parseISO(task.scheduledAt), "yyyy-MM-dd"))} ~ ${formatDateShort(task.scheduledEndAt)}`
+                : format(parseISO(task.scheduledAt), "yyyy-MM-dd HH:mm", {
+                    locale: ko,
+                  })}
             </span>
-            {task.isShared && (
-              <span>작성자: {getUserName(task.userId)}</span>
-            )}
+            {task.isShared && <span>작성자: {getUserName(task.userId)}</span>}
           </div>
         </div>
 
@@ -393,7 +521,7 @@ export default function MySchedule() {
               className="h-7 w-7 text-destructive hover:text-destructive"
               data-testid={`delete-task-${task.id}`}
               onClick={() => {
-                if (confirm('이 일정을 삭제할까요?')) {
+                if (confirm("이 일정을 삭제할까요?")) {
                   deleteMutation.mutate(task.id);
                 }
               }}
@@ -412,27 +540,31 @@ export default function MySchedule() {
         <div className="flex items-center gap-3">
           <Calendar className="h-6 w-6 text-primary" />
           <div>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">내 일정</h2>
-            <p className="text-sm text-muted-foreground hidden sm:block">개인 업무 일정을 관리하고 알림을 받으세요</p>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              내 일정
+            </h2>
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              개인 업무 일정을 관리하고 알림을 받으세요
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border overflow-hidden">
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               className="rounded-none"
-              onClick={() => setViewMode('list')}
+              onClick={() => setViewMode("list")}
               data-testid="toggle-view-list"
             >
               <List className="h-4 w-4 mr-1" />
               목록
             </Button>
             <Button
-              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              variant={viewMode === "calendar" ? "default" : "ghost"}
               size="sm"
               className="rounded-none"
-              onClick={() => setViewMode('calendar')}
+              onClick={() => setViewMode("calendar")}
               data-testid="toggle-view-calendar"
             >
               <CalendarDays className="h-4 w-4 mr-1" />
@@ -448,29 +580,39 @@ export default function MySchedule() {
 
       <div className="flex flex-wrap gap-2">
         {[
-          { key: 'all', label: '전체', icon: CalendarCheck },
-          { key: 'mine', label: '내 일정', icon: Lock },
-          { key: 'shared', label: '공유받은', icon: Share2 },
-          { key: 'today', label: '오늘', icon: Calendar },
-          { key: 'completed', label: '완료', icon: Check },
-        ].map(f => (
+          { key: "all", label: "전체", icon: CalendarCheck },
+          { key: "mine", label: "내 일정", icon: Lock },
+          { key: "shared", label: "공유받은", icon: Share2 },
+          { key: "today", label: "오늘", icon: Calendar },
+          { key: "completed", label: "완료", icon: Check },
+        ].map((f) => (
           <Button
             key={f.key}
-            variant={filter === f.key ? 'default' : 'outline'}
+            variant={filter === f.key ? "default" : "outline"}
             size="sm"
             onClick={() => setFilter(f.key as any)}
             data-testid={`filter-${f.key}`}
           >
             <f.icon className="h-3.5 w-3.5 mr-1" />
             {f.label}
-            {f.key === 'all' && <span className="ml-1 text-xs">({tasks.length})</span>}
-            {f.key === 'mine' && <span className="ml-1 text-xs">({tasks.filter(t => !t.isShared).length})</span>}
-            {f.key === 'shared' && <span className="ml-1 text-xs">({tasks.filter(t => t.isShared).length})</span>}
+            {f.key === "all" && (
+              <span className="ml-1 text-xs">({tasks.length})</span>
+            )}
+            {f.key === "mine" && (
+              <span className="ml-1 text-xs">
+                ({tasks.filter((t) => !t.isShared).length})
+              </span>
+            )}
+            {f.key === "shared" && (
+              <span className="ml-1 text-xs">
+                ({tasks.filter((t) => t.isShared).length})
+              </span>
+            )}
           </Button>
         ))}
       </div>
 
-      {viewMode === 'list' ? (
+      {viewMode === "list" ? (
         <>
           <Card>
             <CardHeader className="pb-3">
@@ -486,7 +628,9 @@ export default function MySchedule() {
                 </div>
               ) : incompleteTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  {filter === 'shared' ? '공유받은 일정이 없습니다.' : '등록된 일정이 없습니다.'}
+                  {filter === "shared"
+                    ? "공유받은 일정이 없습니다."
+                    : "등록된 일정이 없습니다."}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -515,22 +659,29 @@ export default function MySchedule() {
       ) : (
         <CalendarView
           tasks={filteredTasks}
-          allTasks={tasks.filter(t => !t.completed)}
-          assets={assets}
+          allTasks={tasks.filter((t) => !t.completed)}
+          assets={[]}
           filter={filter}
           calendarMonth={calendarMonth}
-          onPrevMonth={() => setCalendarMonth(prev => addMonths(prev, -1))}
-          onNextMonth={() => setCalendarMonth(prev => addMonths(prev, 1))}
+          onPrevMonth={() => setCalendarMonth((prev) => addMonths(prev, -1))}
+          onNextMonth={() => setCalendarMonth((prev) => addMonths(prev, 1))}
           onToday={() => setCalendarMonth(startOfMonth(new Date()))}
           onDateClick={(date) => openCreate(date)}
           onTaskClick={(task) => openEdit(task)}
         />
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingTask ? '일정 수정' : '새 일정 등록'}</DialogTitle>
+            <DialogTitle>
+              {editingTask ? "일정 수정" : "새 일정 등록"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
             <div>
@@ -538,7 +689,7 @@ export default function MySchedule() {
               <Input
                 data-testid="input-task-title"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="일정 제목을 입력하세요"
               />
             </div>
@@ -547,7 +698,7 @@ export default function MySchedule() {
               <Textarea
                 data-testid="input-task-description"
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder={"일정 설명 (선택)\n체크리스트: - [ ] 할 일"}
                 rows={3}
               />
@@ -558,10 +709,14 @@ export default function MySchedule() {
                 data-testid="input-task-datetime"
                 type="datetime-local"
                 value={scheduledAt}
-                onChange={e => {
+                onChange={(e) => {
                   setScheduledAt(e.target.value);
-                  if (isRangeEnabled && scheduledEndAt && e.target.value.split('T')[0] > scheduledEndAt) {
-                    setScheduledEndAt(e.target.value.split('T')[0]);
+                  if (
+                    isRangeEnabled &&
+                    scheduledEndAt &&
+                    e.target.value.split("T")[0] > scheduledEndAt
+                  ) {
+                    setScheduledEndAt(e.target.value.split("T")[0]);
                   }
                 }}
               />
@@ -584,14 +739,17 @@ export default function MySchedule() {
                   data-testid="input-task-end-date"
                   type="date"
                   value={scheduledEndAt}
-                  min={scheduledAt.split('T')[0]}
-                  onChange={e => setScheduledEndAt(e.target.value)}
+                  min={scheduledAt.split("T")[0]}
+                  onChange={(e) => setScheduledEndAt(e.target.value)}
                 />
               </div>
             )}
             <div>
               <label className="text-sm font-medium">라벨</label>
-              <Select value={label ?? "none"} onValueChange={v => setLabel(v === "none" ? null : v)}>
+              <Select
+                value={label ?? "none"}
+                onValueChange={(v) => setLabel(v === "none" ? null : v)}
+              >
                 <SelectTrigger data-testid="select-task-label">
                   <SelectValue />
                 </SelectTrigger>
@@ -607,7 +765,10 @@ export default function MySchedule() {
             </div>
             <div>
               <label className="text-sm font-medium">우선순위</label>
-              <Select value={String(priority)} onValueChange={v => setPriority(Number(v))}>
+              <Select
+                value={String(priority)}
+                onValueChange={(v) => setPriority(Number(v))}
+              >
                 <SelectTrigger data-testid="select-task-priority">
                   <SelectValue />
                 </SelectTrigger>
@@ -622,8 +783,10 @@ export default function MySchedule() {
             <div>
               <label className="text-sm font-medium">반복</label>
               <Select
-                value={isRangeEnabled ? 'none' : repeatType}
-                onValueChange={v => { if (!isRangeEnabled) setRepeatType(v as RepeatType); }}
+                value={isRangeEnabled ? "none" : repeatType}
+                onValueChange={(v) => {
+                  if (!isRangeEnabled) setRepeatType(v as RepeatType);
+                }}
                 disabled={isRangeEnabled}
               >
                 <SelectTrigger data-testid="select-repeat-type">
@@ -639,13 +802,16 @@ export default function MySchedule() {
             </div>
             <div>
               <label className="text-sm font-medium">공유 범위</label>
-              <Select value={shareScope} onValueChange={v => {
-                setShareScope(v as ShareScope);
-                if (v === 'private') {
-                  setShareTeamIds([]);
-                  setShareUserIds([]);
-                }
-              }}>
+              <Select
+                value={shareScope}
+                onValueChange={(v) => {
+                  setShareScope(v as ShareScope);
+                  if (v === "private") {
+                    setShareTeamIds([]);
+                    setShareUserIds([]);
+                  }
+                }}
+              >
                 <SelectTrigger data-testid="select-share-scope">
                   <SelectValue />
                 </SelectTrigger>
@@ -655,26 +821,33 @@ export default function MySchedule() {
                 </SelectContent>
               </Select>
             </div>
-            {shareScope === 'selected' && (
+            {shareScope === "selected" && (
               <div>
                 <label className="text-sm font-medium">공유 대상</label>
                 <div className="mt-1">
                   <ShareTargetSelector
                     teams={teams}
-                    users={users.filter(u => u.id !== currentUser?.id)}
+                    users={users.filter((u) => u.id !== currentUser?.id)}
                     selectedTeamIds={shareTeamIds}
                     selectedUserIds={shareUserIds}
                     onTeamIdsChange={setShareTeamIds}
                     onUserIdsChange={setShareUserIds}
                     currentUserTeamId={currentUser?.teamId}
-                    currentUserDepartment={teams.find(t => t.id === currentUser?.teamId)?.department}
+                    currentUserDepartment={
+                      teams.find((t) => t.id === currentUser?.teamId)
+                        ?.department
+                    }
                   />
                 </div>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog} data-testid="button-cancel-task">
+            <Button
+              variant="outline"
+              onClick={closeDialog}
+              data-testid="button-cancel-task"
+            >
               취소
             </Button>
             <Button
@@ -682,7 +855,7 @@ export default function MySchedule() {
               disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-submit-task"
             >
-              {editingTask ? '수정' : '등록'}
+              {editingTask ? "수정" : "등록"}
             </Button>
           </DialogFooter>
         </DialogContent>
