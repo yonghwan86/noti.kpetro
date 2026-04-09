@@ -611,7 +611,7 @@ export default function Team() {
               <p className="text-sm text-muted-foreground hidden sm:block">
                 전체 사용자 중 구분 관리자 역할을 부여합니다.
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -908,7 +908,7 @@ export default function Team() {
                 ? "회사 전체 직원 계정을 등록합니다. 이곳에서 등록된 사용자를 '구분 관리자' 탭에서 관리자 역할로 배정할 수 있습니다."
                 : "배정된 담당자 목록입니다. 구분별로 필터링하거나 '사용자 배정' 버튼으로 담당자를 추가할 수 있습니다."}
             </p>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
               {isAdmin && (
                 <>
                   <Button
