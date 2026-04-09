@@ -902,7 +902,7 @@ export default function Assets() {
         open={!!assetPopupDate}
         onOpenChange={(open) => !open && setAssetPopupDate(null)}
       >
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>
               {assetPopupDate &&
