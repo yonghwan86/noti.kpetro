@@ -1348,12 +1348,33 @@ function EditUserDialog({
   const [newDept, setNewDept] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
 
+  const DEPT_ORDER = [
+    "한국석유관리원",
+    "기획처",
+    "지원안전처",
+    "검사처",
+    "사업처",
+    "수송유통관리센터",
+    "감사실",
+    "연구처",
+    "시험처",
+    "수도권남부본부",
+    "수도권북부본부",
+    "대전세종충남본부",
+    "충북본부",
+    "광주전남본부",
+    "전북본부",
+    "부산울산경남본부",
+    "대구경북본부",
+    "강원본부",
+    "제주본부",
+  ];
+
   const departments = useMemo(() => {
-    const depts = new Set<string>();
-    teams.forEach((t) => {
-      if (t.department) depts.add(t.department);
-    });
-    return Array.from(depts).sort();
+    const allDepts = Array.from(
+      new Set(teams.map((t) => t.department).filter(Boolean)),
+    ) as string[];
+    return DEPT_ORDER.filter((d) => allDepts.includes(d));
   }, [teams]);
 
   const filteredTeams = useMemo(() => {
@@ -2438,12 +2459,33 @@ function AddStaffUserDialog({
   const [newDept, setNewDept] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
 
+  const DEPT_ORDER = [
+    "한국석유관리원",
+    "기획처",
+    "지원안전처",
+    "검사처",
+    "사업처",
+    "수송유통관리센터",
+    "감사실",
+    "연구처",
+    "시험처",
+    "수도권남부본부",
+    "수도권북부본부",
+    "대전세종충남본부",
+    "충북본부",
+    "광주전남본부",
+    "전북본부",
+    "부산울산경남본부",
+    "대구경북본부",
+    "강원본부",
+    "제주본부",
+  ];
+
   const departments = useMemo(() => {
-    const depts = new Set<string>();
-    teams.forEach((t) => {
-      if (t.department) depts.add(t.department);
-    });
-    return Array.from(depts).sort();
+    const allDepts = Array.from(
+      new Set(teams.map((t) => t.department).filter(Boolean)),
+    ) as string[];
+    return DEPT_ORDER.filter((d) => allDepts.includes(d));
   }, [teams]);
 
   const filteredTeams = useMemo(() => {
@@ -2696,12 +2738,33 @@ function AddMasterDialog({
   const [newDept, setNewDept] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
 
+  const DEPT_ORDER = [
+    "한국석유관리원",
+    "기획처",
+    "지원안전처",
+    "검사처",
+    "사업처",
+    "수송유통관리센터",
+    "감사실",
+    "연구처",
+    "시험처",
+    "수도권남부본부",
+    "수도권북부본부",
+    "대전세종충남본부",
+    "충북본부",
+    "광주전남본부",
+    "전북본부",
+    "부산울산경남본부",
+    "대구경북본부",
+    "강원본부",
+    "제주본부",
+  ];
+
   const departments = useMemo(() => {
-    const depts = new Set<string>();
-    teams.forEach((t) => {
-      if (t.department) depts.add(t.department);
-    });
-    return Array.from(depts).sort();
+    const allDepts = Array.from(
+      new Set(teams.map((t) => t.department).filter(Boolean)),
+    ) as string[];
+    return DEPT_ORDER.filter((d) => allDepts.includes(d));
   }, [teams]);
 
   const filteredTeams = useMemo(() => {
