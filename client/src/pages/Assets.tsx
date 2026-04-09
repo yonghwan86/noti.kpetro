@@ -227,7 +227,7 @@ export default function Assets() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [globalHistoryOpen, setGlobalHistoryOpen] = useState(false);
-  const [assetPopupDate, setAssetPopupDate] = useState<Date | null>(null);
+  const [assetPopupDate, setAssetPopupDate] = useState<Date | null>(null); // 2026-04-08 장비캘린더 날짜팝업
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const d = new Date();
@@ -379,9 +379,36 @@ export default function Assets() {
     return team?.department || "-";
   };
 
-  const departments = Array.from(
+  const DEPT_ORDER = [
+    "한국석유관리원",
+    "기획처",
+    "지원안전처",
+    "검사처",
+    "사업처",
+    "수송유통관리센터",
+    "감사실",
+    "연구처",
+    "시험처",
+    "수도권남부본부",
+    "수도권북부본부",
+    "대전세종충남본부",
+    "충북본부",
+    "광주전남본부",
+    "전북본부",
+    "부산울산경남본부",
+    "대구경북본부",
+    "강원본부",
+    "제주본부",
+  ];
+
+  const allDepts = Array.from(
     new Set(teams.map((t) => t.department).filter(Boolean)),
   ) as string[];
+
+  const departments = [
+    ...DEPT_ORDER.filter((d) => allDepts.includes(d)),
+    ...allDepts.filter((d) => !DEPT_ORDER.includes(d)),
+  ];
 
   const getStatusBadge = (
     status: AssetStatus,
@@ -564,7 +591,7 @@ export default function Assets() {
           onPrevMonth={() => setCalendarMonth((prev) => addMonths(prev, -1))}
           onNextMonth={() => setCalendarMonth((prev) => addMonths(prev, 1))}
           onToday={() => setCalendarMonth(startOfMonth(new Date()))}
-          onDateClick={(date) => setAssetPopupDate(date)}
+          onDateClick={(date) => setAssetPopupDate(date)} // 2026-04-08 장비캘린더 날짜팝업
           onTaskClick={() => {}}
         />
       ) : (
@@ -875,9 +902,7 @@ export default function Assets() {
         open={!!assetPopupDate}
         onOpenChange={(open) => !open && setAssetPopupDate(null)}
       >
-        <DialogContent className="sm:max-w-[800px] sm:min-w-[600px]">
-          {" "}
-          {/* 2026-04-09 팝업 최소/최대폭 조정 */}
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
               {assetPopupDate &&
