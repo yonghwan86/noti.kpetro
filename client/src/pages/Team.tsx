@@ -612,7 +612,12 @@ export default function Team() {
                 전체 사용자 중 구분 관리자 역할을 부여합니다.
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-2" asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 rounded-none h-8"
+                  asChild
+                >
                   <a href="/api/users/export" download>
                     <Download className="h-4 w-4" />
                     다운로드
@@ -909,7 +914,7 @@ export default function Team() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 rounded-none h-8"
                     asChild
                     data-testid="button-staff-export"
                   >
@@ -940,7 +945,7 @@ export default function Team() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 rounded-none h-8"
                     asChild
                     data-testid="button-staff-export"
                   >
@@ -2120,7 +2125,7 @@ function PromoteToManagerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2" data-testid="button-promote-manager">
-          <UserPlus className="w-4 h-4" /> 구분 관 �자 배정
+          <UserPlus className="w-4 h-4" /> 구분 관리자 배정
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
