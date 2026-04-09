@@ -1,304 +1,322 @@
-# 장비관리시스템 (Asset Management System)
+# AI 업무 알림 서비스 (장비관리시스템)
 
-## Overview
+## 프로젝트 개요
 
-This is a full-stack asset management and calibration tracking system built with React, Express, and PostgreSQL. The application helps organizations manage equipment assets, track inspection schedules, and monitor calibration compliance across multiple teams and users. It features role-based access control (admin, manager, staff), automated status tracking based on inspection due dates, and comprehensive audit logging.
+장비/자산 점검 이력 추적, 역할별 접근 제어, Gmail API 기반 일일 다이제스트(매일 오전 6시 KST), PWA 웹 푸시 알림, 개인 일정 관리("내 일정")를 제공하는 풀스택 웹 애플리케이션.
 
-## User Preferences
+- **커스텀 도메인**: `noti.kpetro.or.kr`
+- **배포 방식**: Reserved VM (24시간 상시 실행)
+- **빌드**: `npm run build` → **실행**: `npm run start`
+- **스택**: React + Express + PostgreSQL (Drizzle ORM)
 
-Preferred communication style: Simple, everyday language.
+---
 
-## System Architecture
+## 사용자 환경 설정
 
-### Frontend Architecture
+- 의사소통 언어: 한국어 (로그·코드 식별자는 영어 유지)
 
-**Framework**: React 18 with TypeScript, using Vite as the build tool and development server.
+---
 
-**UI Component System**: Built on shadcn/ui components with Radix UI primitives, styled using Tailwind CSS with custom theme variables. The design follows the "new-york" style variant with neutral base colors and CSS variables for theming.
+## 시스템 아키텍처
 
-**State Management**: 
-- TanStack Query (React Query) for server state management and API data caching
-- React Context API for user session management (UserContext provides current user, team, and user switching functionality)
-- Local Storage for persisting current user selection across sessions
+### 프론트엔드
 
-**Routing**: Wouter for lightweight client-side routing with the following main routes:
-- `/` - Dashboard with statistics and charts
-- `/assets` - Asset management interface
-- `/team` - Team and user management
-- `/settings` - System configuration
-- `/logs` - Activity and inspection logs
-- `/schedule` - Personal schedule management (내 일정)
+**프레임워크**: React 18 + TypeScript, Vite 빌드/개발 서버
 
-**Form Handling**: React Hook Form with Zod schema validation for type-safe form management.
+**UI 컴포넌트**: shadcn/ui (Radix UI 기반) + Tailwind CSS + "new-york" 스타일 변형, CSS 변수 테마
 
-**Client-Side Authorization**: Permission checks are performed both client-side (for UI visibility) and mirrored server-side (for API security). The auth utility provides role-based permission methods (canViewAsset, canEditAsset, canDeleteAsset, etc.).
+**상태 관리**:
+- TanStack Query (React Query) — 서버 상태 관리 및 API 캐시
+  - `staleTime: 0`, `refetchOnWindowFocus: true` (항상 최신 데이터 유지)
+- React Context API (`UserContext`) — 현재 사용자, 팀, 사용자 전환
+- localStorage — 현재 사용자 선택 세션 유지
 
-**Path Aliases**: Configured for clean imports:
-- `@/` maps to `client/src/`
-- `@shared/` maps to `shared/`
-- `@assets/` maps to `attached_assets/`
+**라우팅**: wouter 경량 클라이언트 사이드 라우팅
 
-### Backend Architecture
+| 경로 | 페이지 |
+|------|--------|
+| `/` | 대시보드 (통계 + 차트) |
+| `/assets` | 장비 관리 |
+| `/schedule` | 내 일정 |
+| `/team` | 팀·사용자 관리 |
+| `/settings` | 시스템 설정 |
+| `/logs` | 점검 이력·감사 로그 |
 
-**Framework**: Express.js with TypeScript running on Node.js.
+**폼 처리**: React Hook Form + Zod 스키마 검증
 
-**API Design**: RESTful API structure with resource-based endpoints:
-- `/api/teams` - Team CRUD operations
-- `/api/users` - User management
-- `/api/assets` - Asset CRUD and inspection operations
-- `/api/logs` - Inspection history and audit trails
-- `/api/personal-tasks` - Personal schedule management
-- `/api/push/*` - Web push subscription management
-- `/api/email/*` - Email notification triggers
+**권한 확인**: 클라이언트(UI 표시용) + 서버(API 보안용) 양쪽 동일하게 적용. 공통 로직은 `server/auth.ts`와 `client/src/lib/auth.ts`에 중앙화.
 
-**Authentication & Authorization**: 
-- Email/password authentication (`server/emailAuth.ts`) — users created by admin, set password on first login
-- Session management via express-session with PostgreSQL session store (connect-pg-simple)
-- `getCurrentUser(req)` reads `req.session.userId` → looks up user via `getUserById`
-- `requireAuth` middleware sets `(req as any).currentUser` for downstream route handlers
-- **Important**: All routes that need the current user must use `(req as any).currentUser`, NOT call `getCurrentUser(req)` again (it's async — calling without `await` returns a Promise, not a User)
-- Role-based access control (RBAC) with three roles: admin (마스터), manager (구분 관리자), staff (담당자)
-- Permission middleware (`requireAuth`) enforces role requirements on protected routes
-- Authorization logic is centralized in `server/auth.ts` and `client/src/lib/auth.ts`
-- Permission matrix:
-  - Admin: Full access to all features
-  - Manager: Category CRUD (own categories only), Asset CRUD + delete (own assets only), Staff management (assigned staff)
-  - Staff: Asset add/edit (own assets only), Inspection execution
+**경로 별칭**:
+- `@/` → `client/src/`
+- `@shared/` → `shared/`
+- `@assets/` → `attached_assets/`
 
-**Business Logic**: 
-- Asset status calculation is automated based on inspection due dates: ok / upcoming (within 7 days, inclusive) / overdue
-- **Status calculation**: `getAssets()` recalculates status dynamically at query time (does not rely on stored DB status column)
-- **Upcoming boundary**: `isAfter(dueDate, today) && !isAfter(dueDate, sevenDaysFromNow)` — upper bound is INCLUSIVE (day 7 is included). Using `!isAfter` instead of `isBefore` to include the exact 7th day.
-- Inspection cycle tracking uses days as the unit (n-1 calculation with weekend adjustment)
-- Date calculations use date-fns library for reliable date arithmetic
+---
 
-**Development Mode**: Uses Vite middleware in development for HMR (Hot Module Replacement) with custom error handling that exits the process on Vite errors.
+### 백엔드
 
-**Production Build**: 
-- Client built with Vite to `dist/public`
-- Server bundled with esbuild to `dist/index.cjs`
-- Selected dependencies bundled (allowlist in build script) to reduce cold start times
-- Static file serving handled by Express in production
-- Deployment: Reserved VM, build=`npm run build`, run=`npm run start`
-- Custom domain: `noti.kpetro.or.kr`
+**프레임워크**: Express.js + TypeScript, Node.js
 
-### Scheduler (`server/scheduler.ts`)
+**API 엔드포인트**:
 
-**Cron Jobs** (all in Asia/Seoul timezone):
-- `0 6 * * *` (6 AM KST) — `sendDailyDigest()` — 통합 다이제스트 (장비 점검 푸시 + 개인일정 푸시 + 이메일 1인 1통)
-- `* * * * *` (every minute) — `checkPersonalTasksReminder()` (10분 전 푸시 전용)
-- `0 0 * * *` (midnight KST) — reset `morningNotified` / `reminderNotified` flags
+| 경로 | 설명 |
+|------|------|
+| `/api/teams` | 팀 CRUD |
+| `/api/users` | 사용자 관리 |
+| `/api/assets` | 장비 CRUD + 점검 처리 |
+| `/api/logs` | 점검 이력·감사 로그 |
+| `/api/personal-tasks` | 내 일정 관리 |
+| `/api/push/*` | 웹 푸시 구독 관리 |
+| `/api/email/*` | 이메일 알림 수동 트리거 |
 
-**Server start catch-up logic**:
-- If kstHour >= 6: `sendDailyDigest()` (멱등성 키 체크로 중복 발송 방지)
+**인증·세션**:
+- 이메일/비밀번호 인증 (`server/emailAuth.ts`) — 어드민이 계정 생성, 최초 로그인 시 비밀번호 설정
+- express-session + connect-pg-simple (PostgreSQL 세션 스토어)
+- `requireAuth` 미들웨어: `(req as any).currentUser` 에 현재 사용자 저장
+- **중요**: `currentUser`는 반드시 `(req as any).currentUser` 로 참조할 것. `getCurrentUser(req)` 를 라우트에서 직접 호출하면 async 함수가 Promise를 반환하므로 `await` 없이 사용 불가.
+- 로그아웃 시 `queryClient.clear()` + `window.location.href = "/"` (캐시 완전 초기화)
 
-**Idempotency key** (stored in `system_settings` table):
-- `last_daily_digest_date` — 당일 발송 완료 여부 (발송 완료 후 기록, 발송 전 기록 금지 — 장애 시 재시도 보장)
-- 기존 `last_email_date`, `last_owner_digest_date` 대체 (DB 레코드는 유지)
+**역할 체계** (DB `users.role` 3가지):
 
-**sendDailyDigest() 실행 순서** (①~⑤ 준수):
+| 역할 | 권한 |
+|------|------|
+| `admin` (마스터) | 전체 기능 접근 |
+| `manager` (구분 관리자) | 자신의 구분 CRUD + 담당 자산 CRUD + 담당 직원 관리 |
+| `staff` (담당자) | 자신의 자산 추가/수정 + 점검 실행 |
+
+**비즈니스 로직**:
+- 자산 상태 자동 계산: `ok` / `upcoming` (7일 이내, 포함) / `overdue`
+  - `getAssets()` 조회 시 실시간 재계산 (DB 저장값 미사용)
+  - 경계값 처리: `!isAfter(dueDate, sevenDaysFromNow)` — 정확히 7일 후도 포함
+- 점검 주기: 일(days) 단위, n-1 계산 + 주말 조정 (토·일 → 다음 월요일)
+- 날짜 계산: date-fns 라이브러리 사용
+
+**개발 모드**: Vite 미들웨어 + HMR (Hot Module Replacement), Vite 오류 시 프로세스 종료
+
+**프로덕션 빌드**:
+- 클라이언트: Vite → `dist/public`
+- 서버: esbuild → `dist/index.cjs` (allowlist 방식 번들링으로 cold start 최적화)
+- Express가 정적 파일 서빙 담당
+
+---
+
+### 스케줄러 (`server/scheduler.ts`)
+
+**크론 작업** (모두 Asia/Seoul 타임존):
+
+| 크론 | 실행 함수 | 설명 |
+|------|----------|------|
+| `0 6 * * *` | `sendDailyDigest()` | 통합 다이제스트: 장비 점검 푸시 + 개인일정 푸시 + 이메일 1인 1통 |
+| `0 9 * * *` | `checkPersonalTasksMorning()` | 개인일정 9AM 모닝 푸시 (6AM에 미처리된 경우 보완) |
+| `* * * * *` | `checkPersonalTasksReminder()` | 개인일정 10분 전 푸시 |
+| `0 0 * * *` | 자정 플래그 리셋 | `morningNotified` / `reminderNotified` 초기화 |
+
+**서버 재시작 시 catch-up 로직**:
+- kstHour ≥ 6: `sendDailyDigest()` 실행 (멱등성 키 체크로 중복 방지)
+- kstHour ≥ 9: `checkPersonalTasksMorning()` 실행
+
+**멱등성 키** (`system_settings` 테이블):
+- `last_daily_digest_date` — 당일 발송 완료 여부 (발송 완료 **후** 기록 — 장애 시 재시도 보장)
+- ⚠️ 발송 **전**에 기록하면 장애 시 재시도가 불가능하므로 절대 금지
+
+**`sendDailyDigest()` 실행 순서** (순서 준수 필수):
 1. ① `sendInspectionPushNotifications(preloaded)` — 장비 점검 푸시 (이메일 없음)
 2. ② 개인일정 모닝 푸시 — `morningNotified=false`인 오늘 이전 일정, 공유 대상 포함
-3. ③ 이메일 다이제스트 발송 — `collectDailyDigestForUser()` → 내용 있는 사용자만 `sendDailyDigestEmail()` (1인 1통)
+3. ③ 이메일 다이제스트 — `collectDailyDigestForUser()` → 내용 있는 사용자만 `sendDailyDigestEmail()` (1인 1통)
 4. ④ `morningNotified = true` 설정
 5. ⑤ `last_daily_digest_date` 기록 (반드시 마지막)
 
-**collectDailyDigestForUser(userId, preloaded)** — 사용자별 수집 기준:
-- 장비 점검: staffId / managerId / category.managerIds / 팀장(position='팀장' AND user.teamId === asset.teamId)
-- 오늘·내일 일정: 본인(userId) + 공유(shareScope='selected' AND shareUserIds/shareTeamIds 포함)
-- 3개 섹션 모두 비면 null 반환 → 이메일 미발송
+**`collectDailyDigestForUser(userId, preloaded)` 수집 기준**:
+- 장비 점검: `staffId` / `managerId` / `category.managerIds[]` / 팀장 (`position='팀장'` AND 같은 팀)
+- 오늘·내일 일정: 본인 + 공유 대상 (`shareScope='selected'` AND `shareUserIds/shareTeamIds` 포함)
+- 3개 섹션 모두 비면 `null` 반환 → 이메일 미발송
 
-**Push recipient collection** (`collectPushRecipientIds`): staff + category.managerIds + asset.managerId
-
-**참고 — 팀 contactEmail**: userId가 없는 공유 계정이므로 다이제스트 수신 대상 제외. 기존에 팀 contactEmail로 발송되던 장비 점검 알림은 담당자(staff)/구분관리자/팀장 개인 이메일로 대체됨.
-
-### Push Notifications (`server/pushService.ts`)
-
-- Web Push protocol with VAPID keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` env vars)
-- `sendPushToUser(userId, title, body, url)` — looks up `push_subscriptions` by userId; logs and skips silently if no subscription found
-- Expired subscriptions (HTTP 410/404) are auto-deleted from DB
-- `client/src/components/PushNotificationToggle.tsx` — UI toggle in header for subscribing/unsubscribing
-- Subscribe flow: request permission → get VAPID key → `pushManager.subscribe()` → POST `/api/push/subscribe` (response is checked; throws error if server save fails)
-- Subscription status check: `registration.pushManager.getSubscription()` reflects browser-side state; server DB is the authoritative source for actual push delivery
-
-### Data Storage
-
-**Database**: PostgreSQL with Drizzle ORM for type-safe database access.
-
-**Schema Design** (defined in `shared/schema.ts`):
-- **teams**: Organization teams with contact information and a `department` text field (plain string, no separate departments table)
-- **categories**: Equipment type classifications with `managerIds` (text array) supporting multiple manager assignments per equipment type, and `defaultCycleDays` for auto-filling inspection cycle when registering assets
-- **users**: System users with roles and team assignments; `assignedCategoryIds` (text array) tracks which categories a staff member is assigned to; `username` is AES-256-GCM encrypted (prefix `enc:`)
-- **assets**: Equipment assets with:
-  - Basic info (name, serialNumber=추가정보, notes=추가정보2)
-  - Team relationships (managing team `teamId` and usage team `usageTeamId`)
-  - Category reference (`categoryId`)
-  - Single manager assignment (`managerId`) — auto-set from category
-  - Staff assignment (`staffId`)
-  - Inspection cycle (`inspectionCycleDays`)
-  - Date tracking (`lastInspectedDate`, `nextDueDate`)
-  - Computed `status` field (recalculated dynamically in `getAssets()`)
-- **inspectionLogs**: Historical record of inspections performed
-- **personal_tasks**: Personal schedule items with sharing (shareScope: `'private' | 'selected'`, shareTeamIds, shareUserIds, notification flags: morningNotified, reminderNotified, emailDigestSent)
-- **push_subscriptions**: Web Push subscription data (endpoint, p256dh, auth keys per user); `user_id` references users.id
-- **system_settings**: Key-value store for idempotency flags (`last_email_date`, `last_owner_digest_date`, `encryption_migrated`)
-- **sessions**: express-session PostgreSQL store
-
-**Key Relationships**:
-- Assets have two team relationships: managing team (teamId) and usage team (usageTeamId)
-- Assets link to a manager (equipment manager) and staff (person in charge)
-- Foreign key constraints ensure referential integrity
-- UUID primary keys generated via PostgreSQL's `gen_random_uuid()`
-
-**Schema Validation**: Drizzle-Zod integration provides runtime validation schemas that mirror the database schema.
-
-**Migrations**: Drizzle Kit manages schema migrations with files stored in `./migrations` directory.
-
-### Encryption
-
-- AES-256-GCM encryption on `users.username` field
-- `server/encryption.ts`: `encryptText()` / `decryptText()` using `ENCRYPTION_KEY` env var
-- Encrypted values have prefix `enc:iv:authTag:ciphertext`
-- `isEncrypted()` helper detects encrypted values
-- Auto-migration on startup via `server/encryptionMigration.ts`; flag stored in `system_settings.encryption_migrated`
-
-### External Dependencies
-
-**Primary Framework Dependencies**:
-- `express` - Web server framework
-- `react` & `react-dom` - UI library
-- `vite` - Build tool and dev server
-- `drizzle-orm` - Database ORM
-- `pg` - PostgreSQL client
-- `web-push` - Web Push notification delivery (VAPID protocol)
-- `node-cron` - Cron job scheduler
-- `multer` - File upload (Excel import)
-- `xlsx` - Excel parsing and generation
-
-**UI Component Libraries**:
-- `@radix-ui/*` - Headless UI primitives (35+ components)
-- `tailwindcss` - Utility-first CSS framework
-- `lucide-react` - Icon library
-- `recharts` - Charting library for dashboard visualizations
-
-**Form & Validation**:
-- `react-hook-form` - Form state management
-- `zod` - Schema validation
-- `drizzle-zod` - Database schema to Zod validation
-
-**Date Handling**:
-- `date-fns` - Date manipulation and formatting
-
-**Database Connection**:
-- Connection string from `DATABASE_URL` environment variable
-- Connection pooling via `pg.Pool`
+**참고**: 팀 `contactEmail`은 userId 없는 공유 계정이므로 다이제스트 수신 제외. 장비 점검 알림은 담당자/구분관리자/팀장 개인 이메일로 발송.
 
 ---
 
-## Known Naming Conventions
+### 웹 푸시 알림 (`server/pushService.ts`)
+
+- Web Push 프로토콜, VAPID 키 (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` env vars)
+- `sendPushToUser(userId, title, body, url)` — DB에서 구독 조회, 없으면 로그만 남기고 스킵
+- 만료 구독 (HTTP 410/404) 자동 DB 삭제
+- `client/src/components/PushNotificationToggle.tsx` — 헤더 내 구독/해제 토글
+- 구독 플로우: 권한 요청 → VAPID 키 획득 → `pushManager.subscribe()` → `POST /api/push/subscribe` (응답 실패 시 에러 throw)
+- `client/public/sw.js` — 서비스 워커 (푸시 수신 + 표시)
+
+---
+
+### 데이터베이스
+
+**DB**: PostgreSQL + Drizzle ORM (타입 안전 접근)
+
+**스키마** (`shared/schema.ts`):
+
+| 테이블 | 설명 |
+|--------|------|
+| `teams` | 조직 팀 (부서명 `department` 텍스트 필드 포함, 별도 departments 테이블 없음) |
+| `categories` | 장비 구분 (타입 분류). `managerIds text[]` — 다중 관리자 지원. `defaultCycleDays` — 자산 등록 시 자동 입력 |
+| `users` | 시스템 사용자. `assignedCategoryIds text[]` — 담당 구분 목록. `username` AES-256-GCM 암호화 (`enc:` 접두어). `position` 직책. `hasPassword` 서버 파생 (passwordHash 미노출) |
+| `assets` | 장비 자산. `teamId` (관리 팀), `usageTeamId` (사용 팀), `categoryId`, `managerId`, `staffId`, `inspectionCycleDays`, `lastInspectedDate`, `nextDueDate`, `status` (동적 계산) |
+| `inspectionLogs` | 점검 이력 |
+| `personal_tasks` | 개인 일정. `shareScope: 'private' \| 'selected'`, `shareTeamIds`, `shareUserIds`, `morningNotified`, `reminderNotified`, `emailDigestSent` |
+| `push_subscriptions` | 웹 푸시 구독 (endpoint, p256dh, auth 키, user_id) |
+| `system_settings` | key-value 설정 (`last_daily_digest_date`, `last_email_date`, `last_owner_digest_date`, `encryption_migrated`) |
+| `sessions` | express-session PostgreSQL 스토어 |
+
+**주요 관계**:
+- 자산(asset): 관리 팀 + 사용 팀 두 개 팀 관계
+- 자산: 담당자(staff) + 장비관리자(manager) 연결
+- UUID PK: PostgreSQL `gen_random_uuid()` 자동 생성
+- FK 제약으로 참조 무결성 보장
+
+**스키마 검증**: Drizzle-Zod 연동으로 런타임 검증 스키마 자동 생성
+
+**마이그레이션**: `npm run db:push` (또는 `npm run db:push --force`)
+
+---
+
+### 암호화
+
+- AES-256-GCM 방식, `users.username` 필드 적용
+- `server/encryption.ts`: `encryptText()` / `decryptText()` — `ENCRYPTION_KEY` env var 사용
+- 암호화 값 형식: `enc:iv:authTag:ciphertext`
+- `isEncrypted()` 헬퍼로 암호화 여부 판별
+- 서버 시작 시 자동 마이그레이션 (`server/encryptionMigration.ts`), 완료 플래그: `system_settings.encryption_migrated`
+
+---
+
+## 네이밍 규칙
 
 | UI 표시 | DB 필드 | 비고 |
 |---------|---------|------|
-| 추가정보 | serialNumber | Excel: "추가정보" (구 양식 "시리얼번호" 하위 호환) |
-| 추가정보2 | notes | Excel: "추가정보2" |
-| 구분 | category | |
-| 대상 | asset | |
+| 추가정보 | `serialNumber` | Excel: "추가정보" (구 양식 "시리얼번호" 하위 호환) |
+| 추가정보2 | `notes` | Excel: "추가정보2" |
+| 구분 | `category` | 장비 타입 분류 |
+| 대상 | `asset` | 장비 자산 |
 
 ---
 
-## Recent Changes
+## 주요 외부 의존성
 
-### February 2026 - Inspection Cycle Refactor: Months to Days
-- Changed inspection cycle from months-based to days-based calculation
-- Database column renamed: `inspection_cycle_months` → `inspection_cycle_days`
-- Added preset dropdown: 7일, 14일, 30일, 90일, 180일, 365일, 730일, 직접 지정
-- Implemented n-1 date calculation with weekend adjustment (Saturday/Sunday → next Monday)
-- Updated Excel import/export: column name changed from "점검주기(개월)" to "점검주기(일)", backward compatible
+| 패키지 | 용도 |
+|--------|------|
+| `express` | 웹 서버 프레임워크 |
+| `react`, `react-dom` | UI 라이브러리 |
+| `vite` | 빌드 툴 + 개발 서버 |
+| `drizzle-orm` | 데이터베이스 ORM |
+| `pg` | PostgreSQL 클라이언트 |
+| `web-push` | 웹 푸시 알림 (VAPID 프로토콜) |
+| `node-cron` | 크론 잡 스케줄러 |
+| `multer` | 파일 업로드 (Excel 가져오기) |
+| `xlsx` | Excel 파싱·생성 |
+| `@radix-ui/*` | 헤드리스 UI 프리미티브 (35개 이상) |
+| `tailwindcss` | 유틸리티 CSS 프레임워크 |
+| `lucide-react` | 아이콘 라이브러리 |
+| `recharts` | 대시보드 차트 |
+| `react-hook-form` | 폼 상태 관리 |
+| `zod`, `drizzle-zod` | 스키마 검증 |
+| `date-fns` | 날짜 계산 |
 
-### February 2026 - Equipment Type Registration Workflow & Role Permissions
-- Renamed "관리자" tab to "장비 구분" tab
-- Added `canAccessTeamPage` permission for both admin and manager roles
-- Admin sees both tabs (장비 구분 + 사용자); Manager sees only 사용자 tab
-- Login flow: email/password auth (emailAuth.ts)
+**Replit 통합**:
+- `javascript_log_in_with_replit` (v2.0.0) — 설치됨
+- `google-mail` (v1.0.0) — Gmail API 이메일 발송
 
-### February 2026 - Staff User Account Management & Security
-- "사용자" tab redesigned for staff accounts (role='staff')
-- Added `position` (직책) field to users table
-- `hasPassword` boolean derived server-side from passwordHash; passwordHash never exposed in API
+---
 
-### February 2026 - Separated Equipment Types from Manager Users
-- Categories table stores equipment types with `managerIds` (text array, supports multiple managers)
-- Assets reference both `categoryId` and `managerId`
-- Excel export/import aligned with category-based model
+## 변경 이력
 
-### February 2026 - Automated Email Notifications
-- Gmail integration via Replit Google Mail connector
-- `server/emailService.ts` for HTML email via Gmail API
-- `server/scheduler.ts` with node-cron for 9 AM KST daily inspection check
-- Scheduler checks assets due within 7 days (inclusive) and overdue assets
+### 2026년 1월 — 이메일/비밀번호 인증 전환
+- Replit Auth → 이메일/비밀번호 인증으로 교체
+- express-session + connect-pg-simple 세션 관리
 
-### January 2026 - Email/Password Authentication
-- Replaced Replit Auth with email/password authentication
-- Session management via express-session + connect-pg-simple
+### 2026년 2월 — 점검 주기 개월→일 전환
+- DB 컬럼명: `inspection_cycle_months` → `inspection_cycle_days`
+- 프리셋: 7·14·30·90·180·365·730일 + 직접 지정
+- n-1 계산 + 주말 조정 (토·일 → 다음 월요일)
+- Excel: "점검주기(개월)" → "점검주기(일)" (하위 호환 유지)
 
-### March 2026 - Personal Data Encryption
-- AES-256-GCM encryption on `users.username`
-- Auto-migration on startup; `encryption_migrated` flag in system_settings
+### 2026년 2월 — 장비 구분 탭 및 역할 권한 개편
+- "관리자" 탭 → "장비 구분" 탭 이름 변경
+- `canAccessTeamPage` 권한: admin + manager 모두 허용
+- Admin: 장비 구분 + 사용자 탭 모두 표시 / Manager: 사용자 탭만
 
-### March 2026 - Asset Excel Upload Upsert
-- Import updates existing assets when serial number matches (upsert behavior)
-- `ImportResult` includes `updateCount`
+### 2026년 2월 — 사용자 계정 관리 + 직책 필드
+- 사용자 탭 `staff` 계정 전용으로 재설계
+- `position` (직책) 필드 추가
+- `hasPassword` — 서버 파생값, `passwordHash` API 미노출
 
-### March 2026 - Personal Schedule Management (내 일정)
-- New `personal_tasks` DB table
-- `/schedule` page with create/edit/delete/complete toggle, filter tabs
-- Share scope: `private` (나만 보기) or `selected` (직접 선택 — team + user multi-select)
-- Notification rules:
-  - Own tasks: 9AM push + email, 10-min-before push
-  - Shared tasks: immediate push on creation, 9AM push, 10-min-before push, 6PM digest email
-- Scheduler: 3 new cron jobs + midnight flag reset
+### 2026년 2월 — 구분 복수 관리자 분리
+- `categories.managerIds text[]` — 단일 → 복수 관리자 지원
+- 자산에 `categoryId` + `managerId` 분리 참조
 
-### March 2026 - PWA Web Push Notifications
-- `server/pushService.ts` with web-push library and VAPID keys
-- `client/src/components/PushNotificationToggle.tsx` in header
-- `client/public/sw.js` service worker for push receipt and display
-- `push_subscriptions` DB table
+### 2026년 2월 — 이메일 알림 자동화
+- Gmail API 연동 (`server/emailService.ts`)
+- node-cron 스케줄러 (`server/scheduler.ts`)
+- 7일 이내 + 만기 자산 매일 점검
 
-### March 2026 - Category Multiple Managers (`managerIds` array)
-- `categories.managerIds` changed from single `managerId` to `managerIds text[]`
-- `collectRecipients()` and `collectPushRecipientIds()` include all category managers
-- Route order: POST `/api/assets/batch-inspect` before POST `/api/assets/:id/inspect`
+### 2026년 3월 — 개인 정보 암호화
+- `users.username` AES-256-GCM 암호화
+- 서버 시작 시 자동 마이그레이션
 
-### March 2026 - Scheduler Bug Fixes (5 개인일정 + 3 장비알림)
-**개인일정 5가지**:
+### 2026년 3월 — Excel 업로드 Upsert
+- 시리얼번호 일치 시 업데이트 (upsert)
+- `ImportResult`에 `updateCount` 포함
+
+### 2026년 3월 — 개인 일정 관리 (내 일정)
+- `personal_tasks` 테이블 신설
+- `/schedule` 페이지: 생성/수정/삭제/완료 토글, 필터 탭
+- 공유 범위: `private` (나만 보기) / `selected` (팀·사용자 선택)
+- 알림 규칙: 본인 일정(9AM 푸시+이메일, 10분 전 푸시) / 공유 일정(생성 즉시 푸시 + 동일 규칙)
+- 크론 3개 추가 + 자정 플래그 리셋
+
+### 2026년 3월 — PWA 웹 푸시 알림
+- `server/pushService.ts` + web-push 라이브러리 + VAPID 키
+- `client/src/components/PushNotificationToggle.tsx` 헤더 토글
+- `client/public/sw.js` 서비스 워커
+- `push_subscriptions` 테이블
+
+### 2026년 3월 — 구분 복수 관리자 (`managerIds` 배열)
+- `collectRecipients()` + `collectPushRecipientIds()` 전원 포함
+- 라우트 순서: `POST /api/assets/batch-inspect` → `POST /api/assets/:id/inspect` 순
+
+### 2026년 3월 — 스케줄러 버그 수정 (개인일정 5건 + 장비알림 3건)
+**개인일정**:
 1. 서버 재시작 catch-up에 `checkPersonalTasksMorning()` 추가
-2. 푸시+이메일 병행 발송
+2. 푸시 + 이메일 병행 발송
 3. 6PM 다이제스트 catch-up 추가
-4. 과거 미발송 일정(morningNotified=false) 처리
-5. `getSystemSetting`/`setSystemSetting` 공통 함수화
+4. 과거 미발송 일정(`morningNotified=false`) 처리
+5. `getSystemSetting` / `setSystemSetting` 공통 함수화
 
-**장비알림 3가지**:
-1. `last_email_date` — 발송 완료 후 기록 (발송 전 기록 시 재시도 불가 버그 수정)
-2. `collectRecipients()`에 `category.managerIds[]` 전원 추가 (`collectPushRecipientIds()` 신설)
-3. `getAssets()` 조회 시 status 실시간 재계산 (DB 저장값 대신 동적 계산)
+**장비알림**:
+1. `last_email_date` — 발송 완료 **후** 기록 (발송 전 기록 시 재시도 불가 버그 수정)
+2. `collectRecipients()`에 `category.managerIds[]` 전원 추가
+3. `getAssets()` 실시간 status 재계산 (DB 저장값 대신 동적 계산)
 
-### March–April 2026 - 경영공시 알림 버그 수정
+### 2026년 3~4월 — 알림 버그 4건 수정
 
-**버그 1: 7일 경계값 off-by-one** (2026-03-25 수정)
-- `isBefore(dueDate, sevenDaysFromNow)` → `!isAfter(dueDate, sevenDaysFromNow)` 로 변경
-- 정확히 7일 후 마감인 자산이 알림에서 누락되던 문제 해결
+**버그 1: 7일 경계값 off-by-one** (2026-03-25)
+- `isBefore(dueDate, sevenDaysFromNow)` → `!isAfter(dueDate, sevenDaysFromNow)`
+- 정확히 7일 후 마감 자산이 알림 누락되던 문제 해결
 
-**버그 2: 이메일 수신자 이름 오류** (2026-04-06 수정)
-- 구분관리자에게도 담당자 이름으로 인사말이 발송되던 문제
+**버그 2: 이메일 수신자 이름 오류** (2026-04-06)
+- 구분관리자에게 담당자 이름으로 인사말 발송되던 문제
 - `sendInspectionReminder` / `sendOverdueAlert`에 `recipientName?` 파라미터 추가
-- 발송 루프에서 `email`로 수신자를 조회하여 각자의 이름으로 인사말 작성
-- 담당자 이름은 이메일 본문의 별도 "담당자:" 필드에 표시
+- 발송 루프에서 이메일로 수신자 조회 후 개인 이름으로 발송
 
-**버그 3: 푸시 구독 서버 저장 실패** (2026-04-06 수정)
-- `PushNotificationToggle.tsx`: `POST /api/push/subscribe` 응답 결과를 검사하지 않아 서버 저장 실패 시에도 "성공" 표시하던 문제 → 응답 확인 후 실패 시 에러 throw
-- `pushService.ts`: 구독 없을 때 / 발송 시도 시 상세 로그 추가
+**버그 3: 푸시 구독 서버 저장 실패 무시** (2026-04-06)
+- `PushNotificationToggle.tsx`: `POST /api/push/subscribe` 응답 미검사 → 실패 시에도 성공 표시 버그
+- 응답 확인 후 실패 시 에러 throw로 수정
 
-**버그 4: 푸시 구독 user_id = null** (2026-04-06 수정)
-- `server/routes.ts` push subscribe 라우트: `const user = getCurrentUser(req)` — `await` 누락
-- `getCurrentUser`는 async 함수인데 await 없이 호출 → Promise 객체 반환 → `user.id = undefined` → DB `NOT NULL` 제약 위반
-- **수정**: `const user = (req as any).currentUser;` 로 변경 — `requireAuth` 미들웨어가 이미 설정한 값 재사용
+**버그 4: 푸시 구독 `user_id = null`** (2026-04-06)
+- 라우트에서 `getCurrentUser(req)` 를 `await` 없이 호출 → Promise 반환 → `user.id = undefined` → DB NOT NULL 위반
+- `(req as any).currentUser` 로 변경 (requireAuth 미들웨어 설정값 재사용)
+
+### 2026년 4월 — 통합 다이제스트 + 스케줄러 일원화
+- 별도로 운영되던 장비 알림 + 개인일정 + 이메일을 `sendDailyDigest()` 1개 함수로 통합
+- 이메일: 1인 1통 (섹션 3개 — 장비 점검, 오늘 일정, 내일 일정)
+- 기존 `last_email_date`, `last_owner_digest_date` → `last_daily_digest_date` 로 대체
+
+### 2026년 4월 — React Query 캐시 설정 강화
+- `staleTime: 0`, `refetchOnWindowFocus: true` 전역 적용
+- 로그아웃 시 `queryClient.clear()` + `window.location.href = "/"` (캐시 완전 초기화, 사용자 간 데이터 누출 방지)
