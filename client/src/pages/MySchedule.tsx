@@ -80,6 +80,7 @@ export default function MySchedule() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithShared | null>(null);
   const [filter, setFilter] = useState<TaskFilter>("all");
+  const [previewTask, setPreviewTask] = useState<TaskWithShared | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -667,10 +668,105 @@ export default function MySchedule() {
           onNextMonth={() => setCalendarMonth((prev) => addMonths(prev, 1))}
           onToday={() => setCalendarMonth(startOfMonth(new Date()))}
           onDateClick={(date) => openCreate(date)}
-          onTaskClick={(task) => openEdit(task)}
+          onTaskClick={(task) => setPreviewTask(task)}
         />
       )}
 
+      {/* 캘린더 일정 상세 보기 팝업 */}
+      <Dialog
+        open={!!previewTask}
+        onOpenChange={(open) => !open && setPreviewTask(null)}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{previewTask?.title}</DialogTitle>
+          </DialogHeader>
+          {previewTask &&
+            (() => {
+              const status = getScheduleStatus(previewTask);
+              const isOwner = previewTask.userId === currentUser?.id;
+              return (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${status.color}`}
+                    >
+                      {status.label}
+                    </Badge>
+                    {previewTask.isShared && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-blue-50 text-blue-700"
+                      >
+                        공유받음
+                      </Badge>
+                    )}
+                    {!previewTask.isShared &&
+                      previewTask.shareScope !== "private" && (
+                        <Badge variant="outline" className="text-xs gap-0.5">
+                          {getShareIcon(previewTask.shareScope)}
+                          {getShareLabel(previewTask.shareScope)}
+                        </Badge>
+                      )}
+                    {previewTask.label && labelConfig[previewTask.label] && (
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${labelConfig[previewTask.label].className}`}
+                      >
+                        {labelConfig[previewTask.label].label}
+                      </Badge>
+                    )}
+                    {getPriorityBadge(previewTask.priority ?? 0)}
+                    {getRepeatLabel(previewTask.repeatType) && (
+                      <Badge variant="outline" className="text-xs gap-0.5">
+                        <Repeat className="h-3 w-3" />
+                        {getRepeatLabel(previewTask.repeatType)}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm space-y-2">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      {previewTask.scheduledEndAt
+                        ? `${formatDateShort(format(parseISO(previewTask.scheduledAt), "yyyy-MM-dd"))} ~ ${formatDateShort(previewTask.scheduledEndAt)}`
+                        : format(
+                            parseISO(previewTask.scheduledAt),
+                            "yyyy-MM-dd HH:mm",
+                            { locale: ko },
+                          )}
+                    </div>
+                    {previewTask.isShared && (
+                      <div className="text-muted-foreground">
+                        작성자: {getUserName(previewTask.userId)}
+                      </div>
+                    )}
+                    {previewTask.description && (
+                      <p className="text-muted-foreground whitespace-pre-wrap border-t pt-2">
+                        {previewTask.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          <DialogFooter>
+            {previewTask?.userId === currentUser?.id && (
+              <Button
+                onClick={() => {
+                  const t = previewTask;
+                  setPreviewTask(null);
+                  openEdit(t!);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-1" /> 수정
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 일정 등록/수정 다이얼로그 */}
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -678,16 +774,12 @@ export default function MySchedule() {
         }}
       >
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-          {" "}
-          {/* 2026-04-09 하단 짤림 방지 */}
           <DialogHeader>
             <DialogTitle>
               {editingTask ? "일정 수정" : "새 일정 등록"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto max-h-[70vh] px-1 pb-4">
-            {" "}
-            {/* 2026-04-09 스크롤 영역 확대 + 하단 여백 */}
             <div>
               <label className="text-sm font-medium">제목 *</label>
               <Input

@@ -567,14 +567,20 @@ export function startScheduler() {
     { timezone: "Asia/Seoul" },
   );
 
-  // 자정: 알림 플래그 초기화
+  // 자정: 알림 플래그 초기화 + 지난 일정 자동 완료
   cron.schedule(
     "0 0 * * *",
-    () => {
+    async () => {
       console.log(
-        "[SCHEDULER] Midnight KST - resetting daily notification flags",
+        "[SCHEDULER] Midnight KST - resetting flags & auto-completing past tasks",
       );
       storage.resetDailyNotificationFlags();
+
+      const today = getTodayKST();
+      const count = await storage.autoCompletePastTasks(today);
+      if (count > 0) {
+        console.log(`[SCHEDULER] Auto-completed ${count} past task(s)`);
+      }
     },
     { timezone: "Asia/Seoul" },
   );
