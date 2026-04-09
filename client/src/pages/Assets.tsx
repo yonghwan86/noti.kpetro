@@ -227,7 +227,7 @@ export default function Assets() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [historyAssetId, setHistoryAssetId] = useState<string | null>(null);
   const [globalHistoryOpen, setGlobalHistoryOpen] = useState(false);
-  const [assetPopupDate, setAssetPopupDate] = useState<Date | null>(null); // 2026-04-08 장비캘린더 날짜팝업
+  const [assetPopupDate, setAssetPopupDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const d = new Date();
@@ -564,7 +564,7 @@ export default function Assets() {
           onPrevMonth={() => setCalendarMonth((prev) => addMonths(prev, -1))}
           onNextMonth={() => setCalendarMonth((prev) => addMonths(prev, 1))}
           onToday={() => setCalendarMonth(startOfMonth(new Date()))}
-          onDateClick={(date) => setAssetPopupDate(date)} // 2026-04-08 장비캘린더 날짜팝업
+          onDateClick={(date) => setAssetPopupDate(date)}
           onTaskClick={() => {}}
         />
       ) : (
