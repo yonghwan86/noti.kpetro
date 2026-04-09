@@ -677,13 +677,17 @@ export default function MySchedule() {
           if (!open) closeDialog();
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          {" "}
+          {/* 2026-04-09 하단 짤림 방지 */}
           <DialogHeader>
             <DialogTitle>
               {editingTask ? "일정 수정" : "새 일정 등록"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 overflow-y-auto max-h-[60vh] px-1">
+          <div className="space-y-4 overflow-y-auto max-h-[70vh] px-1 pb-4">
+            {" "}
+            {/* 2026-04-09 스크롤 영역 확대 + 하단 여백 */}
             <div>
               <label className="text-sm font-medium">제목 *</label>
               <Input

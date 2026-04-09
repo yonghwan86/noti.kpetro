@@ -482,7 +482,7 @@ export default function Assets() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">구분 관리</h2>
+          <h2 className="text-2xl font-bold tracking-tight">장비 관리</h2>
           <p className="text-muted-foreground">{getRoleDescription()}</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
@@ -875,7 +875,9 @@ export default function Assets() {
         open={!!assetPopupDate}
         onOpenChange={(open) => !open && setAssetPopupDate(null)}
       >
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[800px] sm:min-w-[600px]">
+          {" "}
+          {/* 2026-04-09 팝업 최소/최대폭 조정 */}
           <DialogHeader>
             <DialogTitle>
               {assetPopupDate &&

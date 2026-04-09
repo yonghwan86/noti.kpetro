@@ -150,7 +150,7 @@ export default function CalendarView({
           key={`asset-${asset.id}`}
           className="text-[10px] leading-4 px-1 py-0 bg-amber-100 text-amber-800 border border-amber-300 rounded-sm truncate"
         >
-          {asset.name} // 2026-04-08 글자수 제한 제거, CSS truncate로 자동처리
+          {asset.name}
         </div>,
       );
     }

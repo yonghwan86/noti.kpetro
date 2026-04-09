@@ -203,7 +203,6 @@ function collectDailyDigestForUser(
   const tomorrow = getKSTDatePlusDays(1);
   const sevenDaysLaterStr = getKSTDatePlusDays(7);
 
-  // Team leaders (role=staff) receive all alerts for their managing team
   const isLeader = user.role === "staff" && user.position === "팀장";
 
   const inspectionItems: InspectionItem[] = [];
@@ -248,6 +247,8 @@ function collectDailyDigestForUser(
     }
   }
 
+  const todayMatchedTaskIds = new Set<string>(); // 2026-04-09 기간 일정 중복 표시 방지용 ID 수집
+
   const todayTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
@@ -261,6 +262,8 @@ function collectDailyDigestForUser(
       ((task.shareUserIds || []).includes(userId) ||
         (task.shareTeamIds || []).includes(user.teamId));
     if (!isOwn && !isShared) continue;
+
+    todayMatchedTaskIds.add(task.id); // 2026-04-09 중복 방지용 ID 수집
 
     const ownerName =
       users.find((u) => u.id === task.userId)?.username || "알 수 없음";
@@ -279,6 +282,7 @@ function collectDailyDigestForUser(
   const tomorrowTasks: PersonalTaskItem[] = [];
   for (const task of personalTasks) {
     if (task.completed) continue;
+    if (todayMatchedTaskIds.has(task.id)) continue; // 2026-04-09 오늘 일정에 이미 포함된 기간 일정 제외
     const startDate = toKSTDateStr(task.scheduledAt);
     const endDate = task.scheduledEndAt ?? startDate;
     if (startDate > tomorrow || tomorrow > endDate) continue;
@@ -315,11 +319,13 @@ function collectDailyDigestForUser(
   return { inspectionItems, todayTasks, tomorrowTasks };
 }
 
-// Process-level guard: prevents concurrent cron + catch-up execution.
-// Set synchronously before first await (JS single-thread guarantee).
+// 2026-04-09 동시 실행 방지 플래그
 let isDailyDigestRunning = false;
+let isMorningPushRunning = false;
 
-async function sendDailyDigest() {
+// 2026-04-09 오전 6시 이메일 전용 함수
+async function sendDailyDigest(sharedData?: PreloadedData) {
+  // 2026-04-09 외부 데이터 공유 지원
   if (isDailyDigestRunning) {
     console.log(
       "[SCHEDULER] Daily digest is already running, skipping concurrent invocation",
@@ -328,20 +334,19 @@ async function sendDailyDigest() {
   }
   isDailyDigestRunning = true;
 
-  console.log("[SCHEDULER] Starting daily digest...");
+  console.log("[SCHEDULER] Starting daily digest email...");
 
   try {
     const today = getTodayKST();
 
-    // DB-level idempotency: only recorded on successful completion (step ⑤).
-    // Failure leaves it unset, enabling retry on next server restart.
     const lastDate = await getSystemSetting("last_daily_digest_date");
     if (lastDate === today) {
       console.log("[SCHEDULER] Daily digest already completed today, skipping");
       return;
     }
 
-    const preloaded: PreloadedData = {
+    const preloaded: PreloadedData = sharedData ?? {
+      // 2026-04-09 외부에서 받으면 재사용, 없으면 직접 로딩
       assets: await storage.getAssets(),
       users: await storage.getUsers(),
       teams: await storage.getTeams(),
@@ -349,58 +354,6 @@ async function sendDailyDigest() {
       personalTasks: await storage.getAllPersonalTasksForScheduler(),
     };
 
-    // ① Inspection push
-    await sendInspectionPushNotifications(preloaded);
-
-    // ② Morning push for personal tasks (today or overdue, not yet notified)
-    const morningNotifyTaskIds: string[] = [];
-    for (const task of preloaded.personalTasks) {
-      if (task.lastMorningNotifiedDate === today) continue;
-      if (task.completed) continue;
-      const startDate = toKSTDateStr(task.scheduledAt);
-
-      if (task.scheduledEndAt) {
-        if (startDate > today || today > task.scheduledEndAt) continue;
-      } else {
-        if (startDate > today) continue;
-      }
-
-      const ownerName =
-        preloaded.users.find((u) => u.id === task.userId)?.username ||
-        "알 수 없음";
-      const timeKST = toKSTTimeStr(task.scheduledAt);
-      const isOverdue = !task.scheduledEndAt && startDate < today;
-
-      const dateLabel = task.scheduledEndAt
-        ? `${formatDateShort(startDate)} ~ ${formatDateShort(task.scheduledEndAt)}`
-        : `${startDate} ${timeKST}`;
-
-      await sendPushToUser(
-        task.userId,
-        isOverdue
-          ? `📅 미발송 일정: ${task.title}`
-          : `📅 오늘 일정: ${task.title}`,
-        task.scheduledEndAt
-          ? `${dateLabel} 기간 중 일정입니다.`
-          : `${dateLabel}에 예정된 일정입니다.`,
-        "/schedule",
-      );
-
-      for (const targetId of getSharedTargetUserIds(task, preloaded.users)) {
-        await sendPushToUser(
-          targetId,
-          `📅 공유 일정: ${task.title}`,
-          task.scheduledEndAt
-            ? `${ownerName}님의 일정 | ${dateLabel} 기간 중`
-            : `${ownerName}님의 일정 | ${dateLabel} 예정`,
-          "/schedule",
-        );
-      }
-
-      morningNotifyTaskIds.push(task.id);
-    }
-
-    // ③ One digest email per user (skip if no content or no email)
     let emailSentCount = 0;
     let emailFailedCount = 0;
     for (const user of preloaded.users) {
@@ -426,13 +379,6 @@ async function sendDailyDigest() {
       `[SCHEDULER] Daily digest emails — sent: ${emailSentCount}, failed: ${emailFailedCount}`,
     );
 
-    // ④ Mark morning push tasks as notified
-    for (const taskId of morningNotifyTaskIds) {
-      await storage.updatePersonalTask(taskId, { lastMorningNotifiedDate: today });
-    }
-
-    // ⑤ Record completion date (only when all emails succeeded)
-    // Partial failure leaves date unset → full retry on next restart (may resend to successful recipients)
     if (emailFailedCount === 0) {
       await setSystemSetting("last_daily_digest_date", today);
       console.log("[SCHEDULER] Daily digest completed and date recorded");
@@ -449,6 +395,107 @@ async function sendDailyDigest() {
   }
 }
 
+// 2026-04-09 오전 9시 푸시 전용 함수 (일정 + 장비 점검, 등록자 + 공유 대상, 없으면 안 보냄)
+async function sendMorningPush(sharedData?: PreloadedData) {
+  // 2026-04-09 외부 데이터 공유 지원
+  if (isMorningPushRunning) {
+    console.log("[SCHEDULER] Morning push is already running, skipping");
+    return;
+  }
+  isMorningPushRunning = true;
+
+  console.log("[SCHEDULER] Starting morning push notifications...");
+
+  try {
+    const today = getTodayKST();
+
+    const lastPushDate = await getSystemSetting("last_morning_push_date");
+    if (lastPushDate === today) {
+      console.log("[SCHEDULER] Morning push already completed today, skipping");
+      return;
+    }
+
+    const preloaded: PreloadedData = sharedData ?? {
+      // 2026-04-09 외부에서 받으면 재사용, 없으면 직접 로딩
+      assets: await storage.getAssets(),
+      users: await storage.getUsers(),
+      teams: await storage.getTeams(),
+      cats: await storage.getCategories(),
+      personalTasks: await storage.getAllPersonalTasksForScheduler(),
+    };
+
+    // ① 장비 점검 푸시
+    await sendInspectionPushNotifications(preloaded);
+
+    // ② 오늘 일정 푸시 (등록자 + 공유 대상 전원)
+    const morningNotifyTaskIds: string[] = [];
+    for (const task of preloaded.personalTasks) {
+      if (task.lastMorningNotifiedDate === today) continue;
+      if (task.completed) continue;
+      const startDate = toKSTDateStr(task.scheduledAt);
+
+      if (task.scheduledEndAt) {
+        if (startDate > today || today > task.scheduledEndAt) continue;
+      } else {
+        if (startDate > today) continue;
+      }
+
+      const ownerName =
+        preloaded.users.find((u) => u.id === task.userId)?.username ||
+        "알 수 없음";
+      const timeKST = toKSTTimeStr(task.scheduledAt);
+      const isOverdue = !task.scheduledEndAt && startDate < today;
+
+      const dateLabel = task.scheduledEndAt
+        ? `${formatDateShort(startDate)} ~ ${formatDateShort(task.scheduledEndAt)}`
+        : `${startDate} ${timeKST}`;
+
+      // 등록자 푸시
+      await sendPushToUser(
+        task.userId,
+        isOverdue
+          ? `📅 미완료 일정: ${task.title}`
+          : `📅 오늘 일정: ${task.title}`,
+        task.scheduledEndAt
+          ? `${dateLabel} 기간 중 일정입니다.`
+          : `${dateLabel}에 예정된 일정입니다.`,
+        "/schedule",
+      );
+
+      // 공유 대상 전원 푸시
+      for (const targetId of getSharedTargetUserIds(task, preloaded.users)) {
+        await sendPushToUser(
+          targetId,
+          `📅 공유 일정: ${task.title}`,
+          task.scheduledEndAt
+            ? `${ownerName}님의 일정 | ${dateLabel} 기간 중`
+            : `${ownerName}님의 일정 | ${dateLabel} 예정`,
+          "/schedule",
+        );
+      }
+
+      morningNotifyTaskIds.push(task.id);
+    }
+
+    // ③ 푸시 발송 완료 표시
+    for (const taskId of morningNotifyTaskIds) {
+      await storage.updatePersonalTask(taskId, {
+        lastMorningNotifiedDate: today,
+      });
+    }
+
+    await setSystemSetting("last_morning_push_date", today);
+    console.log(
+      `[SCHEDULER] Morning push completed — ${morningNotifyTaskIds.length} task(s) notified`,
+    );
+  } catch (error) {
+    console.error("[SCHEDULER] Error in morning push:", error);
+  } finally {
+    isMorningPushRunning = false;
+  }
+}
+
+// 30분 전 리마인더 푸시 (등록자 + 공유 대상)
 async function checkPersonalTasksReminder() {
   try {
     const tasks = await storage.getAllPersonalTasksForScheduler();
@@ -491,15 +538,27 @@ async function checkPersonalTasksReminder() {
 }
 
 export function startScheduler() {
+  // 2026-04-09 오전 6시: 이메일만 발송
   cron.schedule(
-    "0 9 * * *",
+    "0 6 * * *",
     () => {
-      console.log("[SCHEDULER] 6 AM KST - running daily digest");
+      console.log("[SCHEDULER] 6 AM KST - running daily digest email");
       sendDailyDigest();
     },
     { timezone: "Asia/Seoul" },
   );
 
+  // 2026-04-09 오전 9시: 푸시만 발송 (일정 + 장비 점검)
+  cron.schedule(
+    "0 9 * * *",
+    () => {
+      console.log("[SCHEDULER] 9 AM KST - running morning push notifications");
+      sendMorningPush();
+    },
+    { timezone: "Asia/Seoul" },
+  );
+
+  // 매분: 30분 전 리마인더 푸시
   cron.schedule(
     "* * * * *",
     () => {
@@ -508,6 +567,7 @@ export function startScheduler() {
     { timezone: "Asia/Seoul" },
   );
 
+  // 자정: 알림 플래그 초기화
   cron.schedule(
     "0 0 * * *",
     () => {
@@ -520,9 +580,10 @@ export function startScheduler() {
   );
 
   console.log(
-    "[SCHEDULER] Scheduler started - 6 AM digest, every min reminder, midnight reset",
+    "[SCHEDULER] Scheduler started - 6 AM email, 9 AM push, every min reminder, midnight reset",
   );
 
+  // 2026-04-09 서버 재시작 catch-up (데이터 1회 로딩으로 DB 부하 최소화)
   const now = new Date();
   const kstHour = parseInt(
     now.toLocaleString("en-US", {
@@ -532,14 +593,27 @@ export function startScheduler() {
     }),
   );
 
-  if (kstHour >= 9) {
-    console.log(
-      `[SCHEDULER] Server started at KST hour ${kstHour} - running morning catch-up`,
-    );
+  if (kstHour >= 6 && kstHour < 23) {
+    // 2026-04-09 심야 재시작 시 catch-up 방지
     setTimeout(async () => {
-      await sendDailyDigest();
+      console.log(
+        `[SCHEDULER] Server started at KST hour ${kstHour} - running catch-up`,
+      );
+      // 2026-04-09 데이터 1회만 로딩하여 이메일/푸시에 공유 (400명 규모 DB 부하 절감)
+      const preloaded: PreloadedData = {
+        assets: await storage.getAssets(),
+        users: await storage.getUsers(),
+        teams: await storage.getTeams(),
+        cats: await storage.getCategories(),
+        personalTasks: await storage.getAllPersonalTasksForScheduler(),
+      };
+      await sendDailyDigest(preloaded); // 2026-04-09 내부에서 이미 완료 여부 체크
+      if (kstHour >= 9) {
+        // 2026-04-09 9시 이후에만 푸시 catch-up
+        await sendMorningPush(preloaded);
+      }
     }, 5000);
   }
 }
 
-export { sendInspectionPushNotifications };
+export { sendInspectionPushNotifications, collectDailyDigestForUser };
