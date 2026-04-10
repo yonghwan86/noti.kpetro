@@ -62,7 +62,8 @@ const calculateStatus = (
   suspendedReason?: string | null,
 ): "ok" | "upcoming" | "overdue" | "suspended" => {
   if (suspendedReason) return "suspended";
-  const today = new Date();
+  const nowUtc = new Date();
+  const today = new Date(nowUtc.getTime() + 9 * 60 * 60 * 1000); // KST = UTC+9
   const due = parseISO(nextDueDate);
   const diff = differenceInDays(due, today);
 
