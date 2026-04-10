@@ -1,4 +1,4 @@
-import { getUncachableGmailClient } from './gmailClient';
+import { getUncachableGmailClient } from "./gmailClient";
 
 interface EmailOptions {
   to: string;
@@ -7,32 +7,44 @@ interface EmailOptions {
   isHtml?: boolean;
 }
 
-function createRawEmail(to: string, subject: string, body: string, isHtml: boolean): string {
-  const fromName = 'AI 업무 알림 서비스';
-  const boundary = 'boundary_' + Date.now();
+function createRawEmail(
+  to: string,
+  subject: string,
+  body: string,
+  isHtml: boolean,
+): string {
+  const fromName = "AI 업무 알림 서비스";
+  const boundary = "boundary_" + Date.now();
 
   const headers = [
     `From: "${fromName}" <me>`,
     `To: ${to}`,
-    `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
-    'MIME-Version: 1.0',
-    `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=UTF-8`,
-    'Content-Transfer-Encoding: base64',
-  ].join('\r\n');
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+    "MIME-Version: 1.0",
+    `Content-Type: ${isHtml ? "text/html" : "text/plain"}; charset=UTF-8`,
+    "Content-Transfer-Encoding: base64",
+  ].join("\r\n");
 
-  const encodedBody = Buffer.from(body).toString('base64');
+  const encodedBody = Buffer.from(body).toString("base64");
   const raw = `${headers}\r\n\r\n${encodedBody}`;
 
-  return Buffer.from(raw).toString('base64url');
+  return Buffer.from(raw).toString("base64url");
 }
 
-export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendEmail(
+  options: EmailOptions,
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const gmail = await getUncachableGmailClient();
-    const raw = createRawEmail(options.to, options.subject, options.body, options.isHtml || false);
+    const raw = createRawEmail(
+      options.to,
+      options.subject,
+      options.body,
+      options.isHtml || false,
+    );
 
     const result = await gmail.users.messages.send({
-      userId: 'me',
+      userId: "me",
       requestBody: { raw },
     });
 
@@ -41,10 +53,10 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
       messageId: result.data.id || undefined,
     };
   } catch (error: any) {
-    console.error('Email send error:', error);
+    console.error("Email send error:", error);
     return {
       success: false,
-      error: error.message || 'Failed to send email',
+      error: error.message || "Failed to send email",
     };
   }
 }
@@ -52,20 +64,45 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
 export async function sendDailyDigestEmail(
   user: { username: string; email: string | null },
   digest: {
-    inspectionItems: { assetName: string; dueDate: string; status: 'upcoming' | 'overdue'; daysLeft?: number; daysOverdue?: number; staffName: string }[];
-    todayTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string; dateRange?: string }[];
-    tomorrowTasks: { title: string; time: string; description?: string; isShared: boolean; ownerName?: string; dateRange?: string }[];
-  }
+    inspectionItems: {
+      assetName: string;
+      dueDate: string;
+      status: "upcoming" | "overdue";
+      daysLeft?: number;
+      daysOverdue?: number;
+      staffName: string;
+    }[];
+    todayTasks: {
+      title: string;
+      time: string;
+      description?: string;
+      isShared: boolean;
+      ownerName?: string;
+      dateRange?: string;
+    }[];
+    tomorrowTasks: {
+      title: string;
+      time: string;
+      description?: string;
+      isShared: boolean;
+      ownerName?: string;
+      dateRange?: string;
+    }[];
+  },
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-  const dateStr = nowKST.toLocaleDateString('en-CA');
-  const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][nowKST.getDay()];
+  const nowKST = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
+  );
+  const dateStr = nowKST.toLocaleDateString("en-CA");
+  const dayOfWeek = ["일", "월", "화", "수", "목", "금", "토"][nowKST.getDay()];
   const subject = `[오늘의 알림 요약] ${dateStr}(${dayOfWeek})`;
 
-  const inspectionSection = digest.inspectionItems.length > 0 ? `
+  const inspectionSection =
+    digest.inspectionItems.length > 0
+      ? `
     <div style="margin-bottom: 28px;">
       <h3 style="color: #1d4ed8; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #dbeafe; font-size: 15px;">
-        📋 점검 알림 (${digest.inspectionItems.length}건)
+        &#128203; 점검 알림 (${digest.inspectionItems.length}건)
       </h3>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
         <thead>
@@ -77,39 +114,49 @@ export async function sendDailyDigestEmail(
           </tr>
         </thead>
         <tbody>
-          ${digest.inspectionItems.map(item => {
-            const statusLabel = item.status === 'overdue'
-              ? `<span style="color:#dc2626;font-weight:600;">⚠ ${item.daysOverdue}일 초과</span>`
-              : `<span style="color:#2563eb;">D-${item.daysLeft}일</span>`;
-            const rowBg = item.status === 'overdue' ? '#fff1f2' : '#ffffff';
-            return `
+          ${digest.inspectionItems
+            .map((item) => {
+              const statusLabel =
+                item.status === "overdue"
+                  ? `<span style="color:#dc2626;font-weight:600;">⚠ ${item.daysOverdue}일 초과</span>`
+                  : `<span style="color:#2563eb;">D-${item.daysLeft}일</span>`;
+              const rowBg = item.status === "overdue" ? "#fff1f2" : "#ffffff";
+              return `
               <tr style="background:${rowBg};">
                 <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${item.assetName}</td>
                 <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${item.dueDate}</td>
                 <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${statusLabel}</td>
                 <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${item.staffName}</td>
               </tr>`;
-          }).join('')}
+            })
+            .join("")}
         </tbody>
       </table>
-    </div>` : '';
+    </div>`
+      : "";
 
   const renderTaskRows = (tasks: typeof digest.todayTasks) =>
-    tasks.map(t => `
+    tasks
+      .map(
+        (t) => `
       <tr>
         <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">${t.time}</td>
         <td style="padding: 7px 10px; border: 1px solid #e5e7eb;">
           ${t.title}
-          ${t.dateRange ? `<span style="font-size:11px;color:#6b7280;"> (${t.dateRange})</span>` : ''}
-          ${t.isShared ? `<span style="font-size:11px;color:#6b7280;">(${t.ownerName}님 일정)</span>` : ''}
+          ${t.dateRange ? `<span style="font-size:11px;color:#6b7280;"> (${t.dateRange})</span>` : ""}
+          ${t.isShared ? `<span style="font-size:11px;color:#6b7280;">(${t.ownerName}님 일정)</span>` : ""}
         </td>
-        <td style="padding: 7px 10px; border: 1px solid #e5e7eb; color:#6b7280;">${t.description || '-'}</td>
-      </tr>`).join('');
+        <td style="padding: 7px 10px; border: 1px solid #e5e7eb; color:#6b7280;">${t.description || "-"}</td>
+      </tr>`,
+      )
+      .join("");
 
-  const todaySection = digest.todayTasks.length > 0 ? `
+  const todaySection =
+    digest.todayTasks.length > 0
+      ? `
     <div style="margin-bottom: 28px;">
       <h3 style="color: #059669; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #d1fae5; font-size: 15px;">
-        📅 오늘 일정 (${digest.todayTasks.length}건)
+        &#128197 오늘 일정 (${digest.todayTasks.length}건)
       </h3>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
         <thead>
@@ -121,12 +168,15 @@ export async function sendDailyDigestEmail(
         </thead>
         <tbody>${renderTaskRows(digest.todayTasks)}</tbody>
       </table>
-    </div>` : '';
+    </div>`
+      : "";
 
-  const tomorrowSection = digest.tomorrowTasks.length > 0 ? `
+  const tomorrowSection =
+    digest.tomorrowTasks.length > 0
+      ? `
     <div style="margin-bottom: 28px;">
       <h3 style="color: #7c3aed; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #ede9fe; font-size: 15px;">
-        📅 내일 예정 (${digest.tomorrowTasks.length}건)
+        &#128197; 내일 예정 (${digest.tomorrowTasks.length}건)
       </h3>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
         <thead>
@@ -138,7 +188,8 @@ export async function sendDailyDigestEmail(
         </thead>
         <tbody>${renderTaskRows(digest.tomorrowTasks)}</tbody>
       </table>
-    </div>` : '';
+    </div>`
+      : "";
 
   const body = `
 <!DOCTYPE html>
@@ -156,7 +207,7 @@ export async function sendDailyDigestEmail(
       ${todaySection}
       ${tomorrowSection}
       <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-      <p style="font-size: 11px; color: #9ca3af; margin: 0;">이 메일은 AI 업무 알림 서비스에서 자동 발송되었습니다. · 발송 시각: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
+      <p style="font-size: 11px; color: #9ca3af; margin: 0;">이 메일은 AI 업무 알림 서비스에서 자동 발송되었습니다. · 발송 시각: ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</p>
     </div>
   </div>
 </body>
@@ -165,8 +216,10 @@ export async function sendDailyDigestEmail(
   return sendEmail({ to: user.email!, subject, body, isHtml: true });
 }
 
-export async function sendTestEmail(to: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const subject = '[스케줄 관리시스템] 테스트 이메일';
+export async function sendTestEmail(
+  to: string,
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const subject = "[스케줄 관리시스템] 테스트 이메일";
   const body = `
 <!DOCTYPE html>
 <html>
@@ -188,7 +241,7 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; mes
       <li>장비 등록 알림</li>
     </ul>
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-    <p style="font-size: 12px; color: #6b7280;">발송 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
+    <p style="font-size: 12px; color: #6b7280;">발송 시간: ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</p>
   </div>
 </body>
 </html>
@@ -198,6 +251,6 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; mes
     to,
     subject,
     body,
-    isHtml: true
+    isHtml: true,
   });
 }
