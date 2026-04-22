@@ -183,7 +183,16 @@ interface DigestData {
 }
 
 function toKSTTimeStr(scheduledAt: string): string {
-  return new Date(scheduledAt).toLocaleTimeString("ko-KR", {
+  // datetime-local 입력값은 타임존 없이 "2026-04-22T09:00" 형태로 저장됨 (KST 기준)
+  // new Date()는 타임존 없는 값을 UTC로 해석하므로 +09:00 suffix를 붙여 KST로 파싱
+  const hasTimezone =
+    scheduledAt.endsWith("Z") ||
+    scheduledAt.includes("+") ||
+    scheduledAt.includes("-", 10);
+  const date = hasTimezone
+    ? new Date(scheduledAt)
+    : new Date(scheduledAt + "+09:00");
+  return date.toLocaleTimeString("ko-KR", {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
     minute: "2-digit",
@@ -495,6 +504,15 @@ async function sendMorningPush(sharedData?: PreloadedData) {
   }
 }
 
+// scheduledAt(타임존 없는 KST 값)을 KST 기준 Date로 파싱
+function parseScheduledAtKST(scheduledAt: string): Date {
+  const hasTimezone =
+    scheduledAt.endsWith("Z") ||
+    scheduledAt.includes("+") ||
+    scheduledAt.includes("-", 10);
+  return hasTimezone ? parseISO(scheduledAt) : new Date(scheduledAt + "+09:00");
+}
+
 // 30분 전 리마인더 푸시 (등록자 + 공유 대상)
 async function checkPersonalTasksReminder() {
   try {
@@ -506,7 +524,8 @@ async function checkPersonalTasksReminder() {
       if (task.reminderNotified) continue;
       if (task.completed) continue;
 
-      const scheduledDate = parseISO(task.scheduledAt);
+      // KST 기준으로 예정 시간 파싱 (타임존 없는 값은 +09:00 붙여 처리)
+      const scheduledDate = parseScheduledAtKST(task.scheduledAt);
       const thirtyMinsBefore = subMinutes(scheduledDate, 30);
 
       if (now >= thirtyMinsBefore && now < scheduledDate) {
