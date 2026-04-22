@@ -115,7 +115,7 @@ export interface IStorage {
   resumeAsset(id: string): Promise<Asset | undefined>;
   deleteAsset(id: string): Promise<void>;
 
-  getLogs(): Promise<InspectionLog[]>;
+  getLogs(userId: string, role: string, assignedCategoryIds: string[]): Promise<InspectionLog[]>;
   getLog(id: string): Promise<InspectionLog | undefined>;
   createLog(log: InsertInspectionLog): Promise<InspectionLog>;
 
@@ -487,11 +487,36 @@ export class PostgresStorage implements IStorage {
     await db.delete(assets).where(eq(assets.id, id));
   }
 
-  async getLogs(): Promise<InspectionLog[]> {
-    return await db
-      .select()
+  async getLogs(userId: string, role: string, assignedCategoryIds: string[]): Promise<InspectionLog[]> {
+    if (role === "admin") {
+      return await db
+        .select()
+        .from(inspectionLogs)
+        .orderBy(desc(inspectionLogs.date));
+    }
+
+    if (role === "manager") {
+      const conditions = [eq(assets.managerId, userId)];
+      if (assignedCategoryIds.length > 0) {
+        conditions.push(inArray(assets.categoryId, assignedCategoryIds));
+      }
+      const rows = await db
+        .select({ log: inspectionLogs })
+        .from(inspectionLogs)
+        .innerJoin(assets, eq(inspectionLogs.assetId, assets.id))
+        .where(or(...conditions))
+        .orderBy(desc(inspectionLogs.date));
+      return rows.map((r) => r.log);
+    }
+
+    // staff: 자신이 담당자인 자산 로그만
+    const rows = await db
+      .select({ log: inspectionLogs })
       .from(inspectionLogs)
+      .innerJoin(assets, eq(inspectionLogs.assetId, assets.id))
+      .where(eq(assets.staffId, userId))
       .orderBy(desc(inspectionLogs.date));
+    return rows.map((r) => r.log);
   }
 
   async getLog(id: string): Promise<InspectionLog | undefined> {

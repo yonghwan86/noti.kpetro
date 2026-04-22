@@ -629,9 +629,14 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/logs", async (req, res) => {
+  app.get("/api/logs", requireAuth(), async (req: Request, res: Response) => {
     try {
-      const logs = await storage.getLogs();
+      const currentUser = (req as any).currentUser;
+      const logs = await storage.getLogs(
+        currentUser.id,
+        currentUser.role,
+        currentUser.assignedCategoryIds ?? [],
+      );
       res.json(logs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch logs" });
