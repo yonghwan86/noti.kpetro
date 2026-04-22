@@ -85,6 +85,8 @@ export default function MySchedule() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [schedDate, setSchedDate] = useState("");
+  const [schedTime, setSchedTime] = useState("09:00");
   const [repeatType, setRepeatType] = useState<RepeatType>("none");
   const [shareScope, setShareScope] = useState<ShareScope>("private");
   const [shareTeamIds, setShareTeamIds] = useState<string[]>([]);
@@ -182,6 +184,8 @@ export default function MySchedule() {
     setTitle("");
     setDescription("");
     setScheduledAt("");
+    setSchedDate("");
+    setSchedTime("09:00");
     setRepeatType("none");
     setShareScope("private");
     setShareTeamIds([]);
@@ -198,7 +202,10 @@ export default function MySchedule() {
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, "0");
       const d = String(date.getDate()).padStart(2, "0");
-      setScheduledAt(`${y}-${m}-${d}T09:00`);
+      const dateStr = `${y}-${m}-${d}`;
+      setSchedDate(dateStr);
+      setSchedTime("09:00");
+      setScheduledAt(`${dateStr}T09:00`);
     }
     setDialogOpen(true);
   };
@@ -208,6 +215,9 @@ export default function MySchedule() {
     setTitle(task.title);
     setDescription(task.description || "");
     setScheduledAt(task.scheduledAt);
+    const [datePart, timePart] = task.scheduledAt.split("T");
+    setSchedDate(datePart || "");
+    setSchedTime(timePart ? timePart.slice(0, 5) : "09:00");
     setRepeatType(task.repeatType as RepeatType);
     const scope = task.shareScope;
     const mappedScope: ShareScope =
@@ -801,21 +811,35 @@ export default function MySchedule() {
             </div>
             <div>
               <label className="text-sm font-medium">일정 날짜/시간 *</label>
-              <Input
-                data-testid="input-task-datetime"
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => {
-                  setScheduledAt(e.target.value);
-                  if (
-                    isRangeEnabled &&
-                    scheduledEndAt &&
-                    e.target.value.split("T")[0] > scheduledEndAt
-                  ) {
-                    setScheduledEndAt(e.target.value.split("T")[0]);
-                  }
-                }}
-              />
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-task-date"
+                  type="date"
+                  value={schedDate}
+                  className="flex-1"
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setSchedDate(newDate);
+                    const combined = newDate ? `${newDate}T${schedTime}` : "";
+                    setScheduledAt(combined);
+                    if (isRangeEnabled && scheduledEndAt && newDate > scheduledEndAt) {
+                      setScheduledEndAt(newDate);
+                    }
+                  }}
+                />
+                <Input
+                  data-testid="input-task-time"
+                  type="time"
+                  value={schedTime}
+                  className="w-32"
+                  onChange={(e) => {
+                    const newTime = e.target.value;
+                    setSchedTime(newTime);
+                    const combined = schedDate ? `${schedDate}T${newTime}` : "";
+                    setScheduledAt(combined);
+                  }}
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch
