@@ -1,4 +1,4 @@
-import { store } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { 
   Table, 
@@ -8,27 +8,43 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Search } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import type { InspectionLog, Asset, User } from "@shared/schema";
 
 export default function Logs() {
-  const logs = store.getLogs();
-  const assets = store.getAssets();
-  const users = store.getUsers();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const getAssetName = (id: string) => assets.find(a => a.id === id)?.name || "삭제된 장비";
-  const getUserName = (id: string) => users.find(u => u.id === id)?.username || "Unknown";
+  const { data: logs = [], isLoading: logsLoading } = useQuery<InspectionLog[]>({
+    queryKey: ["/api/logs"],
+  });
 
-  const filteredLogs = logs.filter(log => {
+  const { data: assets = [] } = useQuery<Asset[]>({
+    queryKey: ["/api/assets"],
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const getAssetName = (id: string) =>
+    assets.find((a) => a.id === id)?.name || "삭제된 장비";
+
+  const getUserName = (id: string) =>
+    users.find((u) => u.id === id)?.username || "Unknown";
+
+  const filteredLogs = logs.filter((log) => {
     const assetName = getAssetName(log.assetId).toLowerCase();
     const inspectorName = getUserName(log.inspectorId).toLowerCase();
     const term = searchTerm.toLowerCase();
-    
-    return assetName.includes(term) || inspectorName.includes(term) || log.notes.toLowerCase().includes(term);
+    return (
+      assetName.includes(term) ||
+      inspectorName.includes(term) ||
+      log.notes.toLowerCase().includes(term)
+    );
   });
 
   return (
@@ -43,11 +59,12 @@ export default function Logs() {
       <div className="flex items-center gap-4">
         <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="로그 검색 (장비, 작업자, 내용)..." 
-            className="pl-8" 
+          <Input
+            placeholder="로그 검색 (장비, 작업자, 내용)..."
+            className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            data-testid="input-log-search"
           />
         </div>
       </div>
@@ -64,24 +81,28 @@ export default function Logs() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLogs.length === 0 ? (
+              {logsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    불러오는 중...
+                  </TableCell>
+                </TableRow>
+              ) : filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                     로그가 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredLogs.map((log) => (
-                  <TableRow key={log.id}>
+                  <TableRow key={log.id} data-testid={`row-log-${log.id}`}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {format(new Date(log.date), 'yyyy-MM-dd HH:mm:ss')}
+                      {format(new Date(log.date), "yyyy-MM-dd HH:mm:ss")}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-normal">
-                          {getUserName(log.inspectorId)}
-                        </Badge>
-                      </div>
+                      <Badge variant="outline" className="font-normal">
+                        {getUserName(log.inspectorId)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
                       {getAssetName(log.assetId)}
