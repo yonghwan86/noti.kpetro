@@ -320,3 +320,12 @@
 ### 2026년 4월 — React Query 캐시 설정 강화
 - `staleTime: 0`, `refetchOnWindowFocus: true` 전역 적용
 - 로그아웃 시 `queryClient.clear()` + `window.location.href = "/"` (캐시 완전 초기화, 사용자 간 데이터 누출 방지)
+- `main.tsx`에서 별도 QueryClient 생성 제거 → `queryClient.ts` 공유 인스턴스로 일원화
+
+### 2026년 4월 — PWA 안드로이드/iOS 설치 및 푸시 수신 개선
+- `client/public/sw.js`에 `fetch` 이벤트 핸들러 추가 (Network-First 전략, 캐시 폴백)
+  - `/api/` 경로는 항상 네트워크 우선, 정적 자산만 캐시
+  - 삼성 인터넷 "Unsafe app blocked" 오류 해결 (fetch 핸들러 없으면 유효한 PWA로 미인식)
+  - Cache 이름: `noti-app-v1`, activate 시 구버전 캐시 자동 정리
+- `activate` 핸들러 개선: 구버전 캐시 키 삭제 후 `clients.claim()`
+- iOS 16.4+ Safari 홈 화면 추가 후 Web Push 정상 동작 (manifest `display: standalone` + iOS 메타태그 기존 유지)

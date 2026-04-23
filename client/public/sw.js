@@ -63,5 +63,49 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('activate', function(event) {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames
+          .filter(function(name) { return name !== 'noti-app-v1'; })
+          .map(function(name) { return caches.delete(name); })
+      );
+    }).then(function() {
+      return clients.claim();
+    })
+  );
+});
+
+// Network-first fetch handler — required for Samsung Internet PWA install validation
+var CACHE_NAME = 'noti-app-v1';
+
+self.addEventListener('fetch', function(event) {
+  var request = event.request;
+
+  // Only handle GET requests
+  if (request.method !== 'GET') return;
+
+  // Skip cross-origin requests
+  if (!request.url.startsWith(self.location.origin)) return;
+
+  // Skip API requests — always use network for fresh data
+  if (request.url.includes('/api/')) return;
+
+  event.respondWith(
+    fetch(request)
+      .then(function(response) {
+        // Cache valid responses for offline fallback
+        if (response && response.status === 200 && response.type === 'basic') {
+          var responseClone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(function() {
+        // Fallback to cache if network fails
+        return caches.match(request);
+      })
+  );
 });
