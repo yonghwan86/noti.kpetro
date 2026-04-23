@@ -13,6 +13,7 @@ import Logs from "@/pages/Logs";
 import MySchedule from "@/pages/MySchedule";
 import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 
 function clearAppBadge() {
@@ -76,6 +77,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <TooltipProvider>
+          <OfflineBanner />
           <Toaster />
           <AuthenticatedRouter />
         </TooltipProvider>
