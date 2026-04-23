@@ -57,3 +57,7 @@ ENCRYPTION_KEY = "b2db470a8d380a106db5ff272829c20cc709938b056625ae598d0ffc8b4a10
 VAPID_PUBLIC_KEY = "BMYlwXFRIfuU4XDMuXz1wgXfFPyI4S7j3_gabzQixBSMd_yInTOJamnHIgEwZgmKPt8DDMxPCy1auljmfS_7BJo"
 VAPID_PRIVATE_KEY = "2YujB-uW6gE0GbxZBOejdxTT5RGY15bnZxrB2dKGHzs"
 VAPID_SUBJECT = "mailto:ax@kpetro.or.kr"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000
