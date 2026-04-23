@@ -58,10 +58,6 @@ self.addEventListener('notificationclick', function(event) {
   );
 });
 
-self.addEventListener('install', function(event) {
-  self.skipWaiting();
-});
-
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
@@ -78,6 +74,17 @@ self.addEventListener('activate', function(event) {
 
 // Network-first fetch handler — required for Samsung Internet PWA install validation
 var CACHE_NAME = 'noti-app-v1';
+var OFFLINE_URL = '/offline.html';
+
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+  // Pre-cache the offline fallback page
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(function(cache) {
+      return cache.add(OFFLINE_URL);
+    })
+  );
+});
 
 self.addEventListener('fetch', function(event) {
   var request = event.request;
@@ -104,8 +111,15 @@ self.addEventListener('fetch', function(event) {
         return response;
       })
       .catch(function() {
-        // Fallback to cache if network fails
-        return caches.match(request);
+        // Fallback to cache; if not cached, show offline page
+        return caches.match(request).then(function(cached) {
+          if (cached) return cached;
+          // For navigation requests, show the offline page
+          if (request.mode === 'navigate') {
+            return caches.match(OFFLINE_URL);
+          }
+          return new Response('', { status: 503, statusText: 'Service Unavailable' });
+        });
       })
   );
 });
