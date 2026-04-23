@@ -77,13 +77,18 @@ var CACHE_NAME = '__SW_CACHE_VERSION__';
 var OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', function(event) {
-  self.skipWaiting();
   // Pre-cache the offline fallback page
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.add(OFFLINE_URL);
     })
   );
+});
+
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', function(event) {

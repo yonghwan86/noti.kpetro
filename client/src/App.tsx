@@ -14,6 +14,7 @@ import MySchedule from "@/pages/MySchedule";
 import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { UserProvider, useUser } from "@/contexts/UserContext";
 
 function clearAppBadge() {
@@ -77,7 +78,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <TooltipProvider>
-          <OfflineBanner />
+          <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col">
+            <UpdateBanner />
+            <OfflineBanner />
+          </div>
           <Toaster />
           <AuthenticatedRouter />
         </TooltipProvider>

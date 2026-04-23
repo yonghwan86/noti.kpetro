@@ -9,7 +9,7 @@ export function OfflineBanner() {
   return (
     <div
       data-testid="banner-offline"
-      className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow-md"
+      className="flex w-full items-center justify-center gap-2 bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow-md"
       role="alert"
       aria-live="assertive"
     >
