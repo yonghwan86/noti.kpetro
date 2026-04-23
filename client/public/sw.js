@@ -63,7 +63,7 @@ self.addEventListener('activate', function(event) {
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames
-          .filter(function(name) { return name !== 'noti-app-v1'; })
+          .filter(function(name) { return name !== '__SW_CACHE_VERSION__'; })
           .map(function(name) { return caches.delete(name); })
       );
     }).then(function() {
@@ -73,7 +73,7 @@ self.addEventListener('activate', function(event) {
 });
 
 // Network-first fetch handler — required for Samsung Internet PWA install validation
-var CACHE_NAME = 'noti-app-v1';
+var CACHE_NAME = '__SW_CACHE_VERSION__';
 var OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', function(event) {
