@@ -879,8 +879,8 @@ export default function MySchedule() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">없음</SelectItem>
-                  <SelectItem value="inspection">장비 점검</SelectItem>
-                  <SelectItem value="meeting">회의</SelectItem>
+                  <SelectItem value="inspection">내부회의</SelectItem>
+                  <SelectItem value="meeting">외부회의</SelectItem>
                   <SelectItem value="trip">출장</SelectItem>
                   <SelectItem value="training">교육</SelectItem>
                   <SelectItem value="other">기타</SelectItem>
