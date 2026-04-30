@@ -336,10 +336,10 @@ export default function MySchedule() {
 
   const labelConfig: Record<string, { label: string; className: string }> = {
     inspection: {
-      label: "장비 점검",
+      label: "내부회의",
       className: "bg-amber-100 text-amber-800",
     },
-    meeting: { label: "회의", className: "bg-blue-100 text-blue-800" },
+    meeting: { label: "외부회의", className: "bg-blue-100 text-blue-800" },
     trip: { label: "출장", className: "bg-green-100 text-green-800" },
     training: { label: "교육", className: "bg-purple-100 text-purple-800" },
     other: { label: "기타", className: "bg-gray-100 text-gray-800" },
@@ -822,7 +822,11 @@ export default function MySchedule() {
                     setSchedDate(newDate);
                     const combined = newDate ? `${newDate}T${schedTime}` : "";
                     setScheduledAt(combined);
-                    if (isRangeEnabled && scheduledEndAt && newDate > scheduledEndAt) {
+                    if (
+                      isRangeEnabled &&
+                      scheduledEndAt &&
+                      newDate > scheduledEndAt
+                    ) {
                       setScheduledEndAt(newDate);
                     }
                   }}
